@@ -29,7 +29,7 @@ Volta 会使用 `package.json` 中固定的 Node 版本。由 Volta 管理的 pn
 
 | Package | 原项目 | 状态 |
 | --- | --- | --- |
-| `auto-fans-continue` | `../autoFansContinue/AutoFansContinue.user.js` | 构建已验证，浏览器验证待完成 |
+| `auto-fans-continue` | `../autoFansContinue/AutoFansContinue.user.js` | 代码已按 `douyuEX_new` 和 `douyuEx_meta` 重构，浏览器验证待完成 |
 
 ## 文档
 
@@ -45,4 +45,4 @@ Volta 会使用 `package.json` 中固定的 Node 版本。由 Volta 管理的 pn
 4. 同时验证生成的 userscript 产物和它在目标网站中的实际行为。
 5. 在 `docs/migration-status.md` 中记录进度、决策和阻塞项。
 6. 只有在行为对齐后，才考虑代码现代化或抽取共享工具。
-
+7. 重要调整需要用 git commit 记录，便于未来回退。

@@ -1,155 +1,139 @@
+import {
+  getBagGifts,
+  getFanBadgeRoomIds,
+  sendBagGift,
+  sleep,
+} from "./douyu-api.js";
+import {
+  DEFAULT_REST_ROOM_ID,
+  createRenewalPlan,
+  selectStickGift,
+} from "./renewal-plan.js";
 import { markChecked, shouldRunToday } from "./run-state.js";
 
 "use strict";
-// ref: https://github.com/qianjiachun/douyuEx/blob/master/src/packages/FansContinue/FansContinue.js
 
-// 策略
-// 每个直播间送1个保底
-// 12306 送全部剩余
-var sendNum = 1;
-var allRid = 12306;
+const SEND_NUM = 1;
+const SEND_DELAY_MS = 250;
+const defaultApi = {
+  getBagGifts,
+  getFanBadgeRoomIds,
+  sendBagGift,
+  sleep,
+};
 
-// 12306 送剩余全部荧光棒
-
-function sleep(time) {
-    return new Promise((resolve) => setTimeout(resolve, time));
+function log(logger, ...args) {
+  logger.log("chz_script", ...args);
 }
 
-function FansContinue() {
-    return new Promise((resolve, reject) => {
-        fetch("https://www.douyu.com/member/cp/getFansBadgeList", {
-            method: "GET",
-            mode: "no-cors",
-            cache: "default",
-            credentials: "include",
-        })
-            .then((res) => {
-                return res.text();
-            })
-            .then(async (doc) => {
-                doc = new DOMParser().parseFromString(doc, "text/html");
-                let a =
-                    doc.getElementsByClassName("fans-badge-list")[0].lastElementChild;
-                let n = a.children.length;
-                for (let i = 0; i < n; i++) {
-                    let rid = a.children[i].getAttribute("data-fans-room"); // 获取房间号
-                    await sleep(250).then(() => {
-                        sendGift_bag(268, Number(sendNum), rid)
-                            .then((data) => {
-                                if (data.msg === "success") {
-                                    // showMessage("【续牌】" + rid + "赠送荧光棒成功", "success");
-                                    console.log("chz_script", rid + "赠送一根荧光棒成功");
-                                } else {
-                                    // showMessage("【续牌】" + rid + "赠送失败 " + data.msg, "error");
-                                    console.log("chz_script", rid + "赠送失败");
-                                    console.log("chz_script", rid, data);
-                                }
-                            })
-                            .catch((err) => {
-                                //   showMessage("【续牌】" + rid + "赠送失败", "error");
-                                console.log("chz_script", rid, err);
-                            });
-                    });
-                }
-            }).then(async () => {
-            await sleep(250).then(() => {
-                sendAllToOne(allRid).then(()=>resolve())
-            })
-        }).catch((err) => {
-            console.log("chz_script", "请求失败!", err);
-            reject()
-        });
-    })
+async function sendPlanItem(api, logger, item, label) {
+  await api.sleep(SEND_DELAY_MS);
 
-}
-
-function sendGift_bag(gid, count, rid) {
-    // 送背包里的东西
-    // gid: 268是荧光棒
-    // count: 数量
-    // rid: 房间号
-    return fetch("https://www.douyu.com/japi/prop/donate/mainsite/v1", {
-        method: "POST",
-        mode: "no-cors",
-        credentials: "include",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
-        body:
-            "propId=" +
-            gid +
-            "&propCount=" +
-            count +
-            "&roomId=" +
-            rid +
-            "&bizExt=%7B%22yzxq%22%3A%7B%7D%7D",
-    }).then((res) => {
-        return res.json();
-    });
-}
-
-// 获取背包礼物信息
-function getBagGifts() {
-    return fetch(
-        "https://www.douyu.com/japi/prop/backpack/web/v1?rid=9373171"
-    ).then((res) => res.json());
-}
-
-// 剩余荧光棒全送给某个直播间
-function sendAllToOne(rid) {
-    return new Promise((resolve, reject) => {
-        getBagGifts()
-            .then(async (data) => {
-                let giftsList = data.data.list;
-                let ifFind= false;
-                // if len=0
-                for (let k = 0; k < giftsList.length; k++) {
-                    if ((giftsList[k].id = 268)) {
-                        ifFind = true;
-                        await sendGift_bag(giftsList[k].id, giftsList[k].count, rid)
-                            .then((data) => {
-                                if (data.msg === "success") {
-                                    console.log("chz_script", rid + "赠送剩余全部荧光棒成功");
-                                } else {
-                                    console.log("chz_script", rid + "赠送剩余全部失败");
-                                    console.log("chz_script", rid, data);
-                                }
-                            })
-                            .catch((err) => {
-                                console.log("chz_script", rid, err);
-                            });
-                        // break 减少遍历 是否有效
-                    }
-                }
-                if(!ifFind){
-                    console.log("chz_script", "背包内没有荧光棒，执行赠送全部剩余失败")
-                }
-            })
-            .catch((err) => {
-                console.log("chz_script", "查询背包礼物失败", err);
-            });
-    })
-
-}
-
-function main() {
-    console.log("测试环境");
-    console.log("chz_script", "start!");
-    let today = new Date();
-
-    // 上次执行方法日期不是今天，则执行
-    if (shouldRunToday(localStorage, today)) {
-        FansContinue().then(() => {
-                // 执行完毕，修改最后一次执行脚本的时间
-                markChecked(localStorage)
-                console.log("chz_script", "执行完成")
-            }
-        ).catch(() => {
-            console.log("chz_script", "执行错误")
-        })
-    } else {
-        console.log("chz_script", "今天已经执行过");
+  try {
+    const data = await api.sendBagGift(item);
+    if (data?.msg === "success") {
+      log(logger, `${label} ${item.roomId} 赠送 ${item.count} 个荧光棒成功`);
+      return { item, success: true, data };
     }
+
+    log(logger, `${label} ${item.roomId} 赠送失败`, data);
+    return { item, success: false, data };
+  } catch (error) {
+    log(logger, `${label} ${item.roomId} 请求失败`, error);
+    return { item, success: false, error };
+  }
 }
 
-(function () {
-    main();
-})();
+async function sendPlan(api, logger, plan) {
+  const results = [];
+
+  for (const item of plan.perRoom) {
+    results.push(await sendPlanItem(api, logger, item, "【续牌】"));
+  }
+
+  if (plan.rest) {
+    results.push(await sendPlanItem(api, logger, plan.rest, "【剩余全送】"));
+  }
+
+  return results;
+}
+
+async function executeRenewal({ api, logger, restRoomId }) {
+  const bagData = await api.getBagGifts(restRoomId);
+  const gifts = Array.isArray(bagData?.data?.list) ? bagData.data.list : [];
+
+  if (gifts.length === 0) {
+    log(logger, "背包礼物为空，今日不标记为已执行");
+    return { status: "empty-bag", shouldMarkChecked: false };
+  }
+
+  const gift = selectStickGift(gifts);
+  if (!gift) {
+    log(logger, "背包内没有可用荧光棒，今日不标记为已执行");
+    return { status: "no-stick-gift", shouldMarkChecked: false };
+  }
+
+  const fanRoomIds = await api.getFanBadgeRoomIds();
+  if (fanRoomIds.length === 0) {
+    log(logger, "未找到粉丝牌房间，今日不标记为已执行");
+    return { status: "no-fan-rooms", shouldMarkChecked: false };
+  }
+
+  const plan = createRenewalPlan({
+    gift,
+    fanRoomIds,
+    restRoomId,
+    sendNum: SEND_NUM,
+  });
+  const results = await sendPlan(api, logger, plan);
+  const successCount = results.filter((result) => result.success).length;
+
+  return {
+    status: "completed",
+    gift,
+    plan,
+    results,
+    successCount,
+    failureCount: results.length - successCount,
+    skippedRoomCount: fanRoomIds.length - plan.perRoom.length,
+    shouldMarkChecked: results.length > 0,
+  };
+}
+
+export async function runAutoFansContinue({
+  storage = globalThis.localStorage,
+  now = new Date(),
+  api = defaultApi,
+  logger = console,
+  restRoomId = DEFAULT_REST_ROOM_ID,
+} = {}) {
+  if (!storage) throw new Error("localStorage is not available");
+
+  if (!shouldRunToday(storage, now)) {
+    log(logger, "今天已经执行过");
+    return { status: "skipped", shouldMarkChecked: false };
+  }
+
+  const runtimeApi = { ...defaultApi, ...api };
+  const result = await executeRenewal({ api: runtimeApi, logger, restRoomId });
+
+  if (result.shouldMarkChecked) {
+    markChecked(storage, now);
+    log(logger, "执行完成", result);
+  }
+
+  return result;
+}
+
+async function main() {
+  log(console, "start!");
+  try {
+    await runAutoFansContinue();
+  } catch (error) {
+    log(console, "执行错误", error);
+  }
+}
+
+if (typeof window !== "undefined") {
+  main();
+}

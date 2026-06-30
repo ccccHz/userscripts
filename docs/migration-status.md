@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-06-29
+最后更新：2026-06-30
 
 ## 状态说明
 
@@ -18,7 +18,7 @@
 
 | 原项目 | 候选入口 | 状态 | 备注 |
 | --- | --- | --- | --- |
-| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；`allRid` 为 `12306`；每日执行状态已从 GM 存储改为 `localStorage`。 |
+| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；`allRid` 为 `12306`；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`，自动剩余策略参考 `douyuEx_meta`。 |
 | `biliDM` | 未识别 | 阻塞 | 目录中包含库和实验项目，但未发现 `==UserScript==` 入口。 |
 | `douyin` | `main.js` | 未开始 | `origin.js` 暂作为历史/参考版本保留。 |
 | `douyu-ban` | 未确认 | 阻塞 | 存在多个实验入口，并且原目录有未提交修改。 |
@@ -41,6 +41,10 @@
 - [x] 清理旧 `UserScript/` 目录。
 - [x] 将 `auto-fans-continue` 对齐为当前实际在用代码。
 - [x] 将 `auto-fans-continue` 的每日执行状态从 GM 存储切换到 `localStorage`。
+- [x] 为 `userscripts/` 初始化独立 git 仓库并提交基线。
+- [x] 将 `auto-fans-continue` 拆分为 API、续牌计划和运行状态模块。
+- [x] 将背包查询改为 `web/v5`，并支持 `268` 优先、`2358` 兜底。
+- [x] 为续牌计划、斗鱼 API 封装和主流程补充自动化测试。
 
 ## 单脚本迁移检查表
 
@@ -66,6 +70,14 @@
 - 行为对齐后，旧脚本是否继续使用全局 GM API，还是改为从 `vite-plugin-monkey` 的 ESM API 导入？
 
 ## 活动记录
+
+### 2026-06-30
+
+- 为 `userscripts/` 初始化独立 git 仓库，并提交当前迁移基线：`b9782ec chore: initialize userscripts workspace`。
+- 根据 `douyuEX_new/src/packages/FansContinue/FansContinue.js`，保留经过更多手动测试的续牌核心：先查背包，再选择 `268` 或 `2358`。
+- 根据 `douyuEx_meta/src/packages/DailyAuto/dailyAuto.js`，保留每日自动策略：每个有牌子的直播间送 1 个，剩余送 `12306`。
+- 将 `auto-fans-continue` 拆成 `douyu-api.js`、`renewal-plan.js`、`run-state.js` 和 `main.js`。
+- 新增续牌计划、斗鱼 API 封装和主流程测试，防止背包接口、礼物兜底和每日状态逻辑回退。
 
 ### 2026-06-29
 

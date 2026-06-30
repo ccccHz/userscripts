@@ -1,6 +1,6 @@
 # Userscript TODO
 
-最后更新：2026-06-29
+最后更新：2026-06-30
 
 这个文档承接旧目录 `UserScript/readme.md` 中的待办内容。旧目录原本用于规划 userscript 统一管理和斗鱼相关功能重构；内容已迁移到这里，旧目录随后清理。
 
@@ -8,7 +8,8 @@
 
 - [~] 在 `userscripts/` 中集中管理本仓库正在使用的 userscript。
 - [~] 使用 `vite-plugin-monkey` 管理开发和构建流程。
-- [~] 迁移 `autoFansContinue`，并以当前浏览器实际在用代码为准。
+- [x] 迁移 `autoFansContinue`，并以当前浏览器实际在用代码为准。
+- [x] 对齐 `douyuEX_new` 手动续牌子逻辑和 `douyuEx_meta` 每日自动逻辑，重构 `auto-fans-continue`。
 - [ ] 在 Tampermonkey 中验证 `auto-fans-continue` 开发版 userscript。
 - [ ] 在斗鱼网页中验证 `auto-fans-continue` 生产版 userscript。
 - [ ] 确认 `douyin/main.js` 是否为下一个迁移入口。
@@ -23,7 +24,7 @@
 - [ ] 解决旧 `douyuEx_meta` 每次上游更新都需要手工 merge 的问题，目标是把本地扩展功能与上游代码解耦。
 - [ ] 在现有聊天区隐藏日榜界面上增加显示房间人数。
 - [ ] 调研新版 `douyuex` 简洁模式显示贵宾较慢的问题，判断是否需要本地替代实现。
-- [ ] 每日自动续荧光棒策略保持为：每个有牌子的直播间送 1 个，其余全部送给指定直播间，并支持 toast 提示。
+- [~] 每日自动续荧光棒策略保持为：每个有牌子的直播间送 1 个，其余全部送给指定直播间；toast 提示仍待浏览器侧评估。
 - [ ] 处理每日荧光棒获取时机问题：必须进入直播间后才会获得当日荧光棒；如果未打开直播间或刚进入直播间就执行赠送，可能出错。
 - [ ] 调研是否可以通过 `douyuSocket` 登录任意房间来获得当日荧光棒。
 - [ ] 调研直播间实际人数来源：网页现有贵宾数据不一定等于手机端显示的实际人数，可能需要逆向 socket 包。
@@ -36,6 +37,7 @@
 - [x] 选择 `vite-plugin-monkey` 作为 userscript 构建插件。
 - [x] 新建 `userscripts/` 工作区，而不是继续使用旧 `UserScript/` 目录。
 - [x] 建立中文迁移状态、决策记录和 TODO 文档。
+- [x] 为 `userscripts/` 初始化独立 git 仓库，并提交当前迁移基线。
 - [ ] 每个实际使用的 userscript 都迁移为一个独立 package。
 - [ ] 首次迁移时保留旧脚本行为，不同时做大规模重构。
 - [ ] 行为验证通过后，再评估是否抽取共享工具和 ESM GM API。
