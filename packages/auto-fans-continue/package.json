@@ -1,0 +1,12 @@
+{
+  "name": "auto-fans-continue",
+  "private": true,
+  "version": "0.126.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  }
+}
+
