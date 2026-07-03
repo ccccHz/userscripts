@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  DEFAULT_REST_ROOM_ID,
-  createRenewalPlan,
-  selectStickGift,
-} from "../src/renewal-plan.js";
+import { createRenewalPlan, selectStickGift } from "../src/renewal-plan.js";
 
 test("selects 268 before 2358 when both stick gifts exist", () => {
   const gift = selectStickGift([
@@ -30,7 +26,7 @@ test("returns null when there is no usable stick gift", () => {
   assert.equal(selectStickGift([{ id: 268, count: 0 }]), null);
 });
 
-test("sends one stick to each fan room and the rest to 12306", () => {
+test("sends one stick to each fan room without sending the rest during testing", () => {
   const plan = createRenewalPlan({
     gift: { id: 268, count: 5 },
     fanRoomIds: ["100", "200", "300"],
@@ -42,7 +38,7 @@ test("sends one stick to each fan room and the rest to 12306", () => {
       { giftId: 268, count: 1, roomId: "200" },
       { giftId: 268, count: 1, roomId: "300" },
     ],
-    rest: { giftId: 268, count: 2, roomId: DEFAULT_REST_ROOM_ID },
+    rest: null,
   });
 });
 
