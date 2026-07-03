@@ -9,6 +9,7 @@
 - 首次迁移旧脚本时保持原有行为不变。
 - 用版本化文档记录迁移进度、待办事项和未决问题。
 - 新脚本在浏览器中验证通过前，不移动、删除或改写原项目目录。
+- 优先把 Tampermonkey 中依赖 `file://` 本地文件的自用脚本迁移为 git 管理的 package，方便迁移到其他机器后同步和更新。
 - 除命令、包名、路径、API 名称等技术标识外，项目文档默认使用中文。
 
 ## 命令
@@ -36,6 +37,7 @@ Volta 会使用 `package.json` 中固定的 Node 版本。由 Volta 管理的 pn
 - [迁移状态](docs/migration-status.md)
 - [TODO 清单](docs/todo.md)
 - [决策记录](docs/decisions.md)
+- [Tampermonkey 脚本整理清单](docs/tampermonkey-inventory.md)
 
 ## 迁移规则
 
@@ -46,3 +48,4 @@ Volta 会使用 `package.json` 中固定的 Node 版本。由 Volta 管理的 pn
 5. 在 `docs/migration-status.md` 中记录进度、决策和阻塞项。
 6. 只有在行为对齐后，才考虑代码现代化或抽取共享工具。
 7. 重要调整需要用 git commit 记录，便于未来回退。
+8. 当前阶段优先替换 `file://` 本地引用；浏览器扩展、后台任务、Bark 推送等增强能力先记录为未来升级方向。

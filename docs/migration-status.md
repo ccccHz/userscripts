@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-06-30
+最后更新：2026-07-04
 
 ## 状态说明
 
@@ -12,7 +12,8 @@
 ## 当前工作
 
 - [~] 在 Tampermonkey 和斗鱼网页中验证 `auto-fans-continue` 的开发版与生产版 userscript。
-- [ ] 确认下一个迁移入口，候选为 `douyin/main.js`。
+- [~] 根据 `docs/tampermonkey-inventory.md`，优先迁移仍在用且依赖 `file://` 本地文件的脚本，目标是让这些脚本进入 git 管理，便于其他机器同步和更新。
+- [ ] 确认下一个迁移入口，候选为 `huya/main.js`、`nga/main.js`、`douyin/main.js`。
 
 ## 迁移清单
 
@@ -45,6 +46,8 @@
 - [x] 将 `auto-fans-continue` 拆分为 API、续牌计划和运行状态模块。
 - [x] 将背包查询改为 `web/v5`，并支持 `268` 优先、`2358` 兜底。
 - [x] 为续牌计划、斗鱼 API 封装和主流程补充自动化测试。
+- [x] 建立 Tampermonkey 全量脚本整理清单。
+- [~] 将仍在用且依赖 `file://` 的脚本逐步迁移为 git 管理的 userscript package。
 
 ## 单脚本迁移检查表
 
@@ -68,8 +71,16 @@
 - `huya/main.js` 和 `nga/main.js` 应该匹配哪些目标 URL？
 - `weiboLive/main.js` 是否有可维护源码？
 - 行为对齐后，旧脚本是否继续使用全局 GM API，还是改为从 `vite-plugin-monkey` 的 ESM API 导入？
+- 迁移后的脚本优先使用 GitHub raw、release 产物，还是继续保留本地构建产物安装？
 
 ## 活动记录
+
+### 2026-07-04
+
+- 确认当前阶段目标收束为最小可用：先保证 `auto-fans-continue` 可安装验证，再迁移仍在用且依赖 `file://` 的 Tampermonkey 脚本。
+- 将跨机器迁移需求记录为迁移主线：把本地文件引用转为 git 管理的 package 和可同步更新的产物。
+- 接收并纳入 `docs/tampermonkey-inventory.md`，作为全量脚本盘点和后续迁移优先级依据。
+- 将浏览器扩展、后台静默执行、Bark 推送记录为 `auto-fans-continue` 的未来升级方向，当前不进入最小可用范围。
 
 ### 2026-06-30
 
