@@ -20,7 +20,6 @@ export function createDonateBody({ giftId, count, roomId }) {
 export async function getBagGifts(roomId) {
   const res = await fetch(createBackpackUrl(roomId), {
     method: "GET",
-    mode: "no-cors",
     credentials: "include",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
@@ -30,7 +29,6 @@ export async function getBagGifts(roomId) {
 export async function sendBagGift({ giftId, count, roomId }) {
   const res = await fetch("https://www.douyu.com/japi/prop/donate/mainsite/v1", {
     method: "POST",
-    mode: "no-cors",
     credentials: "include",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: createDonateBody({ giftId, count, roomId }),
@@ -47,7 +45,6 @@ export function extractFanRoomIds(doc) {
 export async function getFanBadgeRoomIds() {
   const res = await fetch("https://www.douyu.com/member/cp/getFansBadgeList", {
     method: "GET",
-    mode: "no-cors",
     cache: "default",
     credentials: "include",
   });

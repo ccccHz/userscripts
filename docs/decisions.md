@@ -145,3 +145,11 @@ Volta 管理的 pnpm。
 **决策：** `auto-fans-continue` 当前默认策略只给每个粉丝牌直播间赠送 1 个荧光棒，不再默认把剩余荧光棒赠送给 `12306`。
 
 **原因：** 当前还处于 Tampermonkey 和斗鱼页面验证阶段。只送每个直播间 1 个能减少单次测试消耗，方便多次刷新、清理每日状态后重复验证。剩余全送策略暂时保留为可恢复方向，等最小可用版本稳定后再评估是否重新启用。
+
+## D017：斗鱼 API 验证阶段只在 `www.douyu.com` 下运行
+
+**日期：** 2026-07-05
+
+**决策：** `auto-fans-continue` 的 `@match` 暂时收窄为 `https://www.douyu.com/*`，斗鱼 API 请求不再使用 `mode: "no-cors"`。
+
+**原因：** 开发版验证时，背包接口在 `res.json()` 处抛出 `Unexpected end of input`。根因是 `no-cors` 请求模式会让响应 body 不可读或为空，而脚本需要读取 JSON。收窄到 `www.douyu.com` 后，脚本在同源页面中调用 `www.douyu.com` 接口，可以读取 JSON 响应，也能避免从其他斗鱼子域名跨源请求时触发 CORS 问题。
