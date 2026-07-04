@@ -26,7 +26,7 @@ test("returns null when there is no usable stick gift", () => {
   assert.equal(selectStickGift([{ id: 268, count: 0 }]), null);
 });
 
-test("sends one stick to each fan room and sends the rest to the default room", () => {
+test("sends one stick to each fan room without sending the rest during testing", () => {
   const plan = createRenewalPlan({
     gift: { id: 268, count: 5 },
     fanRoomIds: ["100", "200", "300"],
@@ -38,18 +38,18 @@ test("sends one stick to each fan room and sends the rest to the default room", 
       { giftId: 268, count: 1, roomId: "200" },
       { giftId: 268, count: 1, roomId: "300" },
     ],
-    rest: { giftId: 268, count: 2, roomId: "12306" },
+    rest: null,
   });
 });
 
-test("can explicitly skip sending the rest", () => {
+test("can explicitly send the rest to the default room for final deployment", () => {
   const plan = createRenewalPlan({
     gift: { id: 268, count: 5 },
     fanRoomIds: ["100", "200", "300"],
-    sendRest: false,
+    sendRest: true,
   });
 
-  assert.equal(plan.rest, null);
+  assert.deepEqual(plan.rest, { giftId: 268, count: 2, roomId: "12306" });
 });
 
 test("does not create impossible sends when stick count is lower than room count", () => {
