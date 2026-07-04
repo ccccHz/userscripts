@@ -15,7 +15,7 @@ export default defineConfig({
         match: ["https://www.douyu.com/*"],
         icon: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
         "run-at": "document-start",
-        grant: "none",
+        grant: ["GM_log", "unsafeWindow"],
       },
       build: {
         autoGrant: false,

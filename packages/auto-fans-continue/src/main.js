@@ -24,7 +24,23 @@ const defaultApi = {
   sendBagGift,
   sleep,
 };
-const defaultLogger = createLogger(globalThis.console, { target: globalThis });
+
+function getGlobalValue(name) {
+  try {
+    return globalThis[name];
+  } catch {
+    return undefined;
+  }
+}
+
+function getPageTarget() {
+  return getGlobalValue("unsafeWindow") ?? globalThis;
+}
+
+const defaultLogger = createLogger(globalThis.console, {
+  target: getPageTarget(),
+  gmLog: getGlobalValue("GM_log"),
+});
 const defaultNotifier = createNotifier({ logger: defaultLogger });
 
 function log(logger, ...args) {
@@ -39,20 +55,26 @@ function notify(notifier, type, message) {
   notifier?.[type]?.(message);
 }
 
-async function sendPlanItem(api, logger, item, label) {
+async function sendPlanItem(api, logger, notifier, item, label) {
   await api.sleep(SEND_DELAY_MS);
 
   try {
     const data = await api.sendBagGift(item);
     if (data?.msg === "success") {
-      log(logger, `${label} ${item.roomId} 赠送 ${item.count} 个荧光棒成功`);
+      const message = `${label} ${item.roomId} 赠送 ${item.count} 个荧光棒成功`;
+      log(logger, message);
+      notify(notifier, "success", message);
       return { item, success: true, data };
     }
 
-    log(logger, `${label} ${item.roomId} 赠送失败`, data);
+    const message = `${label} ${item.roomId} 赠送失败`;
+    log(logger, message, data);
+    notify(notifier, "warning", message);
     return { item, success: false, data };
   } catch (error) {
-    log(logger, `${label} ${item.roomId} 请求失败`, error);
+    const message = `${label} ${item.roomId} 请求失败`;
+    log(logger, message, error);
+    notify(notifier, "error", message);
     return { item, success: false, error };
   }
 }
@@ -76,7 +98,13 @@ async function mapLimit(items, limit, mapper) {
   return results;
 }
 
-async function sendPlan(api, logger, plan, { concurrency = SEND_CONCURRENCY } = {}) {
+async function sendPlan(
+  api,
+  logger,
+  notifier,
+  plan,
+  { concurrency = SEND_CONCURRENCY } = {},
+) {
   const items = plan.perRoom.map((item) => ({ item, label: "【续牌】" }));
 
   if (plan.rest) {
@@ -84,7 +112,7 @@ async function sendPlan(api, logger, plan, { concurrency = SEND_CONCURRENCY } = 
   }
 
   return mapLimit(items, concurrency, ({ item, label }) =>
-    sendPlanItem(api, logger, item, label),
+    sendPlanItem(api, logger, notifier, item, label),
   );
 }
 
@@ -129,7 +157,7 @@ async function executeRenewal({
     "info",
     `开始自动续荧光棒：待赠送 ${plan.perRoom.length} 个直播间`,
   );
-  const results = await sendPlan(api, logger, plan, {
+  const results = await sendPlan(api, logger, notifier, plan, {
     concurrency: sendConcurrency,
   });
   const successCount = results.filter((result) => result.success).length;
@@ -159,7 +187,6 @@ export async function runAutoFansContinue({
 
   if (!shouldRunToday(storage, now)) {
     log(logger, "今天已经执行过");
-    notify(notifier, "info", "今天已经执行过自动续荧光棒");
     return { status: "skipped", shouldMarkChecked: false };
   }
 

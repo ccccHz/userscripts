@@ -158,9 +158,9 @@ Volta 管理的 pnpm。
 
 **日期：** 2026-07-05
 
-**决策：** `auto-fans-continue` 使用 `@run-at document-start` 尽早捕获 console 方法，但真正的主流程仍延后到 `DOMContentLoaded` 后执行；日志优先使用提前绑定的 `console.info`，并将运行事件写入 `window.__chzAutoFansContinue`。
+**决策：** `auto-fans-continue` 使用 `@run-at document-start` 尽早启动；真正的主流程仍延后到 `DOMContentLoaded` 后执行。日志优先使用 Tampermonkey 的 `GM_log`，再 fallback 到提前绑定的 console 方法，并将运行事件写入 `window.__chzAutoFansContinue`。
 
-**原因：** 斗鱼页面环境中 `console.log` 可能被页面代码影响，导致用户看不到带 `chz_script` 前缀的输出，或者只看到异常的 `undefined`。保留提前绑定的 console 方法可以提高日志可见性；同时暴露 `window.__chzAutoFansContinue.lastEvent` 和 `events`，即使 DevTools 输出被污染，也可以确认脚本是否启动、最后停在哪个阶段。
+**原因：** 斗鱼页面环境中 `console.log` 可能被页面代码影响，导致用户看不到带 `chz_script` 前缀的输出，或者只看到异常的 `undefined`。`GM_log` 由 userscript 管理器提供，不依赖页面重写后的 console，更适合作为斗鱼页面的主日志通道；同时暴露 `window.__chzAutoFansContinue.lastEvent` 和 `events`，即使 DevTools 输出被污染，也可以确认脚本是否启动、最后停在哪个阶段。
 
 ## D019：剩余荧光棒全送策略延后到最终部署
 
@@ -174,6 +174,6 @@ Volta 管理的 pnpm。
 
 **日期：** 2026-07-04
 
-**决策：** `auto-fans-continue` 增加本地轻量 toast/notifier，不直接迁入旧 `NoticeJs` 库；赠送请求从完全串行改为默认最多 4 个并发。toast 只显示启动、跳过、预检失败、执行完成和执行错误等状态级提示，单个直播间的详细赠送结果继续写入 logger 和 `window.__chzAutoFansContinue`。
+**决策：** `auto-fans-continue` 增加本地轻量 toast/notifier，不直接迁入旧 `NoticeJs` 库；赠送请求从完全串行改为默认最多 4 个并发。toast 显示启动、每个直播间赠送结果、预检失败、执行完成和执行错误；“今天已经执行过”只写 logger，不弹 toast。
 
-**原因：** 旧 `NoticeJs` 能满足提示需求，但引入整套库会增加当前最小 userscript 的体积和维护边界。当前需求只需要低频状态提示，用本地实现更轻。并发数选择 4，是为了缩短 20 多个直播间时的执行时间，同时避免全量并发对斗鱼接口造成过高压力。
+**原因：** 旧 `NoticeJs` 能满足提示需求，但引入整套库会增加当前最小 userscript 的体积和维护边界。当前需求只需要轻量提示，用本地实现更容易维护。每个直播间的赠送结果弹 toast，便于人工观察测试；“今天已经执行过”属于低价值重复提示，保留在 logger 即可。并发数选择 4，是为了缩短 20 多个直播间时的执行时间，同时避免全量并发对斗鱼接口造成过高压力。

@@ -19,7 +19,7 @@
 
 | 原项目 | 候选入口 | 状态 | 备注 |
 | --- | --- | --- | --- |
-| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前测试阶段只给每个粉丝牌直播间送 1 个，不默认把剩余送 `12306`；最终部署前再恢复剩余全送。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。运行验证不只依赖 `console.log`，也可检查 `window.__chzAutoFansContinue`。 |
+| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前测试阶段只给每个粉丝牌直播间送 1 个，不默认把剩余送 `12306`；最终部署前再恢复剩余全送。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。日志优先走 `GM_log`，运行状态也可检查 `window.__chzAutoFansContinue`。 |
 | `biliDM` | 未识别 | 阻塞 | 目录中包含库和实验项目，但未发现 `==UserScript==` 入口。 |
 | `douyin` | `main.js` | 未开始 | `origin.js` 暂作为历史/参考版本保留。 |
 | `douyu-ban` | 未确认 | 阻塞 | 存在多个实验入口，并且原目录有未提交修改。 |
@@ -51,7 +51,7 @@
 - [x] 将 `auto-fans-continue` 的测试阶段策略改为只给每个粉丝牌直播间送 1 个，暂不默认赠送剩余荧光棒。
 - [~] 将 `auto-fans-continue` 的最终部署策略记录为剩余荧光棒全送 `12306`，但当前测试版暂不启用。
 - [x] 移除斗鱼 API 请求里的 `mode: "no-cors"`，避免背包接口响应 body 不可读导致 `Unexpected end of input`。
-- [x] 为 `auto-fans-continue` 增加斗鱼页面可用的安全日志封装和 `window.__chzAutoFansContinue` 运行状态入口。
+- [x] 为 `auto-fans-continue` 增加斗鱼页面可用的 `GM_log` 日志通道和 `window.__chzAutoFansContinue` 运行状态入口。
 - [x] 为 `auto-fans-continue` 增加状态级 toast 提示。
 - [x] 将 `auto-fans-continue` 的赠送请求从串行改为默认最多 4 个并发。
 
@@ -87,9 +87,9 @@
 - 暂停默认“剩余全送 `12306`”行为，避免浏览器验证期间一次消耗过多荧光棒。
 - 保留续牌计划里的剩余赠送开关，后续确认稳定后可再显式启用。
 - 修复开发版验证时背包接口 JSON 解析失败的问题：移除 `no-cors` 请求模式，并将 `@match` 收窄到 `https://www.douyu.com/*`。
-- 针对斗鱼页面可能污染 `console.log` 的问题，新增安全日志封装：脚本在 `document-start` 捕获 console 方法，主流程延后到 `DOMContentLoaded` 后执行，并暴露 `window.__chzAutoFansContinue` 用于浏览器侧确认运行状态。
+- 针对斗鱼页面可能污染 `console.log` 的问题，将主日志通道改为 `GM_log`，并保留 console fallback；脚本在 `document-start` 启动，主流程延后到 `DOMContentLoaded` 后执行，并暴露 `window.__chzAutoFansContinue` 用于浏览器侧确认运行状态。
 - 明确剩余全送是最终部署前再启用的策略：当前测试版继续默认不送剩余，`createRenewalPlan` 保留 `sendRest: true` 作为显式开关。
-- 增加本地轻量 toast/notifier，用于显示开始、跳过、预检失败、完成和执行错误，不再直接搬入旧 `NoticeJs`。
+- 增加本地轻量 toast/notifier，用于显示开始、每个直播间赠送结果、预检失败、完成和执行错误；“今天已经执行过”只写 logger，不弹 toast。
 - 将赠送请求改为有限并发，默认并发数为 4，减少 20 多个直播间时页面还未执行完就被关闭的风险。
 
 ### 2026-07-04

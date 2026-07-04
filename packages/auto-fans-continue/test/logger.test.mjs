@@ -50,3 +50,25 @@ test("keeps runtime status even when console methods fail", () => {
   assert.equal(target[LOGGER_STATE_KEY].events.length, 1);
   assert.equal(target[LOGGER_STATE_KEY].lastEvent.message, "second");
 });
+
+test("prefers GM_log over page console writers", () => {
+  const gmMessages = [];
+  const consoleCalls = [];
+  const logger = createLogger(
+    {
+      info(...args) {
+        consoleCalls.push(args);
+      },
+    },
+    {
+      gmLog(message) {
+        gmMessages.push(message);
+      },
+    },
+  );
+
+  logger.log("start!", { roomId: "100" });
+
+  assert.deepEqual(gmMessages, ['chz_script start! {"roomId":"100"}']);
+  assert.deepEqual(consoleCalls, []);
+});

@@ -122,11 +122,13 @@ test("notifies renewal start and completion summary", async () => {
 
   assert.deepEqual(notifier.messages, [
     { type: "info", message: "开始自动续荧光棒：待赠送 2 个直播间" },
+    { type: "success", message: "【续牌】 100 赠送 1 个荧光棒成功" },
+    { type: "success", message: "【续牌】 200 赠送 1 个荧光棒成功" },
     { type: "success", message: "自动续荧光棒完成：成功 2，失败 0，跳过 0" },
   ]);
 });
 
-test("notifies when today has already been checked", async () => {
+test("does not notify when today has already been checked", async () => {
   const storage = createStorage("2026-06-30T00:00:00.000Z");
   const notifier = createNotifier();
   const api = {
@@ -143,9 +145,7 @@ test("notifies when today has already been checked", async () => {
     notifier,
   });
 
-  assert.deepEqual(notifier.messages, [
-    { type: "info", message: "今天已经执行过自动续荧光棒" },
-  ]);
+  assert.deepEqual(notifier.messages, []);
 });
 
 test("skips when the script has already checked today", async () => {

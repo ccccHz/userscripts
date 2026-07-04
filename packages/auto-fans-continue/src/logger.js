@@ -41,6 +41,29 @@ function serializeArg(arg) {
   return arg;
 }
 
+function formatLogArg(arg) {
+  if (typeof arg === "string") return arg;
+  if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
+
+  if (arg && typeof arg === "object") {
+    try {
+      return JSON.stringify(arg);
+    } catch {
+      return String(arg);
+    }
+  }
+
+  return String(arg);
+}
+
+function captureGmLog(gmLog) {
+  if (typeof gmLog !== "function") return null;
+
+  return (...args) => {
+    gmLog(args.map(formatLogArg).join(" "));
+  };
+}
+
 function createEvent(args) {
   const serializedArgs = args.map(serializeArg);
   return {
@@ -56,6 +79,7 @@ export function createLogger(
     target = globalThis,
     prefix = "chz_script",
     maxEvents = 50,
+    gmLog,
   } = {},
 ) {
   const state = target?.[LOGGER_STATE_KEY] ?? {
@@ -67,9 +91,10 @@ export function createLogger(
     target[LOGGER_STATE_KEY] = state;
   }
 
-  const writers = CONSOLE_METHODS.map((name) =>
-    captureConsoleMethod(consoleLike, name),
-  ).filter(Boolean);
+  const writers = [
+    captureGmLog(gmLog),
+    ...CONSOLE_METHODS.map((name) => captureConsoleMethod(consoleLike, name)),
+  ].filter(Boolean);
 
   function record(args) {
     const event = createEvent(args);
