@@ -11,11 +11,13 @@ import {
 } from "./renewal-plan.js";
 import { markChecked, shouldRunToday } from "./run-state.js";
 import { createLogger } from "./logger.js";
+import { createNotifier } from "./notifier.js";
 
 "use strict";
 
 const SEND_NUM = 1;
 const SEND_DELAY_MS = 250;
+const SEND_CONCURRENCY = 4;
 const defaultApi = {
   getBagGifts,
   getFanBadgeRoomIds,
@@ -23,9 +25,18 @@ const defaultApi = {
   sleep,
 };
 const defaultLogger = createLogger(globalThis.console, { target: globalThis });
+const defaultNotifier = createNotifier({ logger: defaultLogger });
 
 function log(logger, ...args) {
   logger.log(...args);
+}
+
+function createDefaultNotifier(logger) {
+  return logger === defaultLogger ? defaultNotifier : createNotifier({ logger });
+}
+
+function notify(notifier, type, message) {
+  notifier?.[type]?.(message);
 }
 
 async function sendPlanItem(api, logger, item, label) {
@@ -46,38 +57,64 @@ async function sendPlanItem(api, logger, item, label) {
   }
 }
 
-async function sendPlan(api, logger, plan) {
-  const results = [];
+async function mapLimit(items, limit, mapper) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, limit), items.length);
 
-  for (const item of plan.perRoom) {
-    results.push(await sendPlanItem(api, logger, item, "【续牌】"));
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index], index);
+    }
   }
 
-  if (plan.rest) {
-    results.push(await sendPlanItem(api, logger, plan.rest, "【剩余全送】"));
-  }
-
+  await Promise.all(
+    Array.from({ length: workerCount }, () => worker()),
+  );
   return results;
 }
 
-async function executeRenewal({ api, logger, restRoomId }) {
+async function sendPlan(api, logger, plan, { concurrency = SEND_CONCURRENCY } = {}) {
+  const items = plan.perRoom.map((item) => ({ item, label: "【续牌】" }));
+
+  if (plan.rest) {
+    items.push({ item: plan.rest, label: "【剩余全送】" });
+  }
+
+  return mapLimit(items, concurrency, ({ item, label }) =>
+    sendPlanItem(api, logger, item, label),
+  );
+}
+
+async function executeRenewal({
+  api,
+  logger,
+  notifier,
+  restRoomId,
+  sendConcurrency,
+}) {
   const bagData = await api.getBagGifts(restRoomId);
   const gifts = Array.isArray(bagData?.data?.list) ? bagData.data.list : [];
 
   if (gifts.length === 0) {
     log(logger, "背包礼物为空，今日不标记为已执行");
+    notify(notifier, "warning", "背包礼物为空，今日暂不标记为已执行");
     return { status: "empty-bag", shouldMarkChecked: false };
   }
 
   const gift = selectStickGift(gifts);
   if (!gift) {
     log(logger, "背包内没有可用荧光棒，今日不标记为已执行");
+    notify(notifier, "warning", "背包内没有可用荧光棒，今日暂不标记为已执行");
     return { status: "no-stick-gift", shouldMarkChecked: false };
   }
 
   const fanRoomIds = await api.getFanBadgeRoomIds();
   if (fanRoomIds.length === 0) {
     log(logger, "未找到粉丝牌房间，今日不标记为已执行");
+    notify(notifier, "warning", "未找到粉丝牌房间，今日暂不标记为已执行");
     return { status: "no-fan-rooms", shouldMarkChecked: false };
   }
 
@@ -87,7 +124,14 @@ async function executeRenewal({ api, logger, restRoomId }) {
     restRoomId,
     sendNum: SEND_NUM,
   });
-  const results = await sendPlan(api, logger, plan);
+  notify(
+    notifier,
+    "info",
+    `开始自动续荧光棒：待赠送 ${plan.perRoom.length} 个直播间`,
+  );
+  const results = await sendPlan(api, logger, plan, {
+    concurrency: sendConcurrency,
+  });
   const successCount = results.filter((result) => result.success).length;
 
   return {
@@ -107,21 +151,35 @@ export async function runAutoFansContinue({
   now = new Date(),
   api = defaultApi,
   logger = defaultLogger,
+  notifier = createDefaultNotifier(logger),
   restRoomId = DEFAULT_REST_ROOM_ID,
+  sendConcurrency = SEND_CONCURRENCY,
 } = {}) {
   if (!storage) throw new Error("localStorage is not available");
 
   if (!shouldRunToday(storage, now)) {
     log(logger, "今天已经执行过");
+    notify(notifier, "info", "今天已经执行过自动续荧光棒");
     return { status: "skipped", shouldMarkChecked: false };
   }
 
   const runtimeApi = { ...defaultApi, ...api };
-  const result = await executeRenewal({ api: runtimeApi, logger, restRoomId });
+  const result = await executeRenewal({
+    api: runtimeApi,
+    logger,
+    notifier,
+    restRoomId,
+    sendConcurrency,
+  });
 
   if (result.shouldMarkChecked) {
     markChecked(storage, now);
     log(logger, "执行完成", result);
+    notify(
+      notifier,
+      result.failureCount > 0 ? "warning" : "success",
+      `自动续荧光棒完成：成功 ${result.successCount}，失败 ${result.failureCount}，跳过 ${result.skippedRoomCount}`,
+    );
   }
 
   return result;
@@ -133,6 +191,7 @@ async function main() {
     await runAutoFansContinue();
   } catch (error) {
     log(defaultLogger, "执行错误", error);
+    notify(defaultNotifier, "error", "自动续荧光棒执行错误，请查看控制台状态");
   }
 }
 

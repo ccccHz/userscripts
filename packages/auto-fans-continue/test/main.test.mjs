@@ -20,6 +20,25 @@ function createStorage(initialValue) {
 
 const silentLogger = { log() {} };
 
+function createNotifier() {
+  const messages = [];
+  return {
+    messages,
+    info(message) {
+      messages.push({ type: "info", message });
+    },
+    success(message) {
+      messages.push({ type: "success", message });
+    },
+    warning(message) {
+      messages.push({ type: "warning", message });
+    },
+    error(message) {
+      messages.push({ type: "error", message });
+    },
+  };
+}
+
 test("sends one stick to each fan room without sending the rest during testing, and marks today", async () => {
   const storage = createStorage();
   const sent = [];
@@ -49,6 +68,84 @@ test("sends one stick to each fan room without sending the rest during testing, 
     { giftId: 2358, count: 1, roomId: "200" },
   ]);
   assert.equal(storage.getItem(CHECKED_DATE_KEY), "2026-06-30T10:00:00.000Z");
+});
+
+test("limits gift sends to four concurrent requests", async () => {
+  const storage = createStorage();
+  let activeCount = 0;
+  let maxActiveCount = 0;
+  const sent = [];
+  const api = {
+    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 8 }] } }),
+    getFanBadgeRoomIds: async () =>
+      ["100", "200", "300", "400", "500", "600", "700", "800"],
+    sendBagGift: async (item) => {
+      activeCount += 1;
+      maxActiveCount = Math.max(maxActiveCount, activeCount);
+      sent.push(item);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      activeCount -= 1;
+      return { msg: "success" };
+    },
+    sleep: async () => {},
+  };
+
+  const result = await runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(sent.length, 8);
+  assert.equal(maxActiveCount, 4);
+});
+
+test("notifies renewal start and completion summary", async () => {
+  const storage = createStorage();
+  const notifier = createNotifier();
+  const api = {
+    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 2 }] } }),
+    getFanBadgeRoomIds: async () => ["100", "200"],
+    sendBagGift: async () => ({ msg: "success" }),
+    sleep: async () => {},
+  };
+
+  await runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+    notifier,
+  });
+
+  assert.deepEqual(notifier.messages, [
+    { type: "info", message: "开始自动续荧光棒：待赠送 2 个直播间" },
+    { type: "success", message: "自动续荧光棒完成：成功 2，失败 0，跳过 0" },
+  ]);
+});
+
+test("notifies when today has already been checked", async () => {
+  const storage = createStorage("2026-06-30T00:00:00.000Z");
+  const notifier = createNotifier();
+  const api = {
+    getBagGifts: async () => {
+      throw new Error("should not query gifts");
+    },
+  };
+
+  await runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+    notifier,
+  });
+
+  assert.deepEqual(notifier.messages, [
+    { type: "info", message: "今天已经执行过自动续荧光棒" },
+  ]);
 });
 
 test("skips when the script has already checked today", async () => {

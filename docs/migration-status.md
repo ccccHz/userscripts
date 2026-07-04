@@ -52,6 +52,8 @@
 - [~] 将 `auto-fans-continue` 的最终部署策略记录为剩余荧光棒全送 `12306`，但当前测试版暂不启用。
 - [x] 移除斗鱼 API 请求里的 `mode: "no-cors"`，避免背包接口响应 body 不可读导致 `Unexpected end of input`。
 - [x] 为 `auto-fans-continue` 增加斗鱼页面可用的安全日志封装和 `window.__chzAutoFansContinue` 运行状态入口。
+- [x] 为 `auto-fans-continue` 增加状态级 toast 提示。
+- [x] 将 `auto-fans-continue` 的赠送请求从串行改为默认最多 4 个并发。
 
 ## 单脚本迁移检查表
 
@@ -87,6 +89,8 @@
 - 修复开发版验证时背包接口 JSON 解析失败的问题：移除 `no-cors` 请求模式，并将 `@match` 收窄到 `https://www.douyu.com/*`。
 - 针对斗鱼页面可能污染 `console.log` 的问题，新增安全日志封装：脚本在 `document-start` 捕获 console 方法，主流程延后到 `DOMContentLoaded` 后执行，并暴露 `window.__chzAutoFansContinue` 用于浏览器侧确认运行状态。
 - 明确剩余全送是最终部署前再启用的策略：当前测试版继续默认不送剩余，`createRenewalPlan` 保留 `sendRest: true` 作为显式开关。
+- 增加本地轻量 toast/notifier，用于显示开始、跳过、预检失败、完成和执行错误，不再直接搬入旧 `NoticeJs`。
+- 将赠送请求改为有限并发，默认并发数为 4，减少 20 多个直播间时页面还未执行完就被关闭的风险。
 
 ### 2026-07-04
 
