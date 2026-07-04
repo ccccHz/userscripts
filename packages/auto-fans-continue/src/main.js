@@ -10,6 +10,7 @@ import {
   selectStickGift,
 } from "./renewal-plan.js";
 import { markChecked, shouldRunToday } from "./run-state.js";
+import { createLogger } from "./logger.js";
 
 "use strict";
 
@@ -21,9 +22,10 @@ const defaultApi = {
   sendBagGift,
   sleep,
 };
+const defaultLogger = createLogger(globalThis.console, { target: globalThis });
 
 function log(logger, ...args) {
-  logger.log("chz_script", ...args);
+  logger.log(...args);
 }
 
 async function sendPlanItem(api, logger, item, label) {
@@ -104,7 +106,7 @@ export async function runAutoFansContinue({
   storage = globalThis.localStorage,
   now = new Date(),
   api = defaultApi,
-  logger = console,
+  logger = defaultLogger,
   restRoomId = DEFAULT_REST_ROOM_ID,
 } = {}) {
   if (!storage) throw new Error("localStorage is not available");
@@ -126,14 +128,23 @@ export async function runAutoFansContinue({
 }
 
 async function main() {
-  log(console, "start!");
+  log(defaultLogger, "start!");
   try {
     await runAutoFansContinue();
   } catch (error) {
-    log(console, "执行错误", error);
+    log(defaultLogger, "执行错误", error);
   }
 }
 
-if (typeof window !== "undefined") {
+function runMainWhenReady() {
+  if (typeof document !== "undefined" && document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", main, { once: true });
+    return;
+  }
+
   main();
+}
+
+if (typeof window !== "undefined") {
+  runMainWhenReady();
 }

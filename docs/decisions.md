@@ -153,3 +153,11 @@ Volta 管理的 pnpm。
 **决策：** `auto-fans-continue` 的 `@match` 暂时收窄为 `https://www.douyu.com/*`，斗鱼 API 请求不再使用 `mode: "no-cors"`。
 
 **原因：** 开发版验证时，背包接口在 `res.json()` 处抛出 `Unexpected end of input`。根因是 `no-cors` 请求模式会让响应 body 不可读或为空，而脚本需要读取 JSON。收窄到 `www.douyu.com` 后，脚本在同源页面中调用 `www.douyu.com` 接口，可以读取 JSON 响应，也能避免从其他斗鱼子域名跨源请求时触发 CORS 问题。
+
+## D018：斗鱼页面日志不只依赖 `console.log`
+
+**日期：** 2026-07-05
+
+**决策：** `auto-fans-continue` 使用 `@run-at document-start` 尽早捕获 console 方法，但真正的主流程仍延后到 `DOMContentLoaded` 后执行；日志优先使用提前绑定的 `console.info`，并将运行事件写入 `window.__chzAutoFansContinue`。
+
+**原因：** 斗鱼页面环境中 `console.log` 可能被页面代码影响，导致用户看不到带 `chz_script` 前缀的输出，或者只看到异常的 `undefined`。保留提前绑定的 console 方法可以提高日志可见性；同时暴露 `window.__chzAutoFansContinue.lastEvent` 和 `events`，即使 DevTools 输出被污染，也可以确认脚本是否启动、最后停在哪个阶段。

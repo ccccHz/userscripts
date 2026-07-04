@@ -19,7 +19,7 @@
 
 | 原项目 | 候选入口 | 状态 | 备注 |
 | --- | --- | --- | --- |
-| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前测试阶段只给每个粉丝牌直播间送 1 个，不默认把剩余送 `12306`。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。 |
+| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前测试阶段只给每个粉丝牌直播间送 1 个，不默认把剩余送 `12306`。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。运行验证不只依赖 `console.log`，也可检查 `window.__chzAutoFansContinue`。 |
 | `biliDM` | 未识别 | 阻塞 | 目录中包含库和实验项目，但未发现 `==UserScript==` 入口。 |
 | `douyin` | `main.js` | 未开始 | `origin.js` 暂作为历史/参考版本保留。 |
 | `douyu-ban` | 未确认 | 阻塞 | 存在多个实验入口，并且原目录有未提交修改。 |
@@ -50,6 +50,7 @@
 - [~] 将仍在用且依赖 `file://` 的脚本逐步迁移为 git 管理的 userscript package。
 - [x] 将 `auto-fans-continue` 的测试阶段策略改为只给每个粉丝牌直播间送 1 个，暂不默认赠送剩余荧光棒。
 - [x] 移除斗鱼 API 请求里的 `mode: "no-cors"`，避免背包接口响应 body 不可读导致 `Unexpected end of input`。
+- [x] 为 `auto-fans-continue` 增加斗鱼页面可用的安全日志封装和 `window.__chzAutoFansContinue` 运行状态入口。
 
 ## 单脚本迁移检查表
 
@@ -83,6 +84,7 @@
 - 暂停默认“剩余全送 `12306`”行为，避免浏览器验证期间一次消耗过多荧光棒。
 - 保留续牌计划里的剩余赠送开关，后续确认稳定后可再显式启用。
 - 修复开发版验证时背包接口 JSON 解析失败的问题：移除 `no-cors` 请求模式，并将 `@match` 收窄到 `https://www.douyu.com/*`。
+- 针对斗鱼页面可能污染 `console.log` 的问题，新增安全日志封装：脚本在 `document-start` 捕获 console 方法，主流程延后到 `DOMContentLoaded` 后执行，并暴露 `window.__chzAutoFansContinue` 用于浏览器侧确认运行状态。
 
 ### 2026-07-04
 

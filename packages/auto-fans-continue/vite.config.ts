@@ -14,6 +14,7 @@ export default defineConfig({
         supportURL: "https://github.com/ccccHz/autoFansContinue/issues",
         match: ["https://www.douyu.com/*"],
         icon: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
+        "run-at": "document-start",
         grant: "none",
       },
       build: {
