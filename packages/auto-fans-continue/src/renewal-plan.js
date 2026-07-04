@@ -17,7 +17,7 @@ export function createRenewalPlan({
   fanRoomIds,
   restRoomId = DEFAULT_REST_ROOM_ID,
   sendNum = 1,
-  sendRest = false,
+  sendRest = true,
 }) {
   const giftId = Number(gift.id);
   let remaining = Math.max(0, Math.floor(Number(gift.count)));

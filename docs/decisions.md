@@ -161,3 +161,11 @@ Volta 管理的 pnpm。
 **决策：** `auto-fans-continue` 使用 `@run-at document-start` 尽早捕获 console 方法，但真正的主流程仍延后到 `DOMContentLoaded` 后执行；日志优先使用提前绑定的 `console.info`，并将运行事件写入 `window.__chzAutoFansContinue`。
 
 **原因：** 斗鱼页面环境中 `console.log` 可能被页面代码影响，导致用户看不到带 `chz_script` 前缀的输出，或者只看到异常的 `undefined`。保留提前绑定的 console 方法可以提高日志可见性；同时暴露 `window.__chzAutoFansContinue.lastEvent` 和 `events`，即使 DevTools 输出被污染，也可以确认脚本是否启动、最后停在哪个阶段。
+
+## D019：恢复剩余荧光棒默认全送
+
+**日期：** 2026-07-04
+
+**决策：** `auto-fans-continue` 恢复默认策略：先给每个粉丝牌直播间赠送 1 个荧光棒，剩余荧光棒全部赠送给默认房间 `12306`。`createRenewalPlan` 仍保留 `sendRest: false` 显式开关，方便未来临时测试或调试。
+
+**原因：** 开发版已完成基础浏览器验证，用户希望最终策略回到原有自动续牌逻辑。恢复剩余全送可以避免每日荧光棒留在背包中过期，同时保留显式关闭开关，便于后续做并发赠送或 toast 时降低测试消耗。

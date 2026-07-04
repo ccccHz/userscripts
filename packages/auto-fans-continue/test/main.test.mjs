@@ -20,7 +20,7 @@ function createStorage(initialValue) {
 
 const silentLogger = { log() {} };
 
-test("sends one stick to each fan room without sending the rest, and marks today", async () => {
+test("sends one stick to each fan room, sends the rest to the default room, and marks today", async () => {
   const storage = createStorage();
   const sent = [];
   const api = {
@@ -47,6 +47,7 @@ test("sends one stick to each fan room without sending the rest, and marks today
   assert.deepEqual(sent, [
     { giftId: 2358, count: 1, roomId: "100" },
     { giftId: 2358, count: 1, roomId: "200" },
+    { giftId: 2358, count: 2, roomId: "12306" },
   ]);
   assert.equal(storage.getItem(CHECKED_DATE_KEY), "2026-06-30T10:00:00.000Z");
 });
