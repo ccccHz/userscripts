@@ -39,7 +39,7 @@ function createNotifier() {
   };
 }
 
-test("sends one stick to each fan room without sending the rest during testing, and marks today", async () => {
+test("sends one stick to each fan room, sends the rest to 12306, and marks today", async () => {
   const storage = createStorage();
   const sent = [];
   const api = {
@@ -66,6 +66,7 @@ test("sends one stick to each fan room without sending the rest during testing, 
   assert.deepEqual(sent, [
     { giftId: 2358, count: 1, roomId: "100" },
     { giftId: 2358, count: 1, roomId: "200" },
+    { giftId: 2358, count: 2, roomId: "12306" },
   ]);
   assert.equal(storage.getItem(CHECKED_DATE_KEY), "2026-06-30T10:00:00.000Z");
 });
@@ -106,7 +107,7 @@ test("notifies renewal start and completion summary", async () => {
   const storage = createStorage();
   const notifier = createNotifier();
   const api = {
-    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 2 }] } }),
+    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 3 }] } }),
     getFanBadgeRoomIds: async () => ["100", "200"],
     sendBagGift: async () => ({ msg: "success" }),
     sleep: async () => {},
@@ -124,7 +125,8 @@ test("notifies renewal start and completion summary", async () => {
     { type: "info", message: "开始自动续荧光棒：待赠送 2 个直播间" },
     { type: "success", message: "【续牌】 100 赠送 1 个荧光棒成功" },
     { type: "success", message: "【续牌】 200 赠送 1 个荧光棒成功" },
-    { type: "success", message: "自动续荧光棒完成：成功 2，失败 0，跳过 0" },
+    { type: "success", message: "【剩余全送】 12306 赠送 1 个荧光棒成功" },
+    { type: "success", message: "自动续荧光棒完成：成功 3，失败 0，跳过 0" },
   ]);
 });
 

@@ -19,7 +19,7 @@
 
 | 原项目 | 候选入口 | 状态 | 备注 |
 | --- | --- | --- | --- |
-| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前测试阶段只给每个粉丝牌直播间送 1 个，不默认把剩余送 `12306`；最终部署前再恢复剩余全送。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。日志优先走 `GM_log`，运行状态也可检查 `window.__chzAutoFansContinue`。 |
+| `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前策略为每个粉丝牌直播间送 1 个，剩余荧光棒全部送默认房间 `12306`。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。日志优先走 `GM_log`，运行状态也可检查 `window.__chzAutoFansContinue`。 |
 | `biliDM` | 未识别 | 阻塞 | 目录中包含库和实验项目，但未发现 `==UserScript==` 入口。 |
 | `douyin` | `main.js` | 未开始 | `origin.js` 暂作为历史/参考版本保留。 |
 | `douyu-ban` | 未确认 | 阻塞 | 存在多个实验入口，并且原目录有未提交修改。 |
@@ -49,7 +49,7 @@
 - [x] 建立 Tampermonkey 全量脚本整理清单。
 - [~] 将仍在用且依赖 `file://` 的脚本逐步迁移为 git 管理的 userscript package。
 - [x] 将 `auto-fans-continue` 的测试阶段策略改为只给每个粉丝牌直播间送 1 个，暂不默认赠送剩余荧光棒。
-- [~] 将 `auto-fans-continue` 的最终部署策略记录为剩余荧光棒全送 `12306`，但当前测试版暂不启用。
+- [x] 将 `auto-fans-continue` 的默认策略恢复为剩余荧光棒全送 `12306`。
 - [x] 移除斗鱼 API 请求里的 `mode: "no-cors"`，避免背包接口响应 body 不可读导致 `Unexpected end of input`。
 - [x] 为 `auto-fans-continue` 增加斗鱼页面可用的 `GM_log` 日志通道和 `window.__chzAutoFansContinue` 运行状态入口。
 - [x] 为 `auto-fans-continue` 增加状态级 toast 提示。
@@ -83,6 +83,8 @@
 
 ### 2026-07-05
 
+- 根据浏览器验证结果，恢复默认“剩余全送 `12306`”行为；当前策略为每个粉丝牌直播间送 1 个，剩余荧光棒送默认房间。
+- 记录后续配置需求：默认剩余赠送房间号应支持通过 GM 菜单或页面内 UI 管理。
 - 根据测试需求，将 `auto-fans-continue` 默认策略改为每个粉丝牌直播间只送 1 个。
 - 暂停默认“剩余全送 `12306`”行为，避免浏览器验证期间一次消耗过多荧光棒。
 - 保留续牌计划里的剩余赠送开关，后续确认稳定后可再显式启用。
