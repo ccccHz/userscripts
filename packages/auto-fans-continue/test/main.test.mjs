@@ -130,6 +130,65 @@ test("notifies renewal start and completion summary", async () => {
   ]);
 });
 
+test("sends the rest only after fan room sends finish", async () => {
+  const storage = createStorage();
+  let pendingFanRoomSends = 0;
+  let restStartedBeforeFanRoomsFinished = false;
+  const api = {
+    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 4 }] } }),
+    getFanBadgeRoomIds: async () => ["100", "200"],
+    sendBagGift: async (item) => {
+      if (item.roomId === "12306") {
+        restStartedBeforeFanRoomsFinished = pendingFanRoomSends > 0;
+        return { msg: "success" };
+      }
+
+      pendingFanRoomSends += 1;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      pendingFanRoomSends -= 1;
+      return { msg: "success" };
+    },
+    sleep: async () => {},
+  };
+
+  await runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+  });
+
+  assert.equal(restStartedBeforeFanRoomsFinished, false);
+});
+
+test("does not mark today when every gift send fails", async () => {
+  const storage = createStorage();
+  const sent = [];
+  const api = {
+    getBagGifts: async () => ({ data: { list: [{ id: 2358, count: 4 }] } }),
+    getFanBadgeRoomIds: async () => ["100", "200"],
+    sendBagGift: async (item) => {
+      sent.push(item);
+      return { msg: "failed" };
+    },
+    sleep: async () => {},
+  };
+
+  const result = await runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+  });
+
+  assert.equal(result.successCount, 0);
+  assert.equal(storage.getItem(CHECKED_DATE_KEY), null);
+  assert.deepEqual(
+    sent.map((item) => item.roomId),
+    ["100", "200"],
+  );
+});
+
 test("does not notify when today has already been checked", async () => {
   const storage = createStorage("2026-06-30T00:00:00.000Z");
   const notifier = createNotifier();

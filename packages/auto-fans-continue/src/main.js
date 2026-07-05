@@ -106,14 +106,17 @@ async function sendPlan(
   { concurrency = SEND_CONCURRENCY } = {},
 ) {
   const items = plan.perRoom.map((item) => ({ item, label: "【续牌】" }));
-
-  if (plan.rest) {
-    items.push({ item: plan.rest, label: "【剩余全送】" });
-  }
-
-  return mapLimit(items, concurrency, ({ item, label }) =>
+  const results = await mapLimit(items, concurrency, ({ item, label }) =>
     sendPlanItem(api, logger, notifier, item, label),
   );
+
+  if (plan.rest && results.some((result) => result.success)) {
+    results.push(
+      await sendPlanItem(api, logger, notifier, plan.rest, "【剩余全送】"),
+    );
+  }
+
+  return results;
 }
 
 async function executeRenewal({
@@ -170,7 +173,7 @@ async function executeRenewal({
     successCount,
     failureCount: results.length - successCount,
     skippedRoomCount: fanRoomIds.length - plan.perRoom.length,
-    shouldMarkChecked: results.length > 0,
+    shouldMarkChecked: successCount > 0,
   };
 }
 
