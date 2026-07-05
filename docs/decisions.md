@@ -193,3 +193,11 @@ Volta 管理的 pnpm。
 **决策：** `auto-fans-continue` 的续牌赠送仍保持有限并发；但“剩余全送”不再进入同一个并发队列，而是在所有粉丝牌房间赠送请求结束后单独执行。只有至少一个赠送成功时，才写入当天已执行状态。
 
 **原因：** 剩余全送的数量是基于“每个粉丝牌房间已经消耗 1 个荧光棒”计算出来的。如果它和最后几笔续牌请求并发发送，就会用未来库存推导出的数量去竞争当前库存，容易导致斗鱼接口批量失败。全失败时不标记当天已执行，可以让用户修复登录态、接口状态或库存时机后再次触发。
+
+## D023：toast 支持全屏挂载和 hover 暂停
+
+**日期：** 2026-07-06
+
+**决策：** `auto-fans-continue` 继续使用本地轻量 toast，不迁入 `NoticeJs`。toast root 每次显示时都会重新挂载到 `document.fullscreenElement ?? document.body`，并监听 `fullscreenchange`；单条 toast 的自动消失计时器在鼠标 hover 时暂停，移出后继续。
+
+**原因：** `douyuex` 使用的 `NoticeJs` 提供了 hover 暂停和进度条，但仍是挂到 `document.body` 的普通 fixed 容器。斗鱼播放器或网页全屏会改变可见顶层容器，单纯调高 `z-index` 不一定可靠。保留本地实现并补全 fullscreen host 迁移，可以减少依赖，同时解决当前直播画面偶尔压住 toast 的问题。

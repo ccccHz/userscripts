@@ -21,11 +21,13 @@ function ensureStyle(document) {
   position: fixed;
   left: 16px;
   bottom: 16px;
-  z-index: 2147483647;
+  z-index: 2147483647 !important;
   display: flex;
   flex-direction: column;
   gap: 8px;
   pointer-events: none;
+  isolation: isolate;
+  transform: translateZ(0);
 }
 #${TOAST_ROOT_ID} .chz-auto-fans-toast {
   width: min(360px, calc(100vw - 32px));
@@ -55,22 +57,77 @@ function ensureStyle(document) {
   document.head.appendChild(style);
 }
 
+function getToastHost(document) {
+  return document?.fullscreenElement ?? document?.body ?? null;
+}
+
 function ensureRoot(document) {
-  if (!document?.body) return null;
+  const host = getToastHost(document);
+  if (!host) return null;
 
   let root = document.getElementById(TOAST_ROOT_ID);
-  if (root) return root;
+  if (!root) {
+    root = document.createElement("div");
+    root.id = TOAST_ROOT_ID;
+  }
 
-  root = document.createElement("div");
-  root.id = TOAST_ROOT_ID;
-  document.body.appendChild(root);
+  host.appendChild(root);
   return root;
+}
+
+function scheduleToastRemoval({
+  item,
+  timeoutMs,
+  setTimeout,
+  clearTimeout,
+  now,
+}) {
+  let remainingMs = timeoutMs;
+  let startedAt = now();
+  let timeoutId = null;
+  let closing = false;
+
+  function close() {
+    if (closing) return;
+    closing = true;
+    item.classList.add("is-leaving");
+    setTimeout(() => item.remove(), 180);
+  }
+
+  function start() {
+    if (closing) return;
+    startedAt = now();
+    timeoutId = setTimeout(close, Math.max(0, remainingMs));
+  }
+
+  function pause() {
+    if (closing || timeoutId === null) return;
+    clearTimeout(timeoutId);
+    timeoutId = null;
+    remainingMs -= now() - startedAt;
+  }
+
+  function resume() {
+    if (closing || timeoutId !== null) return;
+    start();
+  }
+
+  item.addEventListener("mouseenter", pause);
+  item.addEventListener("mouseleave", resume);
+  start();
 }
 
 export function createDomToastRenderer({
   document = globalThis.document,
   timeoutMs = 4500,
+  setTimeout = globalThis.setTimeout?.bind(globalThis),
+  clearTimeout = globalThis.clearTimeout?.bind(globalThis),
+  now = () => Date.now(),
 } = {}) {
+  document?.addEventListener?.("fullscreenchange", () => {
+    ensureRoot(document);
+  });
+
   return {
     show({ type, message }) {
       const toastType = getToastType(type);
@@ -93,10 +150,9 @@ export function createDomToastRenderer({
       item.append(title, body);
       root.appendChild(item);
 
-      globalThis.setTimeout?.(() => {
-        item.classList.add("is-leaving");
-        globalThis.setTimeout?.(() => item.remove(), 180);
-      }, timeoutMs);
+      if (typeof setTimeout === "function" && typeof clearTimeout === "function") {
+        scheduleToastRemoval({ item, timeoutMs, setTimeout, clearTimeout, now });
+      }
     },
   };
 }
