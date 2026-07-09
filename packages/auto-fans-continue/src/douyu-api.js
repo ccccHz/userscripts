@@ -36,10 +36,19 @@ export async function sendBagGift({ giftId, count, roomId }) {
   return res.json();
 }
 
+function normalizeRoomId(roomId) {
+  const value = String(roomId ?? "").trim();
+  return /^\d+$/.test(value) ? value : null;
+}
+
 export function extractFanRoomIds(doc) {
-  return Array.from(doc.querySelectorAll(".fans-badge-list [data-fans-room]"))
-    .map((node) => node.getAttribute("data-fans-room"))
+  const list = doc.getElementsByClassName?.("fans-badge-list")?.[0];
+  const badgeRows = list?.lastElementChild?.children ?? [];
+  const roomIds = Array.from(badgeRows)
+    .map((node) => normalizeRoomId(node.getAttribute("data-fans-room")))
     .filter(Boolean);
+
+  return Array.from(new Set(roomIds));
 }
 
 export async function getFanBadgeRoomIds() {
