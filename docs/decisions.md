@@ -201,3 +201,97 @@ Volta 管理的 pnpm。
 **决策：** `auto-fans-continue` 继续使用本地轻量 toast，不迁入 `NoticeJs`。toast root 每次显示时都会重新挂载到 `document.fullscreenElement ?? document.body`，并监听 `fullscreenchange`；单条 toast 的自动消失计时器在鼠标 hover 时暂停，移出后继续。
 
 **原因：** `douyuex` 使用的 `NoticeJs` 提供了 hover 暂停和进度条，但仍是挂到 `document.body` 的普通 fixed 容器。斗鱼播放器或网页全屏会改变可见顶层容器，单纯调高 `z-index` 不一定可靠。保留本地实现并补全 fullscreen host 迁移，可以减少依赖，同时解决当前直播画面偶尔压住 toast 的问题。
+
+## D024：常用小型 `@require` 依赖本地化为共享模块
+
+**日期：** 2026-07-08
+
+**决策：** 对体积小、常用、且已经被多个自用脚本依赖的 `MSCSTSTS-TOOLS.js`，不再继续作为远程 `@require` 保留，而是迁移为 `userscripts/shared/mscststs.js`，由需要的 package 通过 ESM import 引入。
+
+**原因：** `douyin-live-optimizer` 在 dev 调试中出现 `ReferenceError: mscststs is not defined`，说明迁移后的 Vite 模块源码继续依赖 Tampermonkey 外部全局会让开发链路不稳定。`MSCSTSTS-TOOLS.js` 只有 `sleep`、`wait` 和 `hijackXMLHttpRequest` 三类能力，体积小且在抖音、快手、小红书等脚本中重复出现，放在本地共享模块更利于跨机器同步、测试和后续复用。
+
+## D025：开发服务使用单端口路径式 gateway
+
+**日期：** 2026-07-12
+
+**状态：** 已由 D028 取代。
+
+**决策：** 保持“每个 userscript 一个 package、一个内部 Vite worker”的结构，
+但 Tampermonkey 统一通过 `127.0.0.1:5173/<package>/` 访问。根目录 `pnpm dev`
+启动 gateway、内部 worker 和 HTTP/WebSocket 代理；worker 就绪后自动打开选中 package
+的安装页。
+
+**原因：** `vite-plugin-monkey` 把安装、entry 和 pull 路由固定在 Vite server 根路径，
+多个实例不能直接共享一个 server。仅固定多个端口虽然能阻止漂移，但仍会把 worker 端口
+暴露给 Tampermonkey。gateway 将插件路由和 Vite HMR WebSocket 按 package path 隔离，
+使外部安装地址只依赖一个固定端口；内部端口仅作为实现细节。
+
+## D026：通过 GitHub Pages 分发生产版 userscript
+
+**日期：** 2026-07-11
+
+**决策：** 使用 `ccccHz/userscripts` 保存源码；push 到 `main` 后由 GitHub Actions
+执行验证、构建并部署到 `https://ccccHz.github.io/userscripts/`。每个 package 同时生成
+`.user.js` 和 `.meta.js`，分别作为 `@downloadURL` 和 `@updateURL`。metadata 版本统一读取
+package 的 `package.json`。
+
+**原因：** 本地 `dist/` 适合开发检查，但不能提供跨机器稳定更新。Pages URL 固定，
+`.meta.js` 可以降低版本检查开销；以 `package.json` 为唯一版本来源，可以避免 metadata
+版本和 package 版本不一致。保留原 `@namespace`，确保已安装脚本不会因发布迁移被识别为
+另一个脚本。
+
+## D027：迁移包只保留可移植和可远程更新的脚本
+
+**日期：** 2026-07-15
+
+**决策：** 清理后的 Tampermonkey 导入 ZIP 包含两类脚本：本工作区已完成 dev 验证的
+6 个生产构建版本，以及原导出包中已启用且已有第三方远程更新来源的 8 个脚本。
+尚未迁移的 `file://` 脚本、空实现、测试脚本和停用/失效脚本不进入迁移包。
+
+**原因：** 新浏览器导入包的目标是开箱可用并能继续远程更新。保留本地绝对路径会让脚本
+在另一台机器失效；混入测试和停用脚本也会重新引入已整理掉的噪声。对 6 个自有脚本，
+保留原导出 UUID、storage 和位置设置，同时启用更新检查并将 `file_url` 对齐到正式
+GitHub Pages `@downloadURL`。
+
+## D027：开发版统一拉取本地单文件 bundle
+
+**日期：** 2026-07-13
+
+**状态：** 已由 D028 取代。
+
+**决策：** dev gateway 不再把 Vite ES module 作为外链脚本插入目标页面。`pnpm dev`
+改为使用 Vite watch 持续生成单文件 bundle；开发版 loader 通过
+`GM_xmlhttpRequest` 拉取 bundle，在 userscript sandbox 中执行，并在 bundle 变化时刷新页面。
+`GM_xmlhttpRequest` 和 `@connect 127.0.0.1` 只加入开发版安装响应，package 配置和生产构建
+保持原权限。
+
+**原因：** `vite-plugin-monkey` 默认通过页面原生 `script[type="module"]` 加载 dev
+entry。快手、虎牙、NGA、Wikipedia 等页面可能通过 Content Security Policy 禁止加载
+`127.0.0.1`，表现为脚本标签存在但入口、日志和 HMR 都不执行。实测 `GM_addElement`
+仍不能稳定绕过这类限制，因此改为由 Tampermonkey 主动请求构建产物；代价是源码变化时
+使用整页刷新而不是 Vite HMR，但开发链路不再依赖站点 CSP，也不需要维护站点黑名单。
+
+## D028：开发版回归官方单 package Vite serve
+
+**日期：** 2026-07-14
+
+**决策：** 每个 package 的 `dev` 命令直接执行 `vite`，同一时间只启动一个 userscript。
+根目录 `pnpm dev -- <package-name>` 仅作为单 package 选择器，不再承担 HTTP gateway、
+构建 watch、loader 生成或代码执行。开发期使用 `vite-plugin-monkey` 原生安装页和 HMR；
+受目标站点 CSP 阻止时，由开发者自行启用官方文档建议的 `Disable-CSP` 扩展。
+
+**原因：** 日常调试通常只专注一个脚本，同时运行所有 package 增加了端口、残留进程和
+安装页管理成本。官方模式链路更短，保留完整 Vite HMR，也避免长期维护
+`GM_xmlhttpRequest`、`eval`、bundle hash 轮询和整页刷新等自定义运行时。代价是开发时
+需要临时放宽目标站点 CSP；该扩展只应在开发期间、并尽量限定到正在调试的站点。
+
+## D029：单 package 开发统一从 5173 起自动顺延
+
+**日期：** 2026-07-15
+
+**决策：** 所有 package 的 Vite dev server 都以 `127.0.0.1:5173` 为默认地址，不设置
+`strictPort`。如果 5173 已被占用，使用 Vite 默认行为自动尝试 5174、5175 等后续端口。
+
+**原因：** 当前开发方式一次只专注一个 userscript，为每个 package 永久分配不同端口
+没有实际收益。统一默认端口能让绝大多数开发安装地址保持稳定；偶尔存在残留服务时，
+自动顺延又比直接启动失败更方便，终端仍会明确显示本次实际端口。

@@ -1,6 +1,6 @@
 # Tampermonkey 脚本整理清单
 
-最后更新：2026-07-04
+最后更新：2026-07-08
 
 来源：`/Users/chz/Desktop/69be9746-2600-415c-9a72-e22c2d5fcbac.zip`
 
@@ -44,17 +44,17 @@
 | 脚本 | Tampermonkey 状态 | 导出版本 | 当前判断 | 下一步 |
 | --- | --- | --- | --- | --- |
 | `斗鱼每日自动保底续荧光棒` | 停用 | `0.126` | 已迁移到 `userscripts/packages/auto-fans-continue`，工作区版本已继续演进 | 先验证开发版和生产版，不再从导出包迁一次 |
+| `skip ads` | 启用 | `2025-02-28` | 已迁移到 `userscripts/packages/skip-ads`，保留原 `nga/main.js` 行为和导出包 metadata | 验证开发版和生产版后替换 Tampermonkey 中的 `file://` 安装 |
+| `huya extend` | 启用 | `0.1` | 已迁移到 `userscripts/packages/huya-extend`，保留原 `huya/main.js` 行为和导出包 metadata | 验证开发版和生产版后替换 Tampermonkey 中的 `file://` 安装 |
+| `抖音直播优化` | 启用 | `2025-07-03` | 已迁移到 `userscripts/packages/douyin-live-optimizer`，保留原 DOM 规则；`MSCSTSTS-TOOLS.js` 已改为本地共享 `shared/mscststs.js` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
+| `快手直播优化` | 启用 | `2025-10-04` | 已迁移到 `userscripts/packages/kuaishou-live-optimizer`，保留原礼物列表处理逻辑；`MSCSTSTS-TOOLS.js` 已改为本地共享 `shared/mscststs.js` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
+| `wikipedia auto dark` | 启用 | `2025-01-28` | 已迁移到 `userscripts/packages/wikipedia-auto-dark`，保留原主题 class 切换逻辑和 `@run-at document-end` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
 
 ## 迁移优先
 
 | 优先级 | 脚本 | Tampermonkey 状态 | 入口或候选来源 | 判断 | 下一步 |
 | --- | --- | --- | --- | --- | --- |
-| P0 | `huya extend` | 启用 | `/Users/chz/myWorkSpace/myJS/直播插件/huya/main.js` | 当前仍在用，`file://` 指向本仓库，适合迁成 package | 确认 metadata 后迁移 |
-| P0 | `skip ads` | 启用 | `/Users/chz/myWorkSpace/myJS/直播插件/nga/main.js` | 当前仍在用，`file://` 指向本仓库，适合迁成 package | 确认 `@match` 后迁移 |
-| P0 | `抖音直播优化` | 启用 | `douyin/main.js` 可能是源码入口 | 当前启用，无远程更新地址，仓库已有 `douyin/main.js` | 对齐导出脚本和本地源码后迁移 |
-| P1 | `快手直播优化` | 启用 | 导出包中的 `.user.js` | 当前启用，无远程更新地址；仓库中未发现明确 `kuaishou/` 源码目录 | 如果仍要保留，从导出包源码迁移 |
-| P1 | `微博直播夜间模式` | 启用 | 导出包中的 `.user.js` | 当前启用，无远程更新地址，看起来是小型自用脚本 | 如果仍要保留，从导出包源码迁移 |
-| P2 | `wikipedia auto dark` | 启用 | 导出包中的 `.user.js` | 当前启用，无远程更新地址，功能独立 | 可后置迁移 |
+| P1 | `微博直播夜间模式` | 启用 | 导出包中的 `.user.js` | 导出源码只有空 IIFE，未发现实际行为 | 先不迁移；确认是否删除或补实现 |
 
 ## 外部本地脚本
 

@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-07-05
+最后更新：2026-07-15
 
 ## 状态说明
 
@@ -11,9 +11,16 @@
 
 ## 当前工作
 
+- [x] 开发方式回归 `vite-plugin-monkey` 官方的单 package `vite serve`；升级到 Vite 8，开发期由 `Disable-CSP` 扩展处理目标站点 CSP。
+
 - [~] 在 Tampermonkey 和斗鱼网页中验证 `auto-fans-continue` 的开发版与生产版 userscript。
 - [~] 根据 `docs/tampermonkey-inventory.md`，优先迁移仍在用且依赖 `file://` 本地文件的脚本，目标是让这些脚本进入 git 管理，便于其他机器同步和更新。
-- [ ] 确认下一个迁移入口，候选为 `huya/main.js`、`nga/main.js`、`douyin/main.js`。
+- [~] 验证新迁移的 `skip-ads` / `nga` package。
+- [~] 验证新迁移的 `huya-extend` / `huya` package。
+- [~] 验证新迁移的 `douyin-live-optimizer` / `douyin` package。
+- [~] 验证新迁移的 `kuaishou-live-optimizer` package。
+- [~] 验证新迁移的 `wikipedia-auto-dark` package。
+- [!] 确认 `微博直播夜间模式` 是否删除或补实现；导出包中当前只有空 IIFE。
 
 ## 迁移清单
 
@@ -21,11 +28,14 @@
 | --- | --- | --- | --- |
 | `autoFansContinue` | 附件中的实际在用脚本 / `AutoFansContinue.user.js` | 等待浏览器验证 | 已按实际在用脚本对齐；每日执行状态使用 `localStorage`；续牌核心参考 `douyuEX_new`。当前策略为每个粉丝牌直播间送 1 个，剩余荧光棒全部送默认房间 `12306`。验证入口收窄为 `https://www.douyu.com/*`，避免从其他子域名跨源读取斗鱼接口。日志优先走 `GM_log`，运行状态也可检查 `window.__chzAutoFansContinue`。 |
 | `biliDM` | 未识别 | 阻塞 | 目录中包含库和实验项目，但未发现 `==UserScript==` 入口。 |
-| `douyin` | `main.js` | 未开始 | `origin.js` 暂作为历史/参考版本保留。 |
+| `douyin` | `main.js` / Tampermonkey `抖音直播优化` | 等待浏览器验证 | 已迁移为 `userscripts/packages/douyin-live-optimizer`，metadata 来自源码和导出包；`MSCSTSTS-TOOLS.js` 已改为本地共享模块 `shared/mscststs.js`，避免 dev 阶段缺少全局 `mscststs`。已补底部礼物栏、全屏 `游戏` 入口和 `屏蔽礼物特效` 逻辑；仍需真实直播页验证。`origin.js` 暂作为历史/参考版本保留。 |
 | `douyu-ban` | 未确认 | 阻塞 | 存在多个实验入口，并且原目录有未提交修改。 |
-| `huya` | `main.js` | 阻塞 | 裸脚本，需要确认目标 `@match` metadata。 |
-| `nga` | `main.js` | 阻塞 | 裸脚本，需要确认目标 `@match` metadata。 |
+| `huya` | `main.js` / Tampermonkey `huya extend` | 等待浏览器验证 | 已迁移为 `userscripts/packages/huya-extend`，metadata 来自 Tampermonkey 导出：`https://www.huya.com/*`，`grant` 保持 `none`。 |
+| `kuaishou-live-optimizer` | Tampermonkey `快手直播优化` | 等待浏览器验证 | 已迁移为 `userscripts/packages/kuaishou-live-optimizer`，metadata 来自导出包；`MSCSTSTS-TOOLS.js` 已改为本地共享模块 `shared/mscststs.js`。 |
+| `nga` | `main.js` / Tampermonkey `skip ads` | 等待浏览器验证 | 已迁移为 `userscripts/packages/skip-ads`，metadata 来自 Tampermonkey 导出：`https://bbs.nga.cn/*`、`https://nga.178.com/*`，`grant` 保持 `none`。 |
 | `weiboLive` | `main.js` | 阻塞 | 当前文件看起来是已经生成的 React userscript bundle。 |
+| `weibo-live-dark` | Tampermonkey `微博直播夜间模式` | 需要决策 | 导出包中只有空 IIFE，没有实际行为；先不创建 package。 |
+| `wikipedia-auto-dark` | Tampermonkey `wikipedia auto dark` | 等待浏览器验证 | 已迁移为 `userscripts/packages/wikipedia-auto-dark`，metadata 来自导出包；保留 `@run-at document-end`。 |
 
 ## 工作区检查表
 
@@ -48,12 +58,32 @@
 - [x] 为续牌计划、斗鱼 API 封装和主流程补充自动化测试。
 - [x] 建立 Tampermonkey 全量脚本整理清单。
 - [~] 将仍在用且依赖 `file://` 的脚本逐步迁移为 git 管理的 userscript package。
+- [x] 将 `skip ads` / `nga/main.js` 迁移为 `userscripts/packages/skip-ads`。
+- [x] 将 `huya extend` / `huya/main.js` 迁移为 `userscripts/packages/huya-extend`。
+- [x] 将 `抖音直播优化` / `douyin/main.js` 迁移为 `userscripts/packages/douyin-live-optimizer`。
+- [x] 将 `快手直播优化` 从导出包迁移为 `userscripts/packages/kuaishou-live-optimizer`。
+- [x] 将 `wikipedia auto dark` 从导出包迁移为 `userscripts/packages/wikipedia-auto-dark`。
+- [x] 将常用小工具 `MSCSTSTS-TOOLS.js` 本地化为 `shared/mscststs.js`，并让 `douyin-live-optimizer` / `kuaishou-live-optimizer` 通过 ESM import 共享。
+- [x] 为 `douyin-live-optimizer` 增加 `#BottomLayout`、`gifts-container`、`gifts-switch`、全屏 `游戏` 入口和旧 `.gitBarOptimizeEnabled` 的底部礼物栏清理规则。
+- [x] 为 `douyin-live-optimizer` 增加 `data-e2e="gift-setting"` -> `data-e2e="effect-switch" > div` / `屏蔽礼物特效` 的自动开关逻辑；2026-07-10 通过 Console 确认内层轨道 `.click()` 有效。
+- [x] 捕捉 `帮主播完成心愿吧` / 主播心愿 tooltip DOM，并替换当前占位 selector。
+- [!] 暂不迁移 `微博直播夜间模式`；导出包中未发现实际逻辑。
 - [x] 将 `auto-fans-continue` 的测试阶段策略改为只给每个粉丝牌直播间送 1 个，暂不默认赠送剩余荧光棒。
 - [x] 将 `auto-fans-continue` 的默认策略恢复为剩余荧光棒全送 `12306`。
 - [x] 移除斗鱼 API 请求里的 `mode: "no-cors"`，避免背包接口响应 body 不可读导致 `Unexpected end of input`。
 - [x] 为 `auto-fans-continue` 增加斗鱼页面可用的 `GM_log` 日志通道和 `window.__chzAutoFansContinue` 运行状态入口。
 - [x] 为 `auto-fans-continue` 增加状态级 toast 提示。
 - [x] 将 `auto-fans-continue` 的赠送请求从串行改为默认最多 4 个并发。
+- [ ] 在 Tampermonkey 中验证 `skip-ads` 开发版 userscript。
+- [ ] 在 NGA 页面中验证 `skip-ads` 生产版 userscript。
+- [ ] 在 Tampermonkey 中验证 `huya-extend` 开发版 userscript。
+- [ ] 在虎牙页面中验证 `huya-extend` 生产版 userscript。
+- [ ] 在 Tampermonkey 中验证 `douyin-live-optimizer` 开发版 userscript。
+- [ ] 在抖音直播页面中验证 `douyin-live-optimizer` 生产版 userscript。
+- [ ] 在 Tampermonkey 中验证 `kuaishou-live-optimizer` 开发版 userscript。
+- [ ] 在快手直播页面中验证 `kuaishou-live-optimizer` 生产版 userscript。
+- [ ] 在 Tampermonkey 中验证 `wikipedia-auto-dark` 开发版 userscript。
+- [ ] 在 Wikipedia 页面中验证 `wikipedia-auto-dark` 生产版 userscript。
 
 ## 单脚本迁移检查表
 
@@ -77,12 +107,65 @@
 - `huya/main.js` 和 `nga/main.js` 应该匹配哪些目标 URL？
 - `weiboLive/main.js` 是否有可维护源码？
 - 行为对齐后，旧脚本是否继续使用全局 GM API，还是改为从 `vite-plugin-monkey` 的 ESM API 导入？
-- 迁移后的脚本优先使用 GitHub raw、release 产物，还是继续保留本地构建产物安装？
+- GitHub Pages 首次发布后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
 
 ## 活动记录
 
+### 2026-07-15
+
+- 所有单 package dev server 统一从 `127.0.0.1:5173` 启动；端口被占用时由 Vite 自动顺延到 5174、5175 等后续端口。
+
+### 2026-07-14
+
+- 将 Vite 升级到 8，并同步升级 `vite-plugin-monkey` 8。
+- 每个 package 的 `dev` 改回官方模板使用的 `vite`；根命令要求明确指定一个 package，不再默认并发启动全部脚本。
+- 移除 dev gateway、`GM_xmlhttpRequest` loader、bundle 轮询和整页刷新，恢复插件原生安装页与 Vite HMR。
+- CSP 处理采用官方文档建议的 `Disable-CSP` 扩展，由开发者仅在调试期间启用。
+
+### 2026-07-12
+
+- 新增单端口路径式 dev gateway：所有开发版固定使用 `127.0.0.1:5173/<package>/install.user.js`，内部 Vite worker 端口不再进入 Tampermonkey 安装地址。
+- gateway 代理 `vite-plugin-monkey` 安装/entry 路由、Vite 模块和 HMR WebSocket；实测安装脚本 origin、`/@vite/client`、`/src/main.js` 和 WebSocket 握手均能按 package path 工作。
+- `pnpm dev` 默认启动全部 package，并在 worker 就绪后自动打开所有 Tampermonkey 安装页；支持传入 package 子集和 `--no-open`。
+
+### 2026-07-11
+
+- 新增共享 `shared/userscript-config.ts`：统一读取 package 版本，生成 `.user.js` / `.meta.js`，并注入 GitHub Pages 的 `@updateURL` / `@downloadURL`。
+- 确定 `ccccHz/userscripts` 为源码仓库，`https://ccccHz.github.io/userscripts/` 为生产版分发入口；保留每个脚本原有 `@namespace`。
+- 新增 GitHub Pages workflow 和 `scripts/prepare-pages.mjs`，push 到 `main` 后自动测试、类型检查、构建、汇总并部署所有 userscript。
+- 提高所有 package 的首次 Pages 发布版本，确保已安装旧版本能识别生产更新。
+
+### 2026-07-08
+
+- 修复 `douyin-live-optimizer` dev 调试时 `ReferenceError: mscststs is not defined` 的迁移缺口：不再依赖远程 `@require` 提供全局变量。
+- 从 Tampermonkey 导出包缓存中提取 `MSCSTSTS-TOOLS.js` 的 `sleep`、`wait`、`hijackXMLHttpRequest` 能力，落为 `userscripts/shared/mscststs.js` 本地共享 ESM 模块。
+- `douyin-live-optimizer` 和 `kuaishou-live-optimizer` 改为 `import mscststs from "../../../shared/mscststs.js"`；对应 `vite.config.ts` 移除 `require` 字段。
+- 新增 `test/mscststs.test.mjs` 覆盖共享 helper API、DOM 轮询和 `XMLHttpRequest` hook；更新 workspace 结构测试，防止 live optimizer package 回退到远程 `@require`。
+- 将 `douyin-live-optimizer` 的底部礼物栏清理抽为 `src/dom-cleanup.js`：优先删除 `#BottomLayout`，没有该容器时通过 `data-e2e="gifts-container"` / `data-e2e="gifts-switch"` / `#giftPanelEntrance` 找到共享礼物栏根节点，并保留旧 `.gitBarOptimizeEnabled` 向上查找兜底。
+- 补充全屏底部 `游戏` 入口清理：通过 `iframe[data-container-id^="@annie/web_"]` 作为唤醒目标，再向上确认包含 `游戏` 文本的根容器，避免误删无关 annie iframe。
+- 修复全屏底部清理误删播放器的问题：真实页面中播放器 `ServiceCenterLayout` 也存在 `@annie/web_...` iframe，不能无限向上爬到包含底部 `游戏` 文本的大容器；当前只在 iframe 附近几层紧凑布局内寻找游戏栏根节点。
+- 将 `屏蔽礼物特效` 从占位 selector 改为本地模块 `src/gift-effects.js`：`data-e2e="gift-setting"` 始终存在，实机 Console 已确认 hover 事件可打开菜单；当前实现随后短轮询 `data-e2e="effect-switch"`，判断状态并点击第一层子节点轨道，100ms 后发送 leave 事件并移动到播放器中央，使菜单立即收起，同时保留任务锁防止 SPA 路由重复切换。
+- 新增 `src/wish-popup.js`：使用持续的 `MutationObserver` 监听 `.dylive-tooltip`，匹配 `帮主播完成心愿吧` 或 `点亮展馆帮主播集星` 后删除整块 tooltip，支持多个目标弹层先后出现；同时保留 `[data-e2e="exhibition-banner"] .dylive-tooltip` 作为旧结构兜底，但不再为该 selector 单独启动无限等待。
+- 抽出 `src/runtime-events.js` 统一处理 URL 变化和全屏变化：URL 变化继续重跑主流程，`fullscreenchange` 只重新清理底部礼物栏。
+- 新增 `packages/douyin-live-optimizer/test/dom-cleanup.test.mjs`、`test/gift-effects.test.mjs`、`test/wish-popup.test.mjs` 和 `test/runtime-events.test.mjs`，覆盖 `#BottomLayout`、普通礼物栏、全屏礼物入口、全屏 `游戏` 入口、播放器服务区 annie iframe 不能被误删、旧标记、礼物特效开关、`effect-switch`、礼物设置菜单延迟渲染、哈希 class 右侧开关、心愿 tooltip 清理和全屏事件重清理。
+- 验证命令：`pnpm test`、`pnpm -r type-check`、`pnpm -r build`。
+
 ### 2026-07-06
 
+- 将 Tampermonkey 中仍启用的 `skip ads` 从 `file://` 引用迁移为 `userscripts/packages/skip-ads`。
+- 保留原 `nga/main.js` 行为：移除 `localStorage` 中的 `adslazyload_bbs_ads12`。
+- 根据导出包保留 `skip ads` metadata：匹配 `https://bbs.nga.cn/*` 和 `https://nga.178.com/*`，`grant` 为 `none`。
+- 将 Tampermonkey 中仍启用的 `huya extend` 从 `file://` 引用迁移为 `userscripts/packages/huya-extend`。
+- 保留原 `huya/main.js` 行为：更新 `localStorage.preadShow`，等待清晰度列表并点击可用的高清晰度选项。
+- 根据导出包保留 `huya extend` metadata：匹配 `https://www.huya.com/*`，`grant` 为 `none`。
+- 将当前启用的 `抖音直播优化` / `douyin/main.js` 迁移为 `userscripts/packages/douyin-live-optimizer`。
+- 保留原抖音脚本的 DOM 移除、继续播放点击、礼物特效开关、清晰度选择和 history URL 变化重新执行逻辑。
+- 初次迁移时保留 `MSCSTSTS-TOOLS.js` 为外部 `@require`；将原源码中的 `(timeout = 50)` 改为显式参数 `50`，避免 Vite 产物的 strict mode 下出现隐式全局赋值错误。该外部依赖已在 2026-07-08 改为本地共享模块。
+- 将当前启用的 `快手直播优化` 从 Tampermonkey 导出包迁移为 `userscripts/packages/kuaishou-live-optimizer`。
+- 保留原快手脚本的礼物列表等待和移除 `.foot` 逻辑；初次迁移时保留 `MSCSTSTS-TOOLS.js` 为外部 `@require`，并将 `(timeout = 50)` 改为显式参数 `50`。该外部依赖已在 2026-07-08 改为本地共享模块。
+- 将当前启用的 `wikipedia auto dark` 从 Tampermonkey 导出包迁移为 `userscripts/packages/wikipedia-auto-dark`。
+- 保留原 Wikipedia 脚本的主题 class 切换逻辑和 `@run-at document-end`。
+- 检查 `微博直播夜间模式` 导出源码，确认当前只有空 IIFE，因此先不创建 package，后续决定删除或补实现。
 - 对比 `douyuex` 的 `NoticeJs` toast 后，保留本地轻量 toast；新增 fullscreen host 挂载和 hover 暂停自动消失，减少直播画面层级遮挡。
 - 修复恢复剩余全送后的并发顺序问题：粉丝牌房间赠送可并发，剩余全送必须等待续牌批次结束后再执行；全失败时不再标记当天已执行。
 

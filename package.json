@@ -10,14 +10,17 @@
     "node": "24.14.0"
   },
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "build": "pnpm -r build",
+    "prepare-pages": "node scripts/prepare-pages.mjs",
+    "prepare-tampermonkey-import": "python3 scripts/prepare_tampermonkey_import.py",
     "type-check": "pnpm -r type-check",
     "test": "node --test",
     "validate": "node scripts/inspect-workspace.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vite": "^7.1.7",
-    "vite-plugin-monkey": "^7.1.4"
+    "vite": "^8.0.11",
+    "vite-plugin-monkey": "^8.0.0"
   }
 }
