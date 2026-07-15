@@ -1,6 +1,6 @@
 # Userscript TODO
 
-最后更新：2026-07-14
+最后更新：2026-07-15
 
 这个文档承接旧目录 `UserScript/readme.md` 中的待办内容。旧目录原本用于规划 userscript 统一管理和斗鱼相关功能重构；内容已迁移到这里，旧目录随后清理。
 
@@ -72,7 +72,8 @@
 - [ ] 完成 `kuaishou-live-optimizer` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
 - [ ] 完成 `wikipedia-auto-dark` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
 - [x] 开发方式回归官方单 package `vite serve`，使用原生 HMR；目标站点 CSP 在开发期通过 `Disable-CSP` 处理。
-- [ ] 设计并完成 build 发布流程：复核 GitHub Pages / raw 分发选择、版本提升规则、`.user.js` / `.meta.js` 产物、`@updateURL` / `@downloadURL`、GitHub Actions 和首次生产版安装更新验证。当前暂不启用正式发布。
+- [x] 完成 build 发布流程：使用 GitHub Pages 分发，package 版本驱动 `.user.js` / `.meta.js`，注入 `@updateURL` / `@downloadURL`，并由 GitHub Actions 自动测试、构建和发布。
+- [ ] 在另一浏览器导入清理包后，逐个执行 Tampermonkey 的“检查用户脚本更新”，完成首次生产版安装更新验证。
 - [ ] 首次迁移时保留旧脚本行为，不同时做大规模重构。
 - [~] 行为验证通过后，再继续评估是否抽取更多共享工具和 ESM GM API；`mscststs` 已先因 dev 调试问题本地化。
 

@@ -43,12 +43,12 @@
 
 | 脚本 | Tampermonkey 状态 | 导出版本 | 当前判断 | 下一步 |
 | --- | --- | --- | --- | --- |
-| `斗鱼每日自动保底续荧光棒` | 停用 | `0.126` | 已迁移到 `userscripts/packages/auto-fans-continue`，工作区版本已继续演进 | 先验证开发版和生产版，不再从导出包迁一次 |
-| `skip ads` | 启用 | `2025-02-28` | 已迁移到 `userscripts/packages/skip-ads`，保留原 `nga/main.js` 行为和导出包 metadata | 验证开发版和生产版后替换 Tampermonkey 中的 `file://` 安装 |
-| `huya extend` | 启用 | `0.1` | 已迁移到 `userscripts/packages/huya-extend`，保留原 `huya/main.js` 行为和导出包 metadata | 验证开发版和生产版后替换 Tampermonkey 中的 `file://` 安装 |
-| `抖音直播优化` | 启用 | `2025-07-03` | 已迁移到 `userscripts/packages/douyin-live-optimizer`，保留原 DOM 规则；`MSCSTSTS-TOOLS.js` 已改为本地共享 `shared/mscststs.js` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
-| `快手直播优化` | 启用 | `2025-10-04` | 已迁移到 `userscripts/packages/kuaishou-live-optimizer`，保留原礼物列表处理逻辑；`MSCSTSTS-TOOLS.js` 已改为本地共享 `shared/mscststs.js` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
-| `wikipedia auto dark` | 启用 | `2025-01-28` | 已迁移到 `userscripts/packages/wikipedia-auto-dark`，保留原主题 class 切换逻辑和 `@run-at document-end` | 验证开发版和生产版后替换 Tampermonkey 中的旧安装 |
+| `斗鱼每日自动保底续荧光棒` | 停用 | `0.126` | 已发布 `auto-fans-continue@0.129.0`，并进入清理导入包 | 导入后验证 Tampermonkey 远程检查更新 |
+| `skip ads` | 启用 | `2025-02-28` | 已发布 `skip-ads@2026.7.15`，并用正式版本替换清理包中的 `file://` 安装 | 导入后验证 NGA 页面和远程更新 |
+| `huya extend` | 启用 | `0.1` | 已发布 `huya-extend@0.2.0`，并用正式版本替换清理包中的 `file://` 安装 | 导入后验证虎牙页面和远程更新 |
+| `抖音直播优化` | 启用 | `2025-07-03` | 已发布 `douyin-live-optimizer@2026.7.15`，并进入清理导入包 | 导入后验证抖音直播页和远程更新 |
+| `快手直播优化` | 启用 | `2025-10-04` | 已发布 `kuaishou-live-optimizer@2026.7.15`，并进入清理导入包 | 导入后验证快手直播页和远程更新 |
+| `wikipedia auto dark` | 启用 | `2025-01-28` | 已发布 `wikipedia-auto-dark@2026.7.15`，并进入清理导入包 | 导入后验证 Wikipedia 页面和远程更新 |
 
 ## 迁移优先
 

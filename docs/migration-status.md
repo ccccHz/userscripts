@@ -46,6 +46,8 @@
 - [x] 安装依赖。
 - [x] 运行结构验证、类型检查和生产构建。
 - [x] 检查生成的 userscript metadata。
+- [x] 将 6 个已迁移脚本发布到 GitHub Pages，并逐一验证远程 `.user.js` 与本地构建产物 SHA-256 一致。
+- [x] 生成包含 6 个工作区正式版本和 8 个可远程更新第三方脚本的 Tampermonkey 清理导入包。
 - [ ] 在 Tampermonkey 中验证开发版 userscript。
 - [ ] 在目标网站中验证生产版 userscript。
 - [x] 将旧 `UserScript/readme.md` 整理进 `docs/todo.md`。
@@ -107,12 +109,16 @@
 - `huya/main.js` 和 `nga/main.js` 应该匹配哪些目标 URL？
 - `weiboLive/main.js` 是否有可维护源码？
 - 行为对齐后，旧脚本是否继续使用全局 GM API，还是改为从 `vite-plugin-monkey` 的 ESM API 导入？
-- GitHub Pages 首次发布后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
+- 在另一浏览器导入清理包后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
 
 ## 活动记录
 
 ### 2026-07-15
 
+- 创建并推送公开仓库 `ccccHz/userscripts`，启用 GitHub Actions 作为 GitHub Pages 发布源。
+- 发布 6 个已完成 dev 测试的生产构建：`auto-fans-continue@0.129.0`、`douyin-live-optimizer@2026.7.15`、`huya-extend@0.2.0`、`kuaishou-live-optimizer@2026.7.15`、`skip-ads@2026.7.15`、`wikipedia-auto-dark@2026.7.15`。
+- 验证 6 份远程 `.meta.js` 的版本和更新地址，并确认 6 份远程 `.user.js` 与本地 `site/` 产物 SHA-256 完全一致。
+- 新增 `scripts/prepare_tampermonkey_import.py`，基于原始 Tampermonkey 导出 ZIP 生成清理后的跨浏览器导入包；本次导入包含 14 个启用脚本，其中 6 个为当前正式构建、8 个沿用可信远程更新来源。
 - 所有单 package dev server 统一从 `127.0.0.1:5173` 启动；端口被占用时由 Vite 自动顺延到 5174、5175 等后续端口。
 
 ### 2026-07-14
