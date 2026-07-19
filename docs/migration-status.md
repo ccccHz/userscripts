@@ -119,7 +119,7 @@
 - 发布 6 个已完成 dev 测试的生产构建：`auto-fans-continue@0.129.0`、`douyin-live-optimizer@2026.7.15`、`huya-extend@0.2.0`、`kuaishou-live-optimizer@2026.7.15`、`skip-ads@2026.7.15`、`wikipedia-auto-dark@2026.7.15`。
 - 验证 6 份远程 `.meta.js` 的版本和更新地址，并确认 6 份远程 `.user.js` 与本地 `site/` 产物 SHA-256 完全一致。
 - 新增 `scripts/prepare_tampermonkey_import.py`，基于原始 Tampermonkey 导出 ZIP 生成清理后的跨浏览器导入包；本次导入包含 14 个启用脚本，其中 6 个为当前正式构建、8 个沿用可信远程更新来源。
-- 所有单 package dev server 统一从 `127.0.0.1:5173` 启动；端口被占用时由 Vite 自动顺延到 5174、5175 等后续端口。
+- 所有单 package dev server 统一从 `localhost:5173` 启动；端口被占用时由 Vite 自动顺延到 5174、5175 等后续端口。斗鱼 CSP 已允许 `http://localhost:*`，同时仍需在 Chromium 中为目标站点开启本地/环回网络访问权限。
 
 ### 2026-07-14
 

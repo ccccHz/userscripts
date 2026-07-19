@@ -289,12 +289,17 @@ entry。快手、虎牙、NGA、Wikipedia 等页面可能通过 Content Security
 
 **日期：** 2026-07-15
 
-**决策：** 所有 package 的 Vite dev server 都以 `127.0.0.1:5173` 为默认地址，不设置
+**决策：** 所有 package 的 Vite dev server 都以 `localhost:5173` 为默认地址，不设置
 `strictPort`。如果 5173 已被占用，使用 Vite 默认行为自动尝试 5174、5175 等后续端口。
 
 **原因：** 当前开发方式一次只专注一个 userscript，为每个 package 永久分配不同端口
 没有实际收益。统一默认端口能让绝大多数开发安装地址保持稳定；偶尔存在残留服务时，
 自动顺延又比直接启动失败更方便，终端仍会明确显示本次实际端口。
+
+**2026-07-19 补充：** host 从 `127.0.0.1` 改为 `localhost`。斗鱼当前 CSP 已明确允许
+`http://localhost:*`，但不允许 `http://127.0.0.1:*`；使用 `localhost` 可以让
+`vite-plugin-monkey` 的开发入口直接命中站点白名单。Chromium 的本地/环回网络访问权限仍需
+由用户对目标站点单独授权，这与 CSP 是两层不同的浏览器限制。
 
 ## D030：`auto-fans-continue` 增加运行中锁防止重复注入并发执行
 

@@ -26,7 +26,7 @@ export function createUserscriptConfig(
   const metaFileName = `${packageName}.meta.js`;
   return defineConfig({
     server: {
-      host: "127.0.0.1",
+      host: "localhost",
       port: devPort,
     },
     plugins: [
