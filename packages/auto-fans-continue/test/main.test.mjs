@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CHECKED_DATE_KEY } from "../src/run-state.js";
-import { runAutoFansContinue } from "../src/main.js";
+import {
+  PAGE_START_KEY,
+  claimPageStart,
+  runAutoFansContinue,
+} from "../src/main.js";
 
 function createStorage(initialValue) {
   const values = new Map();
@@ -22,6 +26,14 @@ function createStorage(initialValue) {
 }
 
 const silentLogger = { log() {} };
+
+test("claims each page only once", () => {
+  const pageTarget = { location: { href: "https://www.douyu.com/12306" } };
+
+  assert.equal(claimPageStart(pageTarget), true);
+  assert.equal(claimPageStart(pageTarget), false);
+  assert.equal(pageTarget[PAGE_START_KEY].href, "https://www.douyu.com/12306");
+});
 
 function createNotifier() {
   const messages = [];

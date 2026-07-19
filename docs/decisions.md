@@ -310,3 +310,17 @@ entry。快手、虎牙、NGA、Wikipedia 等页面可能通过 Content Security
 开发版、生产版或旧 `file://` 中转脚本同时启用，而不是赠送计划内部重复。每日完成标记
 只会在成功后写入，无法阻止两个实例在完成前同时开始；运行中锁用于防御这种并发入口。
 预检失败时仍不写入每日完成标记，后续打开斗鱼页面仍可再次尝试。
+
+## D031：`auto-fans-continue` 使用三层防重复执行
+
+**日期：** 2026-07-19
+
+**决策：** 在现有 `localStorage` 运行中锁之外，为 `auto-fans-continue` 增加两层前置防护：
+userscript metadata 声明 `@noframes`，避免 Tampermonkey 向匹配地址的 iframe 注入；脚本入口在
+共享的 `unsafeWindow.__chzAutoFansContinueStarted` 上同步记录当前 document 已启动，重复入口不再
+注册 `DOMContentLoaded` 回调。`localStorage` 锁继续保留为最后兜底。
+
+**原因：** 用户确认 Tampermonkey 中只启用了一个同功能脚本，因此重复执行仍可能来自同源 iframe
+注入，或同一 document 生命周期内的重复入口。`@noframes` 直接消除 iframe 注入来源；页面标记处理
+同一 document 内的重复启动；运行中锁覆盖不同 document、页面实例或前两层失效时的并发。三层职责
+不同，且赠送礼物属于不可逆操作，保留最后的存储锁是合理的防御措施。

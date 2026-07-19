@@ -23,6 +23,7 @@ import { createNotifier } from "./notifier.js";
 const SEND_NUM = 1;
 const SEND_DELAY_MS = 250;
 const SEND_CONCURRENCY = 4;
+export const PAGE_START_KEY = "__chzAutoFansContinueStarted";
 const defaultApi = {
   getBagGifts,
   getFanBadgeRoomIds,
@@ -40,6 +41,22 @@ function getGlobalValue(name) {
 
 function getPageTarget() {
   return getGlobalValue("unsafeWindow") ?? globalThis;
+}
+
+export function claimPageStart(target = getPageTarget()) {
+  if (!target) return true;
+
+  try {
+    if (target[PAGE_START_KEY]) return false;
+    target[PAGE_START_KEY] = {
+      startedAt: new Date().toISOString(),
+      href: target.location?.href ?? "",
+    };
+    return true;
+  } catch {
+    // The localStorage running lock remains the fallback if page state is unwritable.
+    return true;
+  }
 }
 
 const defaultLogger = createLogger(globalThis.console, {
@@ -250,5 +267,9 @@ function runMainWhenReady() {
 }
 
 if (typeof window !== "undefined") {
-  runMainWhenReady();
+  if (claimPageStart()) {
+    runMainWhenReady();
+  } else {
+    log(defaultLogger, "当前页面已启动过，跳过重复入口");
+  }
 }
