@@ -17,6 +17,8 @@ MIGRATED = {
     "huya extend": "huya-extend",
     "快手直播优化": "kuaishou-live-optimizer",
     "skip ads": "skip-ads",
+    "vimium-c blur input focus": "vimium-c-blur-input-focus",
+    "weibo improvement": "weibo-improvement",
     "wikipedia auto dark": "wikipedia-auto-dark",
 }
 
@@ -29,6 +31,28 @@ REMOTE_RETAINED = {
     "网盘直链下载助手",
     "微博PC直播弹幕助手",
     "小红书PC端直播美化脚本",
+}
+
+EXCLUDED_ENABLED = {
+    "server:test-vite-monkey": "vite-plugin-monkey 开发服务器残留",
+    "微博直播夜间模式": "只有空 IIFE，没有实际功能",
+}
+
+EXCLUDED_DISABLED = {
+    "mooc auto": "本地依赖路径失效",
+    "test ban socket": "旧实验入口",
+    "server:test": "vite-plugin-monkey 测试脚本",
+    "Bilibili Evolved (Local)": "已有远程正式版替代",
+    "DouyuEx_Meta": "仅保留仓库参考，不进入浏览器迁移包",
+    "New Userscript": "未命名停用脚本",
+    "New Userscript (1)": "未命名停用脚本",
+    "New Userscript (2)": "未命名停用脚本",
+    "Bilibili Live Banned Danmaku Marker": "用户确认不保留",
+    "bliveproxy-demo1": "用户确认不保留",
+    "douyu WS hook": "用户确认不保留",
+    "小红书直播优化": "已有启用的新版替代",
+    "抖音直播保持活跃 - 防止自动暂停": "用户确认不保留",
+    "赛道网聊天室拉黑助手": "用户确认不保留",
 }
 
 
@@ -79,6 +103,13 @@ def update_options(raw: bytes, script: str) -> bytes:
     return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode()
 
 
+def enable_remote_options(raw: bytes) -> bytes:
+    data = json.loads(raw)
+    data.setdefault("settings", {})["enabled"] = True
+    data.setdefault("options", {})["check_for_updates"] = True
+    return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode()
+
+
 def copy_remote_entries(source: zipfile.ZipFile, target: zipfile.ZipFile) -> list[str]:
     copied = []
     prefixes = tuple(f"{name}.user.js-" for name in REMOTE_RETAINED)
@@ -89,7 +120,10 @@ def copy_remote_entries(source: zipfile.ZipFile, target: zipfile.ZipFile) -> lis
     }
     for info in source.infolist():
         if info.filename in exact or info.filename.startswith(prefixes):
-            target.writestr(info, source.read(info))
+            content = source.read(info)
+            if info.filename.endswith(".options.json"):
+                content = enable_remote_options(content)
+            target.writestr(info, content)
             copied.append(info.filename)
     return copied
 
@@ -145,6 +179,8 @@ def main() -> None:
         "migrated": releases,
         "remote_retained": sorted(REMOTE_RETAINED),
         "remote_retained_files": len(copied),
+        "excluded_enabled": EXCLUDED_ENABLED,
+        "excluded_disabled": EXCLUDED_DISABLED,
         "script_count": len(MIGRATED) + len(REMOTE_RETAINED),
     }
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

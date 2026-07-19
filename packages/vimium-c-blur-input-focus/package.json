@@ -1,0 +1,11 @@
+{
+  "name": "vimium-c-blur-input-focus",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  }
+}

@@ -1,6 +1,6 @@
 # Userscript TODO
 
-最后更新：2026-07-15
+最后更新：2026-07-19
 
 这个文档承接旧目录 `UserScript/readme.md` 中的待办内容。旧目录原本用于规划 userscript 统一管理和斗鱼相关功能重构；内容已迁移到这里，旧目录随后清理。
 
@@ -27,6 +27,8 @@
 - [x] 迁移 `抖音直播优化` / `douyin/main.js` 为 `userscripts/packages/douyin-live-optimizer`。
 - [x] 迁移 `快手直播优化` 为 `userscripts/packages/kuaishou-live-optimizer`。
 - [x] 迁移 `wikipedia auto dark` 为 `userscripts/packages/wikipedia-auto-dark`。
+- [x] 迁移 `weibo improvement` 为 `userscripts/packages/weibo-improvement`，移除跨机器不可用的 `file://` 依赖。
+- [x] 迁移 `vimium-c blur input focus` 为 `userscripts/packages/vimium-c-blur-input-focus`，移除跨机器不可用的 `file://` 依赖。
 - [x] 将常用 `MSCSTSTS-TOOLS.js` 改为本地共享 `shared/mscststs.js`，修复 dev 调试时全局 `mscststs` 不存在的问题。
 - [x] 为 `douyin-live-optimizer` 增加底部礼物栏/`#BottomLayout` 清理规则，覆盖残留空白、新礼物栏容器、全屏礼物入口和全屏 `游戏` 入口；进入或退出全屏时会重新清理。
 - [x] 为 `douyin-live-optimizer` 增加自动打开 `data-e2e="gift-setting"` 并开启 `屏蔽礼物特效` 的本地实现；入口始终存在，当前只对它发送实机验证有效的 hover 事件，等待弹层出现后点击 `data-e2e="effect-switch" > div` 内层轨道，再等待 100ms 发送 leave 事件并移动到播放器中央，让弹层立即收起。
@@ -74,6 +76,7 @@
 - [ ] 完成 `wikipedia-auto-dark` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
 - [x] 开发方式回归官方单 package `vite serve`，使用原生 HMR；目标站点 CSP 在开发期通过 `Disable-CSP` 处理。
 - [x] 完成 build 发布流程：使用 GitHub Pages 分发，package 版本驱动 `.user.js` / `.meta.js`，注入 `@updateURL` / `@downloadURL`，并由 GitHub Actions 自动测试、构建和发布。
+- [ ] 增加 CI 版本门禁：当 `packages/<name>/src`、构建配置或其他会影响 userscript 产物的文件发生变化，但对应 `packages/<name>/package.json` 的 `version` 没有提高时，阻止发布并明确提示需要升级版本号，避免 Pages 已更新而 Tampermonkey 无法识别新版本。
 - [ ] 在另一浏览器导入清理包后，逐个执行 Tampermonkey 的“检查用户脚本更新”，完成首次生产版安装更新验证。
 - [ ] 首次迁移时保留旧脚本行为，不同时做大规模重构。
 - [~] 行为验证通过后，再继续评估是否抽取更多共享工具和 ESM GM API；`mscststs` 已先因 dev 调试问题本地化。

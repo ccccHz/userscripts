@@ -20,6 +20,8 @@ test("discovers migrated userscript packages in priority order", async () => {
       "huya-extend",
       "kuaishou-live-optimizer",
       "skip-ads",
+      "vimium-c-blur-input-focus",
+      "weibo-improvement",
       "wikipedia-auto-dark",
     ],
   );

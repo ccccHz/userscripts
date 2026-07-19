@@ -1,6 +1,6 @@
 # Tampermonkey 脚本整理清单
 
-最后更新：2026-07-08
+最后更新：2026-07-19
 
 来源：`/Users/chz/Desktop/69be9746-2600-415c-9a72-e22c2d5fcbac.zip`
 
@@ -49,6 +49,8 @@
 | `抖音直播优化` | 启用 | `2025-07-03` | 已发布 `douyin-live-optimizer@2026.7.15`，并进入清理导入包 | 导入后验证抖音直播页和远程更新 |
 | `快手直播优化` | 启用 | `2025-10-04` | 已发布 `kuaishou-live-optimizer@2026.7.15`，并进入清理导入包 | 导入后验证快手直播页和远程更新 |
 | `wikipedia auto dark` | 启用 | `2025-01-28` | 已发布 `wikipedia-auto-dark@2026.7.15`，并进入清理导入包 | 导入后验证 Wikipedia 页面和远程更新 |
+| `weibo improvement` | 启用 | `0.1` | 已迁移为 `weibo-improvement@0.2.0`，清理包中不再依赖 `file://` | 导入后验证微博页面和远程更新 |
+| `vimium-c blur input focus` | 启用 | `0.1` | 已迁移为 `vimium-c-blur-input-focus@0.2.0`，清理包中不再依赖 `file://` | 导入后验证目标页面和远程更新 |
 
 ## 迁移优先
 
@@ -58,12 +60,10 @@
 
 ## 外部本地脚本
 
-这些脚本当前启用，但 `file://` 不在 `/Users/chz/myWorkSpace/myJS/直播插件` 下。是否纳入本项目需要单独决定。
+这些脚本原本使用本项目外部的 `file://` 依赖；两项实际使用脚本已在 2026-07-19 迁入工作区。
 
 | 脚本 | Tampermonkey 状态 | 本地依赖 | 判断 | 建议 |
 | --- | --- | --- | --- | --- |
-| `weibo improvement` | 启用 | `/Users/chz/myWorkSpace/myJS/basic_TampMonkey_script/weibo_improve/main.js` | 仍在用，但来源在另一个本地脚本目录 | 暂列 P1；如果要统一同步到另一台机器，建议迁入本项目 |
-| `vimium-c blur input focus` | 启用 | `/Users/chz/myWorkSpace/myJS/basic_TampMonkey_script/vim_improve/main.js` | 仍在用，但来源在另一个本地脚本目录 | 暂列 P1；如果要统一同步到另一台机器，建议迁入本项目 |
 | `Bilibili Evolved (Local)` | 停用 | `/Users/chz/myWorkSpace/myJS/node/Bilibili-Evolved/dist/bilibili-evolved.dev.user.js` | 本地开发版，当前停用，且已有启用的远程 `Bilibili Evolved` | 不进入第一批迁移；可归档或删除 |
 
 ## 外部保留
@@ -86,9 +86,9 @@
 | 脚本 | 状态 | 本地依赖或来源 | 判断 |
 | --- | --- | --- | --- |
 | `DouyuEx_Meta` | 停用 | `/Users/chz/myWorkSpace/myJS/直播插件/douyuEx_meta/devtool/dyEx_dev.user.js` | 旧斗鱼增强开发入口，适合作为对照源码，不作为第一批迁移 |
-| `bliveproxy-demo1` | 停用 | `/Users/chz/myWorkSpace/myJS/直播插件/socketHook/bliveproxy.user.js` | 导出路径不存在；仓库中有 `socketHook/ref/bliveproxy.user.js`，需确认是否是同一入口 |
-| `douyu WS hook` | 停用 | `/Users/chz/myWorkSpace/myJS/直播插件/socketHook/dist/douyu-websocket-hook.dev.js` | 导出路径不存在；当前仓库未发现 `socketHook/dist` 产物 |
-| `Bilibili Live Banned Danmaku Marker` | 停用 | 远程更新地址 | 停用但有外部更新来源；如果不用可删除，想保留则重新安装外部版本即可 |
+| `bliveproxy-demo1` | 停用 | `/Users/chz/myWorkSpace/myJS/直播插件/socketHook/bliveproxy.user.js` | 用户确认不进入迁移包 |
+| `douyu WS hook` | 停用 | `/Users/chz/myWorkSpace/myJS/直播插件/socketHook/dist/douyu-websocket-hook.dev.js` | 用户确认不进入迁移包 |
+| `Bilibili Live Banned Danmaku Marker` | 停用 | 远程更新地址 | 用户确认不进入迁移包 |
 
 ## 删除候选
 
@@ -104,8 +104,8 @@
 | `New Userscript`（百度） | 停用 | 默认命名脚本，停用，缺少明确用途 |
 | `New Userscript`（Overleaf） | 停用 | 默认命名脚本，停用，缺少明确用途 |
 | `小红书直播优化` | 停用 | 与启用的 `小红书PC端直播美化脚本` 功能接近，且当前停用 |
-| `抖音直播保持活跃 - 防止自动暂停` | 停用 | 停用；如果后续需要，可和 `抖音直播优化` 合并评估 |
-| `赛道网聊天室拉黑助手` | 停用 | 停用且非当前迁移主线 |
+| `抖音直播保持活跃 - 防止自动暂停` | 停用 | 用户确认不进入迁移包 |
+| `赛道网聊天室拉黑助手` | 停用 | 用户确认不进入迁移包 |
 
 ## 全量脚本索引
 

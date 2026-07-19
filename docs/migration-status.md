@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-07-15
+最后更新：2026-07-19
 
 ## 状态说明
 
@@ -20,7 +20,9 @@
 - [~] 验证新迁移的 `douyin-live-optimizer` / `douyin` package。
 - [~] 验证新迁移的 `kuaishou-live-optimizer` package。
 - [~] 验证新迁移的 `wikipedia-auto-dark` package。
-- [!] 确认 `微博直播夜间模式` 是否删除或补实现；导出包中当前只有空 IIFE。
+- [~] 验证新迁移的 `weibo-improvement` package。
+- [~] 验证新迁移的 `vimium-c-blur-input-focus` package。
+- [x] `微博直播夜间模式` 不进入跨机器导入包；导出源码只有空 IIFE。
 
 ## 迁移清单
 
@@ -36,6 +38,8 @@
 | `weiboLive` | `main.js` | 阻塞 | 当前文件看起来是已经生成的 React userscript bundle。 |
 | `weibo-live-dark` | Tampermonkey `微博直播夜间模式` | 需要决策 | 导出包中只有空 IIFE，没有实际行为；先不创建 package。 |
 | `wikipedia-auto-dark` | Tampermonkey `wikipedia auto dark` | 等待浏览器验证 | 已迁移为 `userscripts/packages/wikipedia-auto-dark`，metadata 来自导出包；保留 `@run-at document-end`。 |
+| `weibo-improvement` | `basic_TampMonkey_script/weibo_improve/main.js` | 等待浏览器验证 | 已移除 `file://` 依赖，发布为独立 package。 |
+| `vimium-c-blur-input-focus` | `basic_TampMonkey_script/vim_improve/main.js` | 等待浏览器验证 | 已移除 `file://` 依赖，发布为独立 package。 |
 
 ## 工作区检查表
 
@@ -46,8 +50,8 @@
 - [x] 安装依赖。
 - [x] 运行结构验证、类型检查和生产构建。
 - [x] 检查生成的 userscript metadata。
-- [x] 将 6 个已迁移脚本发布到 GitHub Pages，并逐一验证远程 `.user.js` 与本地构建产物 SHA-256 一致。
-- [x] 生成包含 6 个工作区正式版本和 8 个可远程更新第三方脚本的 Tampermonkey 清理导入包。
+- [x] 将 8 个已迁移脚本接入 GitHub Pages 发布流程。
+- [x] 生成包含 8 个工作区正式版本和 8 个可远程更新第三方脚本的 Tampermonkey 清理导入包。
 - [ ] 在 Tampermonkey 中验证开发版 userscript。
 - [ ] 在目标网站中验证生产版 userscript。
 - [x] 将旧 `UserScript/readme.md` 整理进 `docs/todo.md`。
@@ -65,6 +69,8 @@
 - [x] 将 `抖音直播优化` / `douyin/main.js` 迁移为 `userscripts/packages/douyin-live-optimizer`。
 - [x] 将 `快手直播优化` 从导出包迁移为 `userscripts/packages/kuaishou-live-optimizer`。
 - [x] 将 `wikipedia auto dark` 从导出包迁移为 `userscripts/packages/wikipedia-auto-dark`。
+- [x] 将 `weibo improvement` 从外部 `file://` 依赖迁移为 `userscripts/packages/weibo-improvement`。
+- [x] 将 `vimium-c blur input focus` 从外部 `file://` 依赖迁移为 `userscripts/packages/vimium-c-blur-input-focus`。
 - [x] 将常用小工具 `MSCSTSTS-TOOLS.js` 本地化为 `shared/mscststs.js`，并让 `douyin-live-optimizer` / `kuaishou-live-optimizer` 通过 ESM import 共享。
 - [x] 为 `douyin-live-optimizer` 增加 `#BottomLayout`、`gifts-container`、`gifts-switch`、全屏 `游戏` 入口和旧 `.gitBarOptimizeEnabled` 的底部礼物栏清理规则。
 - [x] 为 `douyin-live-optimizer` 增加 `data-e2e="gift-setting"` -> `data-e2e="effect-switch" > div` / `屏蔽礼物特效` 的自动开关逻辑；2026-07-10 通过 Console 确认内层轨道 `.click()` 有效。
@@ -112,6 +118,12 @@
 - 在另一浏览器导入清理包后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
 
 ## 活动记录
+
+### 2026-07-19
+
+- 用户确认 `bliveproxy-demo1`、`douyu WS hook`、`Bilibili Live Banned Danmaku Marker`、`抖音直播保持活跃 - 防止自动暂停`、`赛道网聊天室拉黑助手` 不进入跨机器迁移包；其他停用、测试、空实现和重复脚本也按清单排除。
+- 将仍启用的 `weibo improvement` 和 `vimium-c blur input focus` 从外部 `file://` 依赖迁移为 `0.2.0` 正式 package，接入统一 Pages 更新地址。
+- 生成最终导入包 `artifacts/tampermonkey-portable-final-2026-07-19.zip`：共 16 个启用脚本，无 `file://` 依赖，全部打开更新检查。
 
 ### 2026-07-15
 

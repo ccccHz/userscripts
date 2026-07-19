@@ -12,6 +12,8 @@ type PackageName =
   | "huya-extend"
   | "kuaishou-live-optimizer"
   | "skip-ads"
+  | "vimium-c-blur-input-focus"
+  | "weibo-improvement"
   | "wikipedia-auto-dark";
 
 export function createUserscriptConfig(

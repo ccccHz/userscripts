@@ -28,6 +28,10 @@ importers:
 
   packages/skip-ads: {}
 
+  packages/vimium-c-blur-input-focus: {}
+
+  packages/weibo-improvement: {}
+
   packages/wikipedia-auto-dark: {}
 
 packages:
