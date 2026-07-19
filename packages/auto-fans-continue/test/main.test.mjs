@@ -15,6 +15,9 @@ function createStorage(initialValue) {
     setItem(key, value) {
       values.set(key, String(value));
     },
+    removeItem(key) {
+      values.delete(key);
+    },
   };
 }
 
@@ -159,6 +162,51 @@ test("sends the rest only after fan room sends finish", async () => {
   });
 
   assert.equal(restStartedBeforeFanRoomsFinished, false);
+});
+
+test("skips a second run while the first run is still in progress", async () => {
+  const storage = createStorage();
+  const sent = [];
+  let resolveBagRequest;
+  const bagRequestReady = new Promise((resolve) => {
+    resolveBagRequest = resolve;
+  });
+  const api = {
+    getBagGifts: async () => {
+      await bagRequestReady;
+      return { data: { list: [{ id: 2358, count: 3 }] } };
+    },
+    getFanBadgeRoomIds: async () => ["100", "200"],
+    sendBagGift: async (item) => {
+      sent.push(item);
+      return { msg: "success" };
+    },
+    sleep: async () => {},
+  };
+
+  const firstRun = runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:00.000Z"),
+    api,
+    logger: silentLogger,
+  });
+  const secondRun = runAutoFansContinue({
+    storage,
+    now: new Date("2026-06-30T10:00:01.000Z"),
+    api,
+    logger: silentLogger,
+  });
+
+  resolveBagRequest();
+  const [firstResult, secondResult] = await Promise.all([firstRun, secondRun]);
+
+  assert.equal(firstResult.status, "completed");
+  assert.equal(secondResult.status, "running");
+  assert.deepEqual(sent, [
+    { giftId: 2358, count: 1, roomId: "100" },
+    { giftId: 2358, count: 1, roomId: "200" },
+    { giftId: 2358, count: 1, roomId: "12306" },
+  ]);
 });
 
 test("does not mark today when every gift send fails", async () => {

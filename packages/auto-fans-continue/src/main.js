@@ -9,7 +9,12 @@ import {
   createRenewalPlan,
   selectStickGift,
 } from "./renewal-plan.js";
-import { markChecked, shouldRunToday } from "./run-state.js";
+import {
+  acquireRunningLock,
+  markChecked,
+  releaseRunningLock,
+  shouldRunToday,
+} from "./run-state.js";
 import { createLogger } from "./logger.js";
 import { createNotifier } from "./notifier.js";
 
@@ -193,26 +198,36 @@ export async function runAutoFansContinue({
     return { status: "skipped", shouldMarkChecked: false };
   }
 
-  const runtimeApi = { ...defaultApi, ...api };
-  const result = await executeRenewal({
-    api: runtimeApi,
-    logger,
-    notifier,
-    restRoomId,
-    sendConcurrency,
-  });
-
-  if (result.shouldMarkChecked) {
-    markChecked(storage, now);
-    log(logger, "执行完成", result);
-    notify(
-      notifier,
-      result.failureCount > 0 ? "warning" : "success",
-      `自动续荧光棒完成：成功 ${result.successCount}，失败 ${result.failureCount}，跳过 ${result.skippedRoomCount}`,
-    );
+  const runningLockToken = acquireRunningLock(storage, now);
+  if (!runningLockToken) {
+    log(logger, "自动续荧光棒任务正在执行，跳过本次触发");
+    return { status: "running", shouldMarkChecked: false };
   }
 
-  return result;
+  const runtimeApi = { ...defaultApi, ...api };
+  try {
+    const result = await executeRenewal({
+      api: runtimeApi,
+      logger,
+      notifier,
+      restRoomId,
+      sendConcurrency,
+    });
+
+    if (result.shouldMarkChecked) {
+      markChecked(storage, now);
+      log(logger, "执行完成", result);
+      notify(
+        notifier,
+        result.failureCount > 0 ? "warning" : "success",
+        `自动续荧光棒完成：成功 ${result.successCount}，失败 ${result.failureCount}，跳过 ${result.skippedRoomCount}`,
+      );
+    }
+
+    return result;
+  } finally {
+    releaseRunningLock(storage, runningLockToken);
+  }
 }
 
 async function main() {

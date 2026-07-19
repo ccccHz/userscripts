@@ -3,7 +3,11 @@ import test from "node:test";
 
 import {
   CHECKED_DATE_KEY,
+  RUNNING_LOCK_KEY,
+  RUNNING_LOCK_TTL_MS,
+  acquireRunningLock,
   markChecked,
+  releaseRunningLock,
   shouldRunToday,
 } from "../src/run-state.js";
 
@@ -17,6 +21,9 @@ function createStorage(initialValue) {
     },
     setItem(key, value) {
       values.set(key, String(value));
+    },
+    removeItem(key) {
+      values.delete(key);
     },
   };
 }
@@ -48,4 +55,56 @@ test("marks checked date in localStorage", () => {
   markChecked(storage, new Date("2026-06-29T12:00:00Z"));
 
   assert.equal(storage.getItem(CHECKED_DATE_KEY), "2026-06-29T12:00:00.000Z");
+});
+
+test("acquires and releases the running lock", () => {
+  const storage = createStorage();
+  const token = acquireRunningLock(
+    storage,
+    new Date("2026-06-29T12:00:00.000Z"),
+  );
+
+  assert.equal(typeof token, "string");
+  assert.equal(
+    acquireRunningLock(storage, new Date("2026-06-29T12:00:01.000Z")),
+    null,
+  );
+
+  releaseRunningLock(storage, token);
+
+  assert.equal(storage.getItem(RUNNING_LOCK_KEY), null);
+});
+
+test("does not release another runner's lock", () => {
+  const storage = createStorage();
+  const firstToken = acquireRunningLock(
+    storage,
+    new Date("2026-06-29T12:00:00.000Z"),
+  );
+
+  releaseRunningLock(storage, "different-token");
+
+  assert.equal(
+    acquireRunningLock(storage, new Date("2026-06-29T12:00:01.000Z")),
+    null,
+  );
+  assert.notEqual(storage.getItem(RUNNING_LOCK_KEY), null);
+
+  releaseRunningLock(storage, firstToken);
+});
+
+test("overwrites stale running lock", () => {
+  const storage = createStorage();
+  const lockedAt = new Date("2026-06-29T12:00:00.000Z");
+  const firstToken = acquireRunningLock(
+    storage,
+    lockedAt,
+  );
+  const secondToken = acquireRunningLock(
+    storage,
+    new Date(lockedAt.getTime() + RUNNING_LOCK_TTL_MS + 1),
+  );
+
+  assert.notEqual(firstToken, secondToken);
+  assert.equal(typeof secondToken, "string");
 });
