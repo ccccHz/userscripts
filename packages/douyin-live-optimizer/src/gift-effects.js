@@ -118,6 +118,8 @@ export function hoverGiftSetting(element) {
     pointerId: 1,
     pointerType: "mouse",
     isPrimary: true,
+    relatedTarget: null,
+    composed: true,
   };
 
   dispatchHoverEvent(view.PointerEvent, element, "pointerover", options);
@@ -125,6 +127,7 @@ export function hoverGiftSetting(element) {
     ...options,
     bubbles: false,
   });
+  dispatchHoverEvent(view.PointerEvent, element, "pointermove", options);
   dispatchHoverEvent(view.MouseEvent, element, "mouseover", options);
   dispatchHoverEvent(view.MouseEvent, element, "mouseenter", {
     ...options,
@@ -138,10 +141,17 @@ export function leaveGiftSetting(element) {
 
   const doc = element.ownerDocument || globalThis.document;
   const view = doc?.defaultView || globalThis;
-  const outside =
+  const outsideCandidates = [
+    doc?.elementFromPoint?.(8, 8),
     doc?.elementFromPoint?.(
       Number(view.innerWidth || 0) / 2,
       Number(view.innerHeight || 0) / 2,
+    ),
+    doc?.body,
+  ];
+  const outside =
+    outsideCandidates.find(
+      (candidate) => candidate && !containsNode(element, candidate),
     ) || doc?.body;
   if (!outside?.dispatchEvent) return;
 

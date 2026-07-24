@@ -1,9 +1,12 @@
 import mscststs from "../../../shared/mscststs.js";
+import { ensurePlayerAudioOnOpen } from "./audio.js";
+import { ensureDanmakuFiltersDisabled } from "./danmaku-settings.js";
 import {
   LIVE_BOTTOM_LAYOUT_SELECTORS,
   removeLiveBottomLayout,
 } from "./dom-cleanup.js";
 import { ensureGiftEffectsBlocked } from "./gift-effects.js";
+import { findBestQualityOption, getQualityText } from "./quality.js";
 import { registerRuntimeEvents } from "./runtime-events.js";
 import { observeAndRemoveWishPopups } from "./wish-popup.js";
 
@@ -15,6 +18,8 @@ const REMOVE_ELEMENT_RULES = [
 ];
 
 let wishPopupObserver = null;
+let playerAudioCheckedOnOpen = false;
+let danmakuFiltersCheckedOnOpen = false;
 let giftEffectBlockerTask = null;
 
 const GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE =
@@ -31,7 +36,7 @@ const QUALITY_RULES = [
   {
     name: "最高直播清晰度",
     menuSelector: '[data-e2e="quality"]',
-    bestOptionSelector: '[data-e2e="quality-selector"] > :first-child',
+    optionListSelector: '[data-e2e="quality-selector"]',
   },
 ];
 
@@ -56,12 +61,40 @@ function runMain() {
   console.log("userscript: douyin optim");
   removeMatchedElements();
   clickMatchedElements();
-  enableGiftEffectBlocker();
+  const giftEffectTask = enableGiftEffectBlocker();
+  ensurePlayerAudioEnabled();
+  disableDanmakuFiltersOnOpen(giftEffectTask);
   removeWishPopupWhenShown();
   selectQualityOptions();
   removeLiveBottomLayouts();
   getTarget('div[data-e2e="yellowCart-container"]').then((target) => {
     if (target) target.remove();
+  });
+}
+
+function disableDanmakuFiltersOnOpen(previousTask) {
+  if (danmakuFiltersCheckedOnOpen) return;
+
+  danmakuFiltersCheckedOnOpen = true;
+  Promise.resolve(previousTask)
+    .then(() => ensureDanmakuFiltersDisabled({ document }))
+    .then((result) => {
+      console.debug(
+        "userscript: douyin danmaku filters",
+        JSON.stringify(result),
+      );
+    });
+}
+
+function ensurePlayerAudioEnabled() {
+  if (playerAudioCheckedOnOpen) return;
+
+  playerAudioCheckedOnOpen = true;
+  ensurePlayerAudioOnOpen({ document }).then((result) => {
+    console.debug(
+      "userscript: douyin initial audio check",
+      JSON.stringify(result),
+    );
   });
 }
 
@@ -137,12 +170,13 @@ function selectQualityOptions() {
     getTarget(rule.menuSelector).then((menu) => {
       if (!menu) return;
 
-      const currentQuality = (menu.innerText || menu.textContent || "").trim();
+      const currentQuality = getQualityText(menu);
       menu.click();
-      getTarget(rule.bestOptionSelector).then((target) => {
+      getTarget(rule.optionListSelector).then((optionList) => {
+        const target = findBestQualityOption(optionList);
         if (!target) return;
 
-        const bestQuality = (target.innerText || target.textContent || "").trim();
+        const bestQuality = getQualityText(target);
         if (!bestQuality.includes(currentQuality)) {
           target.click();
         }

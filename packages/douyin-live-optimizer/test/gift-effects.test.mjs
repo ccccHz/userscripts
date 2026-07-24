@@ -39,6 +39,7 @@ test("dispatches the verified hover sequence on the gift setting trigger", () =>
   assert.deepEqual(events.map((event) => event.type), [
     "pointerover",
     "pointerenter",
+    "pointermove",
     "mouseover",
     "mouseenter",
     "mousemove",
@@ -46,7 +47,7 @@ test("dispatches the verified hover sequence on the gift setting trigger", () =>
   assert.equal(events[0].options.clientX, 120);
   assert.equal(events[0].options.clientY, 210);
   assert.equal(events[1].options.bubbles, false);
-  assert.equal(events[3].options.bubbles, false);
+  assert.equal(events[4].options.bubbles, false);
 });
 
 test("dispatches leave events and moves to the player after switching", () => {
