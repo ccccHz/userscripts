@@ -1,6 +1,6 @@
 # Userscript TODO
 
-最后更新：2026-07-19
+最后更新：2026-07-25
 
 这个文档承接旧目录 `UserScript/readme.md` 中的待办内容。旧目录原本用于规划 userscript 统一管理和斗鱼相关功能重构；内容已迁移到这里，旧目录随后清理。
 
@@ -76,8 +76,9 @@
 - [ ] 完成 `wikipedia-auto-dark` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
 - [x] 开发方式回归官方单 package `vite serve`，使用原生 HMR；目标站点 CSP 在开发期通过 `Disable-CSP` 处理。
 - [x] 完成 build 发布流程：使用 GitHub Pages 分发，package 版本驱动 `.user.js` / `.meta.js`，注入 `@updateURL` / `@downloadURL`，并由 GitHub Actions 自动测试、构建和发布。
-- [ ] 增加 CI 版本门禁：当 `packages/<name>/src`、构建配置或其他会影响 userscript 产物的文件发生变化，但对应 `packages/<name>/package.json` 的 `version` 没有提高时，阻止发布并明确提示需要升级版本号，避免 Pages 已更新而 Tampermonkey 无法识别新版本。
-- [ ] 在另一浏览器导入清理包后，逐个执行 Tampermonkey 的“检查用户脚本更新”，完成首次生产版安装更新验证。
+- [x] 明确版本维护策略：当前规模下继续手动提高受影响 package 的 `package.json` `version`，不增加 Git hook、CI 自动递增或版本门禁；具体约束写入 README，要求参与修改代码的 Agent 在交付前检查并报告版本变化。
+- [x] 验证 Pages 更新服务端链路：8 个 package 的远程 `.meta.js` 与 `.user.js` 版本、`@updateURL`、`@downloadURL` 全部一致，最终迁移包清单引用相同地址。
+- [ ] 在另一浏览器导入清理包后，逐个执行 Tampermonkey 的“检查用户脚本更新”，完成客户端首次生产版安装更新验证。
 - [ ] 首次迁移时保留旧脚本行为，不同时做大规模重构。
 - [~] 行为验证通过后，再继续评估是否抽取更多共享工具和 ESM GM API；`mscststs` 已先因 dev 调试问题本地化。
 

@@ -72,6 +72,30 @@ https://ccccHz.github.io/userscripts/
 首次启用发布时，需要在 GitHub 仓库的 `Settings > Pages > Build and deployment`
 中把 `Source` 设为 `GitHub Actions`。
 
+### 版本维护约束
+
+当前工作区有意采用手动版本管理，不在 Git hook 或 GitHub Actions 中自动递增版本。
+各 package 的 `package.json` 是对应 userscript 发布版本的唯一来源；构建时
+`vite-plugin-monkey` 会把它写入 `.meta.js` 和 `.user.js` 的 `@version`。
+
+开发者和参与修改代码的 Agent 必须遵守以下规则：
+
+1. 凡是会改变某个 userscript 发布产物的修改，必须在同一个提交中提高对应
+   `packages/<name>/package.json` 的 `version`。
+2. `src/`、`vite.config.ts`、被该脚本引用的 `shared/` 代码或其他构建输入发生变化，
+   都视为发布产物变化。
+3. 只修改文档、测试或不进入 userscript 产物的开发工具时，不需要提高版本；源码注释
+   如果会进入构建产物，也按产物变化处理。
+4. 修改多个 userscript 时，分别提高所有受影响 package 的版本；不要为了省事提高
+   未受影响脚本的版本。
+5. Agent 在交付代码修改前必须检查版本是否已经提高，并在最终说明中列出提高后的
+   package 和版本号。
+
+版本号必须保持递增。当前允许沿用各 package 已有的版本风格；日期版本可以从
+`2026.7.15` 提高为修改当天的日期，语义化版本可以按改动范围提高 patch、minor
+或 major。忘记提高版本不会阻止 Pages 覆盖远程文件，但 Tampermonkey 看到相同
+`@version` 时不会自动下载新代码。
+
 ## Tampermonkey 跨浏览器迁移包
 
 先完成 `pnpm build`，再基于原始 Tampermonkey 导出包生成清理后的可移植导入包：

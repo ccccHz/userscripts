@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-07-19
+最后更新：2026-07-25
 
 ## 状态说明
 
@@ -118,6 +118,12 @@
 - 在另一浏览器导入清理包后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
 
 ## 活动记录
+
+### 2026-07-25
+
+- 明确继续采用手动版本维护：各 package 的 `package.json` 是发布版本唯一来源，Git hook 和 GitHub Actions 不自动递增版本；README 已增加开发者和 Agent 必须遵守的升版规则。
+- 验证 GitHub Pages 上 8 个 package 的 `.meta.js` 与 `.user.js`：版本、`@updateURL`、`@downloadURL` 全部成对一致，并与 `tampermonkey-portable-final-2026-07-19.json` 中的迁移清单一致。
+- 服务端更新链路已经确认；剩余步骤是在另一浏览器实际导入清理包并触发 Tampermonkey 客户端更新检查。
 
 ### 2026-07-19
 
