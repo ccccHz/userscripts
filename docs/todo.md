@@ -6,8 +6,8 @@
 
 ## 当前迁移 TODO
 
-- [~] 在 `userscripts/` 中集中管理本仓库正在使用的 userscript。
-- [~] 使用 `vite-plugin-monkey` 管理开发和构建流程。
+- [x] 在 `userscripts/` 中集中管理本仓库正在使用且需要自行维护的 userscript。
+- [x] 使用 `vite-plugin-monkey` 管理开发和构建流程。
 - [x] 迁移 `autoFansContinue`，并以当前浏览器实际在用代码为准。
 - [x] 对齐 `douyuEX_new` 手动续牌子逻辑和 `douyuEx_meta` 每日自动逻辑，重构 `auto-fans-continue`。
 - [ ] 在 Tampermonkey 中验证 `auto-fans-continue` 开发版 userscript。
@@ -17,11 +17,11 @@
 - [ ] 在 Tampermonkey 和 NGA 页面中验证 `skip-ads`。
 - [ ] 在 Tampermonkey 和快手直播页面中验证 `kuaishou-live-optimizer`。
 - [ ] 在 Tampermonkey 和 Wikipedia 页面中验证 `wikipedia-auto-dark`。
-- [!] 确认 `微博直播夜间模式` 是否删除或补实现；导出包中当前只有空 IIFE。
-- [ ] 确认 `douyu-ban` 当前实际使用的入口文件。
-- [ ] 判断 `weiboLive/main.js` 是否存在可维护源码，而不是只迁移构建产物。
-- [ ] 判断 `biliDM` 中是否有需要作为浏览器 userscript 管理的功能。
-- [~] 按 `docs/tampermonkey-inventory.md` 清单，将仍在用且依赖 `file://` 的脚本迁移为 git 管理的 package。
+- [x] `微博直播夜间模式` 不迁移；导出包中只有空 IIFE，最终迁移包已排除。
+- [x] `douyu-ban` 不进入当前 userscript 迁移主线；现有入口属于停用实验代码。
+- [x] `weiboLive/main.js` 不迁移；当前使用的 `微博PC直播弹幕助手` 已有可信远程更新来源。
+- [x] `biliDM` 不进入当前 userscript 迁移主线；未发现实际使用的浏览器 userscript 入口。
+- [x] 按 `docs/tampermonkey-inventory.md` 清单，将仍在用且依赖 `file://` 的自维护脚本迁移为 git 管理的 package。
 - [x] 迁移 `skip ads` / `nga/main.js` 为 `userscripts/packages/skip-ads`。
 - [x] 迁移 `huya extend` / `huya/main.js` 为 `userscripts/packages/huya-extend`。
 - [x] 迁移 `抖音直播优化` / `douyin/main.js` 为 `userscripts/packages/douyin-live-optimizer`。
@@ -46,7 +46,7 @@
 - [ ] 在现有聊天区隐藏日榜界面上增加显示房间人数。
 - [ ] 调研新版 `douyuex` 简洁模式显示贵宾较慢的问题，判断是否需要本地替代实现。
 - [x] 每日自动续荧光棒策略恢复为：每个有牌子的直播间送 1 个，剩余荧光棒全部送给默认房间 `12306`。
-- [ ] 将剩余荧光棒默认赠送房间号做成可配置项；优先评估 GM 菜单配置，其次评估页面内 UI。
+- [x] 将剩余荧光棒默认赠送房间号做成 GM 菜单配置；无有效配置时继续使用 `12306`，新配置从下次执行生效。
 - [x] 为自动续荧光棒增加 toast 提示：开始、每个直播间赠送结果、预检失败、完成和执行错误；“今天已执行”只写日志。
 - [x] 将自动续荧光棒赠送请求改为有限并发，默认并发数为 4。
 - [x] 开发版验证入口暂时限定为 `https://www.douyu.com/*`，斗鱼 API 请求不使用 `no-cors`。
@@ -67,19 +67,19 @@
 - [x] 建立中文迁移状态、决策记录和 TODO 文档。
 - [x] 为 `userscripts/` 初始化独立 git 仓库，并提交当前迁移基线。
 - [x] 建立 Tampermonkey 全量脚本整理清单，标记 `file://` 本地依赖、远程更新来源和迁移优先级。
-- [~] 当前阶段以最小可用为目标：先完成 `file://` 本地引用到 git 管理产物的迁移，不展开复杂后台化或可视化。
-- [ ] 每个实际使用的 userscript 都迁移为一个独立 package。
-- [ ] 完成 `skip-ads` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧 `file://` 脚本。
-- [ ] 完成 `huya-extend` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧 `file://` 脚本。
-- [ ] 完成 `douyin-live-optimizer` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
-- [ ] 完成 `kuaishou-live-optimizer` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
-- [ ] 完成 `wikipedia-auto-dark` 的浏览器侧验证后，用新安装产物替换 Tampermonkey 中的旧脚本。
+- [x] 完成最小可用迁移：`file://` 本地引用已经替换为 git 管理和 Pages 分发，不展开复杂后台化或可视化。
+- [x] 每个实际使用且需要本仓库维护的 userscript 都已迁移为独立 package。
+- [x] `skip-ads` 已用正式 package 产物替换旧 `file://` 脚本并进入最终迁移包。
+- [x] `huya-extend` 已用正式 package 产物替换旧 `file://` 脚本并进入最终迁移包。
+- [x] `douyin-live-optimizer` 已安装正式 Pages 版本，并完成 `2026.7.15` 到 `2026.7.25` 的自动更新验证。
+- [x] `kuaishou-live-optimizer` 已用正式 package 产物替换旧脚本并进入最终迁移包。
+- [x] `wikipedia-auto-dark` 已用正式 package 产物替换旧脚本并进入最终迁移包。
 - [x] 开发方式回归官方单 package `vite serve`，使用原生 HMR；目标站点 CSP 在开发期通过 `Disable-CSP` 处理。
 - [x] 完成 build 发布流程：使用 GitHub Pages 分发，package 版本驱动 `.user.js` / `.meta.js`，注入 `@updateURL` / `@downloadURL`，并由 GitHub Actions 自动测试、构建和发布。
 - [x] 明确版本维护策略：当前规模下继续手动提高受影响 package 的 `package.json` `version`，不增加 Git hook、CI 自动递增或版本门禁；具体约束写入 README，要求参与修改代码的 Agent 在交付前检查并报告版本变化。
 - [x] 验证 Pages 更新服务端链路：8 个 package 的远程 `.meta.js` 与 `.user.js` 版本、`@updateURL`、`@downloadURL` 全部一致，最终迁移包清单引用相同地址。
-- [ ] 在另一浏览器导入清理包后，逐个执行 Tampermonkey 的“检查用户脚本更新”，完成客户端首次生产版安装更新验证。
-- [ ] 首次迁移时保留旧脚本行为，不同时做大规模重构。
+- [x] 完成 Tampermonkey 客户端生产更新验证：本地 `douyin-live-optimizer@2026.7.15` 自动检测到 Pages 上的 `2026.7.25`，并成功更新 `.user.js`。
+- [x] 首次迁移时保留旧脚本行为，没有在迁移提交中同时进行大规模重构。
 - [~] 行为验证通过后，再继续评估是否抽取更多共享工具和 ESM GM API；`mscststs` 已先因 dev 调试问题本地化。
 
 ## 备注

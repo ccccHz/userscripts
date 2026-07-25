@@ -10,5 +10,5 @@ export default createUserscriptConfig("auto-fans-continue", packageJson.version,
   noframes: true,
   icon: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==",
   "run-at": "document-start",
-  grant: ["GM_log", "unsafeWindow"],
+  grant: ["GM_log", "GM_registerMenuCommand", "unsafeWindow"],
 });

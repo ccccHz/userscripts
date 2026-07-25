@@ -9,6 +9,7 @@ import {
   createRenewalPlan,
   selectStickGift,
 } from "./renewal-plan.js";
+import { getRestRoomId, registerRestRoomMenu } from "./config.js";
 import {
   acquireRunningLock,
   markChecked,
@@ -250,7 +251,11 @@ export async function runAutoFansContinue({
 async function main() {
   log(defaultLogger, "start!");
   try {
-    await runAutoFansContinue();
+    const storage = getGlobalValue("localStorage");
+    await runAutoFansContinue({
+      storage,
+      restRoomId: getRestRoomId(storage),
+    });
   } catch (error) {
     log(defaultLogger, "执行错误", error);
     notify(defaultNotifier, "error", "自动续荧光棒执行错误，请查看控制台状态");
@@ -268,6 +273,12 @@ function runMainWhenReady() {
 
 if (typeof window !== "undefined") {
   if (claimPageStart()) {
+    registerRestRoomMenu({
+      storage: getGlobalValue("localStorage"),
+      registerMenuCommand: getGlobalValue("GM_registerMenuCommand"),
+      prompt: getGlobalValue("prompt"),
+      alert: getGlobalValue("alert"),
+    });
     runMainWhenReady();
   } else {
     log(defaultLogger, "当前页面已启动过，跳过重复入口");

@@ -123,7 +123,9 @@
 
 - 明确继续采用手动版本维护：各 package 的 `package.json` 是发布版本唯一来源，Git hook 和 GitHub Actions 不自动递增版本；README 已增加开发者和 Agent 必须遵守的升版规则。
 - 验证 GitHub Pages 上 8 个 package 的 `.meta.js` 与 `.user.js`：版本、`@updateURL`、`@downloadURL` 全部成对一致，并与 `tampermonkey-portable-final-2026-07-19.json` 中的迁移清单一致。
-- 服务端更新链路已经确认；剩余步骤是在另一浏览器实际导入清理包并触发 Tampermonkey 客户端更新检查。
+- 将已有但尚未发布的抖音播放器自动化改动从 `douyin-live-optimizer@2026.7.15` 提高到 `2026.7.25`，本地测试、类型检查和生产构建通过后推送 `main`；GitHub Actions 和 Pages 部署成功。
+- Tampermonkey 客户端从已安装的 `douyin-live-optimizer@2026.7.15` 自动检测并更新到 Pages 上的 `2026.7.25`，确认 `.meta.js` 版本比较、`.user.js` 下载和客户端自动安装链路完整可用。
+- 为 `auto-fans-continue` 增加 GM 菜单配置，允许设置剩余荧光棒的默认赠送房间；配置保存在斗鱼域名的 `localStorage`，留空恢复默认 `12306`，并从下次执行生效。
 
 ### 2026-07-19
 
