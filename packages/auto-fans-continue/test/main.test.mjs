@@ -314,3 +314,119 @@ test("does not mark today when there is no usable stick gift", async () => {
   assert.equal(result.status, "no-stick-gift");
   assert.equal(storage.getItem(CHECKED_DATE_KEY), null);
 });
+
+test("connects to the configured room and refreshes the backpack when the stick is missing", async () => {
+  const storage = createStorage();
+  const notifier = createNotifier();
+  const connectedRooms = [];
+  let bagRequestCount = 0;
+  const sent = [];
+  const api = {
+    getBagGifts: async () => {
+      bagRequestCount += 1;
+      return bagRequestCount === 1
+        ? { data: { list: [] } }
+        : { data: { list: [{ id: 2358, count: 2 }] } };
+    },
+    connectAuthenticatedRoom: async ({ roomId }) => {
+      connectedRooms.push(roomId);
+    },
+    getFanBadgeRoomIds: async () => ["100"],
+    sendBagGift: async (item) => {
+      sent.push(item);
+      return { msg: "success" };
+    },
+    sleep: async () => {},
+  };
+
+  const result = await runAutoFansContinue({
+    storage,
+    now: new Date("2026-07-28T12:00:00.000Z"),
+    api,
+    logger: silentLogger,
+    notifier,
+    restRoomId: "71415",
+  });
+
+  assert.equal(result.status, "completed");
+  assert.deepEqual(connectedRooms, ["71415"]);
+  assert.equal(bagRequestCount, 2);
+  assert.deepEqual(sent, [
+    { giftId: 2358, count: 1, roomId: "100" },
+    { giftId: 2358, count: 1, roomId: "71415" },
+  ]);
+  assert.deepEqual(notifier.messages.slice(0, 2), [
+    {
+      type: "info",
+      message: "背包暂无荧光棒，正在连接房间 71415 尝试领取",
+    },
+    { type: "success", message: "已完成房间连接，正在等待荧光棒到账" },
+  ]);
+});
+
+test("polls the backpack until the socket-triggered stick is credited", async () => {
+  const storage = createStorage();
+  const sleepDelays = [];
+  let bagRequestCount = 0;
+  const api = {
+    getBagGifts: async () => {
+      bagRequestCount += 1;
+      return bagRequestCount < 4
+        ? { data: { list: [] } }
+        : { data: { list: [{ id: 2358, count: 1 }] } };
+    },
+    connectAuthenticatedRoom: async () => {},
+    getFanBadgeRoomIds: async () => ["100"],
+    sendBagGift: async () => ({ msg: "success" }),
+    sleep: async (delayMs) => {
+      sleepDelays.push(delayMs);
+    },
+  };
+
+  const result = await runAutoFansContinue({
+    storage,
+    now: new Date("2026-07-29T00:01:00.000+08:00"),
+    api,
+    logger: silentLogger,
+    restRoomId: "71415",
+  });
+
+  assert.equal(result.status, "completed");
+  assert.equal(bagRequestCount, 4);
+  assert.deepEqual(sleepDelays.slice(0, 3), [500, 1_000, 1_500]);
+});
+
+test("stops polling without marking today when the stick is not credited", async () => {
+  const storage = createStorage();
+  const sleepDelays = [];
+  let bagRequestCount = 0;
+  const api = {
+    getBagGifts: async () => {
+      bagRequestCount += 1;
+      return { data: { list: [] } };
+    },
+    connectAuthenticatedRoom: async () => {},
+    getFanBadgeRoomIds: async () => {
+      throw new Error("should not query fan rooms");
+    },
+    sendBagGift: async () => {
+      throw new Error("should not send");
+    },
+    sleep: async (delayMs) => {
+      sleepDelays.push(delayMs);
+    },
+  };
+
+  const result = await runAutoFansContinue({
+    storage,
+    now: new Date("2026-07-29T00:01:00.000+08:00"),
+    api,
+    logger: silentLogger,
+    restRoomId: "71415",
+  });
+
+  assert.equal(result.status, "empty-bag");
+  assert.equal(bagRequestCount, 7);
+  assert.deepEqual(sleepDelays, [500, 1_000, 1_500, 2_000, 3_000, 4_000]);
+  assert.equal(storage.getItem(CHECKED_DATE_KEY), null);
+});

@@ -23,6 +23,9 @@ export function createUserscriptConfig(
     MonkeyUserScript,
     "version" | "updateURL" | "downloadURL" | "supportURL"
   >,
+  options: {
+    mountGmApi?: boolean;
+  } = {},
 ) {
   const fileName = `${packageName}.user.js`;
   const metaFileName = `${packageName}.meta.js`;
@@ -34,6 +37,9 @@ export function createUserscriptConfig(
     plugins: [
       monkey({
         entry: "src/main.js",
+        server: {
+          mountGmApi: options.mountGmApi,
+        },
         userscript: {
           ...userscript,
           version,

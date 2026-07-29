@@ -1,6 +1,6 @@
 # Userscript 迁移状态
 
-最后更新：2026-07-25
+最后更新：2026-07-28
 
 ## 状态说明
 
@@ -15,13 +15,13 @@
 
 - [~] 在 Tampermonkey 和斗鱼网页中验证 `auto-fans-continue` 的开发版与生产版 userscript。
 - [~] 根据 `docs/tampermonkey-inventory.md`，优先迁移仍在用且依赖 `file://` 本地文件的脚本，目标是让这些脚本进入 git 管理，便于其他机器同步和更新。
-- [~] 验证新迁移的 `skip-ads` / `nga` package。
-- [~] 验证新迁移的 `huya-extend` / `huya` package。
-- [~] 验证新迁移的 `douyin-live-optimizer` / `douyin` package。
-- [~] 验证新迁移的 `kuaishou-live-optimizer` package。
-- [~] 验证新迁移的 `wikipedia-auto-dark` package。
-- [~] 验证新迁移的 `weibo-improvement` package。
-- [~] 验证新迁移的 `vimium-c-blur-input-focus` package。
+- [x] 验证新迁移的 `skip-ads` / `nga` package。
+- [x] 验证新迁移的 `huya-extend` / `huya` package。
+- [x] 验证新迁移的 `douyin-live-optimizer` / `douyin` package。
+- [x] 验证新迁移的 `kuaishou-live-optimizer` package。
+- [x] 验证新迁移的 `wikipedia-auto-dark` package。
+- [x] 验证新迁移的 `weibo-improvement` package。
+- [x] 验证新迁移的 `vimium-c-blur-input-focus` package。
 - [x] `微博直播夜间模式` 不进入跨机器导入包；导出源码只有空 IIFE。
 
 ## 迁移清单
@@ -82,16 +82,16 @@
 - [x] 为 `auto-fans-continue` 增加斗鱼页面可用的 `GM_log` 日志通道和 `window.__chzAutoFansContinue` 运行状态入口。
 - [x] 为 `auto-fans-continue` 增加状态级 toast 提示。
 - [x] 将 `auto-fans-continue` 的赠送请求从串行改为默认最多 4 个并发。
-- [ ] 在 Tampermonkey 中验证 `skip-ads` 开发版 userscript。
-- [ ] 在 NGA 页面中验证 `skip-ads` 生产版 userscript。
-- [ ] 在 Tampermonkey 中验证 `huya-extend` 开发版 userscript。
-- [ ] 在虎牙页面中验证 `huya-extend` 生产版 userscript。
-- [ ] 在 Tampermonkey 中验证 `douyin-live-optimizer` 开发版 userscript。
-- [ ] 在抖音直播页面中验证 `douyin-live-optimizer` 生产版 userscript。
-- [ ] 在 Tampermonkey 中验证 `kuaishou-live-optimizer` 开发版 userscript。
-- [ ] 在快手直播页面中验证 `kuaishou-live-optimizer` 生产版 userscript。
-- [ ] 在 Tampermonkey 中验证 `wikipedia-auto-dark` 开发版 userscript。
-- [ ] 在 Wikipedia 页面中验证 `wikipedia-auto-dark` 生产版 userscript。
+- [x] 在 Tampermonkey 中验证 `skip-ads` 开发版 userscript。
+- [x] 在 NGA 页面中验证 `skip-ads` 生产版 userscript。
+- [x] 在 Tampermonkey 中验证 `huya-extend` 开发版 userscript。
+- [x] 在虎牙页面中验证 `huya-extend` 生产版 userscript。
+- [x] 在 Tampermonkey 中验证 `douyin-live-optimizer` 开发版 userscript。
+- [x] 在抖音直播页面中验证 `douyin-live-optimizer` 生产版 userscript。
+- [x] 在 Tampermonkey 中验证 `kuaishou-live-optimizer` 开发版 userscript。
+- [x] 在快手直播页面中验证 `kuaishou-live-optimizer` 生产版 userscript。
+- [x] 在 Tampermonkey 中验证 `wikipedia-auto-dark` 开发版 userscript。
+- [x] 在 Wikipedia 页面中验证 `wikipedia-auto-dark` 生产版 userscript。
 
 ## 单脚本迁移检查表
 
@@ -118,6 +118,24 @@
 - 在另一浏览器导入清理包后，逐个确认 Tampermonkey 能通过 `.meta.js` 检查版本并从 `.user.js` 更新。
 
 ## 活动记录
+
+### 2026-07-28
+
+- 用户确认抖音、虎牙、NGA、快手和 Wikipedia 的迁移版 userscript 浏览器实测均无异常，关闭对应验证 TODO。
+- 修复 `vite-plugin-monkey` 开发模式下 GM API 未挂载的问题，只为 `auto-fans-continue` 开启 `mountGmApi`；GM 房间配置菜单已在浏览器中验证可见。
+- 参考旧 `Douyu-node` 实现和 2026 年仍在维护的 `tophtab/douyu-keep-just-works`，为 `auto-fans-continue@0.132.0` 增加独立的带登录态 `wsproxy` 房间连接模块。
+- 开发期增加“测试登录并连接房间”GM 菜单；自动流程仅在首次背包为空或没有荧光棒时连接配置房间，收到 `h5ckres` 后重新查询背包，再进入原赠送计划。
+
+### 2026-07-29
+
+- 跨日实机验证确认：非直播间页面能够建立登录态 Socket 并触发领取，但 `h5ckres` 后固定等待 500ms 时背包尚未同步；后续刷新页面后道具出现并正常完成逐房间赠送和剩余全送。
+- `auto-fans-continue@0.133.0` 改为连接成功后按 0.5、1、1.5、2、3、4 秒退避轮询背包，以实际查询到荧光棒作为到账完成条件；超时仍不标记当天，保留重试机会。
+
+### 2026-07-30
+
+- 在用户当天未进入任何直播间的前提下，由 Codex 从 Chrome 打开 `https://www.douyu.com/directory/myFollow` 并采集完整日志。清理此前残留的孤儿运行锁后，`auto-fans-continue@0.133.0` 首次查询确认背包无荧光棒，随后自动连接配置房间 `52`；连接响应后的第一次 500ms 轮询即查询到 120 个荧光棒。
+- 同一次页面运行继续完成 22 个粉丝牌房间各赠送 1 个、向配置房间赠送剩余 98 个；最终成功 23、失败 0、跳过 0，全程未进入直播间且无需刷新等待到账。Socket 获取与背包到账轮询 TODO 验证完成。
+- 实机验证完成后移除开发期“测试登录并连接房间”菜单；保留一个房间配置，同时作为 Socket 领取目标和剩余荧光棒赠送目标。
 
 ### 2026-07-25
 

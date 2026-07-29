@@ -4,6 +4,7 @@ import {
   sendBagGift,
   sleep,
 } from "./douyu-api.js";
+import { connectAuthenticatedRoom } from "./douyu-socket.js";
 import {
   DEFAULT_REST_ROOM_ID,
   createRenewalPlan,
@@ -24,12 +25,14 @@ import { createNotifier } from "./notifier.js";
 const SEND_NUM = 1;
 const SEND_DELAY_MS = 250;
 const SEND_CONCURRENCY = 4;
+const BAG_REFRESH_DELAYS_MS = [500, 1_000, 1_500, 2_000, 3_000, 4_000];
 export const PAGE_START_KEY = "__chzAutoFansContinueStarted";
 const defaultApi = {
   getBagGifts,
   getFanBadgeRoomIds,
   sendBagGift,
   sleep,
+  connectAuthenticatedRoom,
 };
 
 function getGlobalValue(name) {
@@ -76,6 +79,30 @@ function createDefaultNotifier(logger) {
 
 function notify(notifier, type, message) {
   notifier?.[type]?.(message);
+}
+
+function getGiftList(bagData) {
+  return Array.isArray(bagData?.data?.list) ? bagData.data.list : [];
+}
+
+async function waitForStickGift(api, logger, restRoomId) {
+  let bagData;
+  let gifts = [];
+  let gift;
+
+  for (const delayMs of BAG_REFRESH_DELAYS_MS) {
+    await api.sleep(delayMs);
+    bagData = await api.getBagGifts(restRoomId);
+    gifts = getGiftList(bagData);
+    gift = selectStickGift(gifts);
+    if (gift) {
+      log(logger, `房间连接后等待 ${delayMs}ms 查询到荧光棒`);
+      return { bagData, gifts, gift };
+    }
+    log(logger, `房间连接后等待 ${delayMs}ms，背包仍无荧光棒`);
+  }
+
+  return { bagData, gifts, gift: null };
 }
 
 async function sendPlanItem(api, logger, notifier, item, label) {
@@ -149,8 +176,30 @@ async function executeRenewal({
   restRoomId,
   sendConcurrency,
 }) {
-  const bagData = await api.getBagGifts(restRoomId);
-  const gifts = Array.isArray(bagData?.data?.list) ? bagData.data.list : [];
+  let bagData = await api.getBagGifts(restRoomId);
+  let gifts = getGiftList(bagData);
+  let gift = selectStickGift(gifts);
+
+  if (!gift && typeof api.connectAuthenticatedRoom === "function") {
+    notify(
+      notifier,
+      "info",
+      `背包暂无荧光棒，正在连接房间 ${restRoomId} 尝试领取`,
+    );
+    try {
+      await api.connectAuthenticatedRoom({ roomId: restRoomId });
+      log(logger, `已完成房间 ${restRoomId} 登录与进房连接，等待道具入账`);
+      notify(notifier, "success", "已完成房间连接，正在等待荧光棒到账");
+      ({ bagData, gifts, gift } = await waitForStickGift(
+        api,
+        logger,
+        restRoomId,
+      ));
+    } catch (error) {
+      log(logger, `连接房间 ${restRoomId} 领取荧光棒失败`, error);
+      notify(notifier, "warning", "自动连接房间领取荧光棒失败，稍后可重试");
+    }
+  }
 
   if (gifts.length === 0) {
     log(logger, "背包礼物为空，今日不标记为已执行");
@@ -158,10 +207,13 @@ async function executeRenewal({
     return { status: "empty-bag", shouldMarkChecked: false };
   }
 
-  const gift = selectStickGift(gifts);
   if (!gift) {
-    log(logger, "背包内没有可用荧光棒，今日不标记为已执行");
-    notify(notifier, "warning", "背包内没有可用荧光棒，今日暂不标记为已执行");
+    log(logger, "等待领取后背包仍没有可用荧光棒，今日不标记为已执行");
+    notify(
+      notifier,
+      "warning",
+      "等待领取后仍无荧光棒，今日暂不标记为已执行",
+    );
     return { status: "no-stick-gift", shouldMarkChecked: false };
   }
 
@@ -273,9 +325,11 @@ function runMainWhenReady() {
 
 if (typeof window !== "undefined") {
   if (claimPageStart()) {
+    const storage = getGlobalValue("localStorage");
+    const registerMenuCommand = getGlobalValue("GM_registerMenuCommand");
     registerRestRoomMenu({
-      storage: getGlobalValue("localStorage"),
-      registerMenuCommand: getGlobalValue("GM_registerMenuCommand"),
+      storage,
+      registerMenuCommand,
       prompt: getGlobalValue("prompt"),
       alert: getGlobalValue("alert"),
     });
