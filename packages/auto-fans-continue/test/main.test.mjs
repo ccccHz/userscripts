@@ -6,7 +6,7 @@ import {
   PAGE_START_KEY,
   claimPageStart,
   runAutoFansContinue,
-} from "../src/main.js";
+} from "../src/auto-fans-continue.js";
 
 function createStorage(initialValue) {
   const values = new Map();

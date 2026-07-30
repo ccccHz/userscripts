@@ -95,3 +95,23 @@ test("all packages use stable shared dev and release configuration", async () =>
     );
   }
 });
+
+test("auto-fans-continue imports granted userscript APIs through the plugin client", async () => {
+  const entry = await readFile(
+    join(
+      workspaceRoot,
+      "packages",
+      "auto-fans-continue",
+      "src",
+      "main.js",
+    ),
+    "utf8",
+  );
+
+  assert.match(
+    entry,
+    /import\s*\{\s*GM_log,\s*GM_registerMenuCommand,\s*unsafeWindow\s*\}\s*from\s*"\$"/,
+  );
+  assert.doesNotMatch(entry, /globalThis\s*\[\s*["'](?:GM_|unsafeWindow)/);
+  assert.doesNotMatch(entry, /getGlobalValue\s*\(\s*["'](?:GM_|unsafeWindow)/);
+});
