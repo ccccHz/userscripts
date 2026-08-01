@@ -8,7 +8,8 @@ test("requires exactly one known package and forwards Vite arguments", () => {
     packageName: "skip-ads",
     viteArguments: ["--host", "0.0.0.0"],
   });
-  assert.equal(packageNames.length, 6);
+  assert.equal(packageNames.length, 8);
+  assert.ok(packageNames.includes("weibo-improvement"));
   assert.throws(() => parseArguments([]), /请指定一个 package/);
   assert.throws(() => parseArguments(["unknown"]), /未知 package/);
 });
