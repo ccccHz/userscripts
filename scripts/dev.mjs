@@ -15,16 +15,35 @@ export const packageNames = [
 
 const workspaceRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
+function resolvePackageName(value) {
+  const normalizedPath = value
+    .replaceAll("\\", "/")
+    .replace(/^\.\//, "")
+    .replace(/\/+$/, "");
+  const packageName = normalizedPath.startsWith("packages/")
+    ? normalizedPath.slice("packages/".length)
+    : normalizedPath;
+
+  return packageNames.includes(packageName) ? packageName : null;
+}
+
 export function parseArguments(arguments_) {
   const normalized = arguments_[0] === "--" ? arguments_.slice(1) : arguments_;
-  const [packageName, ...viteArguments] = normalized;
-  if (!packageName) {
+  const [packageArgument, ...viteArguments] = normalized;
+  if (!packageArgument) {
     throw new Error(
-      `请指定一个 package：\n  pnpm dev -- <package-name>\n\n可选：${packageNames.join(", ")}`,
+      [
+        "请指定一个 package：",
+        "  pnpm dev -- <package-name>",
+        "  pnpm dev -- packages/<package-name>",
+        "",
+        `可选：${packageNames.join(", ")}`,
+      ].join("\n"),
     );
   }
-  if (!packageNames.includes(packageName)) {
-    throw new Error(`未知 package：${packageName}`);
+  const packageName = resolvePackageName(packageArgument);
+  if (!packageName) {
+    throw new Error(`未知 package：${packageArgument}`);
   }
   return { packageName, viteArguments };
 }
