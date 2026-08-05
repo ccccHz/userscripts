@@ -7,6 +7,7 @@ import {
 } from "./dom-cleanup.js";
 import { ensureGiftEffectsBlocked } from "./gift-effects.js";
 import { findBestQualityOption, getQualityText } from "./quality.js";
+import { registerPlaybackResumeEvents } from "./playback-resume.js";
 import { registerRuntimeEvents } from "./runtime-events.js";
 import { observeAndRemoveWishPopups } from "./wish-popup.js";
 
@@ -24,13 +25,6 @@ let giftEffectBlockerTask = null;
 
 const GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE =
   "data-douyin-live-gift-effect-blocker";
-
-const CLICK_ELEMENT_RULES = [
-  {
-    name: "继续播放",
-    selector: '[data-douyin-live-resume-button="placeholder"]',
-  },
-];
 
 const QUALITY_RULES = [
   {
@@ -50,6 +44,8 @@ const QUALITY_RULES = [
     runMain,
     removeLiveBottomLayouts,
   });
+
+  registerPlaybackResumeEvents({ document, window });
 })();
 
 async function getTarget(str, needContent = true) {
@@ -60,7 +56,6 @@ async function getTarget(str, needContent = true) {
 function runMain() {
   console.log("userscript: douyin optim");
   removeMatchedElements();
-  clickMatchedElements();
   const giftEffectTask = enableGiftEffectBlocker();
   ensurePlayerAudioEnabled();
   disableDanmakuFiltersOnOpen(giftEffectTask);
@@ -110,14 +105,6 @@ function removeMatchedElements() {
   REMOVE_ELEMENT_RULES.forEach((rule) => {
     getTarget(rule.selector).then((target) => {
       if (target) target.remove();
-    });
-  });
-}
-
-function clickMatchedElements() {
-  CLICK_ELEMENT_RULES.forEach((rule) => {
-    getTarget(rule.selector).then((target) => {
-      if (target) target.click();
     });
   });
 }
