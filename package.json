@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:hmr": "node scripts/dev.mjs --hmr",
     "build": "pnpm -r build",
     "prepare-pages": "node scripts/prepare-pages.mjs",
     "prepare-tampermonkey-import": "python3 scripts/prepare_tampermonkey_import.py",

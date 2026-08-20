@@ -1,11 +1,12 @@
 {
   "name": "douyin-live-optimizer",
   "private": true,
-  "version": "2026.8.1",
+  "version": "2026.8.20",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite",
+    "dev": "node ../../scripts/dev.mjs douyin-live-optimizer",
+    "dev:hmr": "vite",
     "type-check": "tsc -p tsconfig.json --noEmit"
   }
 }

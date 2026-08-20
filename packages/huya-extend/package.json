@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite",
+    "dev": "node ../../scripts/dev.mjs huya-extend",
+    "dev:hmr": "vite",
     "type-check": "tsc -p tsconfig.json --noEmit"
   }
 }

@@ -90,8 +90,13 @@ test("all packages use stable shared dev and release configuration", async () =>
     );
     assert.equal(
       packageJson.scripts.dev,
+      `node ../../scripts/dev.mjs ${pkg.name}`,
+      `${pkg.name} dev should use the local file proxy flow`,
+    );
+    assert.equal(
+      packageJson.scripts["dev:hmr"],
       "vite",
-      `${pkg.name} dev should use the official Vite serve flow`,
+      `${pkg.name} should retain the optional Vite HMR flow`,
     );
   }
 });
