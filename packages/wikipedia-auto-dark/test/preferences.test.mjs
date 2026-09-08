@@ -148,3 +148,45 @@ test("observes page initialization and disconnects after synchronization", () =>
   observer.callback();
   assert.equal(observer.disconnected, true);
 });
+
+for (const state of ["initializing", "missing controls"]) {
+  test(`observer settles while ${state} instead of feeding its own mutations`, () => {
+    const { documentObject, htmlElement } = createDocument({
+      ready: state !== "initializing",
+    });
+    if (state === "missing controls") {
+      documentObject.getElementById = () => null;
+    }
+
+    let pending = false;
+    let observing = false;
+    // DOMTokenList.add updates the class attribute even for an existing token.
+    for (const method of ["add", "remove"]) {
+      const original = htmlElement.classList[method].bind(htmlElement.classList);
+      htmlElement.classList[method] = (token) => {
+        original(token);
+        if (observing) pending = true;
+      };
+    }
+    class MutationObserverHarness {
+      constructor(callback) { this.callback = callback; }
+      observe() { observing = true; }
+      disconnect() { observing = false; pending = false; }
+    }
+    const observer = startWikipediaPreferences({
+      documentObject,
+      MutationObserverClass: MutationObserverHarness,
+    });
+    htmlElement.classList.add("unrelated-page-class");
+    let deliveries = 0;
+    while (pending && deliveries < 20) {
+      pending = false;
+      deliveries += 1;
+      observer.callback();
+    }
+    assert.equal(pending, false, "class mutations must stop without starving rendering");
+    assert.equal(deliveries, 1);
+    assert.equal(htmlElement.classList.contains("skin-theme-clientpref-os"), true);
+    observer.disconnect();
+  });
+}

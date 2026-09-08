@@ -19,7 +19,10 @@ export function enforceAutomaticTheme(htmlElement) {
     }
   }
 
-  htmlElement.classList.add(AUTOMATIC_THEME_CLASS);
+  // Even adding an existing token can emit a class mutation and retrigger us.
+  if (!htmlElement.classList.contains(AUTOMATIC_THEME_CLASS)) {
+    htmlElement.classList.add(AUTOMATIC_THEME_CLASS);
+  }
 }
 
 export function synchronizeWikipediaControls(documentObject) {
