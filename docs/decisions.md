@@ -391,3 +391,17 @@ Cookie、身份、聊天和其他 runtime 数据。审计清空只操作脱敏 `
 **原因：** 设置文件是用户显式备份/恢复接口，静默丢字段会掩盖错误并造成难以诊断的部分恢复；完整快照
 与单次 GM 写入使配置变更可预览、可回退且便于跨 tab 同步。每日自动化已存在启用副作用，导入不能暗中
 改写它的业务语义，只能把风险提前交给用户确认。
+
+## D035：`main` 作为 userscripts 唯一主线，功能按 package 使用短期分支
+
+**日期：** 2026-09-21
+
+**决策：** 以 `userscripts` 主项目目录为长期权威来源，`main` 为唯一长期主线。功能和修复使用
+`<type>/<package>/<slug>` 短期分支；一个独立任务对应一个分支和至多一个临时 worktree。
+worktree 不得跨目录复制未提交实现，也不作为长期 Tampermonkey 开发代理来源。版本只在用户确认发布后
+通过独立 release 提交提高，并为对应 package 创建 `<package>/v<version>` annotated tag；重要非发布快照
+使用 `<package>/baseline-YYYY-MM-DD`。
+
+**原因：** 早期 `codex/douyin-commerce-dev-flow` 分支同时承载了多个 package 和 DouyuEx 迁移基线，
+后续 detached worktree 又与主目录产生重叠未提交修改及构建版本分叉。单一主线、任务级分支和 package 级
+tag 能保留隔离收益，同时让构建、安装、版本和集成入口保持唯一。

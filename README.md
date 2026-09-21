@@ -78,8 +78,9 @@ https://ccccHz.github.io/userscripts/
 ```
 
 每个脚本的 `@updateURL` 指向对应 `.meta.js`，`@downloadURL` 指向 `.user.js`。
-发布代码变更前必须提高对应 package 的 `package.json` `version`；
-`vite.config.ts` 会自动读取它，不需要再维护第二份版本号。
+准备发布时必须提高对应 package 的 `package.json` `version`；`vite.config.ts` 会自动读取它，
+不需要再维护第二份版本号。开发、验证和分支管理规则见
+[Git 分支、worktree 与发布约定](docs/git-workflow.md)。
 
 首次启用发布时，需要在 GitHub 仓库的 `Settings > Pages > Build and deployment`
 中把 `Source` 设为 `GitHub Actions`。
@@ -92,16 +93,13 @@ https://ccccHz.github.io/userscripts/
 
 开发者和参与修改代码的 Agent 必须遵守以下规则：
 
-1. 凡是会改变某个 userscript 发布产物的修改，必须在同一个提交中提高对应
+1. feature/fix 分支的开发和验证构建保持当前版本，不为每个试验提交提高版本。
+2. 最新构建通过约定的浏览器路径、且用户确认发布后，创建独立 release 提交，提高对应
    `packages/<name>/package.json` 的 `version`。
-2. `src/`、`vite.config.ts`、被该脚本引用的 `shared/` 代码或其他构建输入发生变化，
-   都视为发布产物变化。
-3. 只修改文档、测试或不进入 userscript 产物的开发工具时，不需要提高版本；源码注释
-   如果会进入构建产物，也按产物变化处理。
-4. 修改多个 userscript 时，分别提高所有受影响 package 的版本；不要为了省事提高
-   未受影响脚本的版本。
-5. Agent 在交付代码修改前必须检查版本是否已经提高，并在最终说明中列出提高后的
-   package 和版本号。
+3. 修改多个 userscript 时，分别发布和标记受影响的 package；不要提高未受影响脚本的版本。
+4. 只修改文档、测试或不进入 userscript 产物的开发工具时，不需要提高版本。
+5. release 提交合并到 `main` 后创建 `<package>/v<version>` annotated tag；Agent 在发布说明中
+   列出版本、tag、验证结果和未覆盖项。
 
 版本号必须保持递增。当前允许沿用各 package 已有的版本风格；日期版本可以从
 `2026.7.15` 提高为修改当天的日期，语义化版本可以按改动范围提高 patch、minor
@@ -135,6 +133,7 @@ pnpm prepare-tampermonkey-import -- \
 - [迁移状态](docs/migration-status.md)
 - [TODO 清单](docs/todo.md)
 - [决策记录](docs/decisions.md)
+- [Git 分支、worktree 与发布约定](docs/git-workflow.md)
 - [Tampermonkey 脚本整理清单](docs/tampermonkey-inventory.md)
 - [Douyu Web Enhancer 局部文档](packages/douyu-web-enhancer/docs/README.md)
 - [DouyuEx 调度规则](packages/douyu-web-enhancer/docs/task-routing.md)

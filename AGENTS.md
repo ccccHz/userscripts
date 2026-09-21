@@ -17,6 +17,8 @@
 - 发布、推送、安装脚本、扩大 userscript 权限、真实账号/付费/对外操作和删除数据必须先获用户确认。
 - 不提交 Cookie、Token、个人导出数据或含这些内容的日志。
 - 每个可安装 userscript 使用独立 `packages/<name>`；共享代码放 `shared/`，仓库工具放 `scripts/`。
+- `main` 是唯一长期主线；功能分支使用 `<type>/<package>/<slug>`。不建立长期 package 分支，完整规则见 `docs/git-workflow.md`。
+- 一个独立任务只写自己的分支/worktree。worktree 必须挂在任务分支上，不把未提交文件复制到主项目，也不作为长期 Tampermonkey `@require` 来源。
 - 用户可见版本是发布声明：验证中的构建和试验保持当前 package 版本；只有最新 `dist` 已通过约定的核心浏览器路径、并获用户验收或明确发布授权时才提高版本。验证期保持 `userscript.publish=false`。
 - 页面功能必须可撤销、幂等，避免无界轮询和 observer 自激。
 
