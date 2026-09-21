@@ -97,6 +97,10 @@ import {
   disableOfflineJumpSelectors,
 } from "./features/disable-offline-jump.ts";
 import {
+  DANMAKU_AVAILABILITY_ID,
+  installDanmakuAvailabilityHook,
+} from "./features/danmaku-availability.ts";
+import {
   mountSimplifiedModeControls,
   simplifiedModeControlSelectors,
 } from "./ui/simplified-mode-controls.ts";
@@ -104,6 +108,25 @@ import {
   mountControlCenter,
   type AutomationSummary,
 } from "./ui/control-center.ts";
+
+// This must run before the async settings/runtime bootstrap: Douyu's inline
+// bootstrap can be inserted immediately after the userscript starts.
+const danmakuAvailabilityHook = installDanmakuAvailabilityHook();
+globalThis.addEventListener?.("pagehide", () => danmakuAvailabilityHook.dispose(), { once: true });
+
+function updateDanmakuAvailabilityDiagnostics(diagnostics: Diagnostics): void {
+  const snapshot = danmakuAvailabilityHook.snapshot();
+  diagnostics.update(
+    DANMAKU_AVAILABILITY_ID,
+    snapshot.errors > 0 || snapshot.degraded > 0 ? "degraded" : snapshot.installed ? "active" : "disabled",
+    {
+      detail: snapshot.installed
+        ? "document-start 页面主世界 Hook 已安装；只观察/改写精确 player_barrage 序列"
+        : "Hook 未安装；刷新页面后重试",
+      data: snapshot,
+    },
+  );
+}
 
 async function waitForRoot(): Promise<HTMLElement> {
   if (document.documentElement) return document.documentElement;
@@ -120,6 +143,8 @@ async function waitForRoot(): Promise<HTMLElement> {
 async function start(): Promise<void> {
   const root = await waitForRoot();
   const diagnostics = new Diagnostics();
+  const stopDanmakuAvailabilityDiagnostics = danmakuAvailabilityHook.subscribe(() => updateDanmakuAvailabilityDiagnostics(diagnostics));
+  updateDanmakuAvailabilityDiagnostics(diagnostics);
   const observerHub = new ObserverHub(root);
   const styles = new StyleRegistry(document);
   const selectors = new SelectorRegistry(document, {
@@ -468,6 +493,7 @@ async function start(): Promise<void> {
       stopRuntimeSubscription();
       stopDiagnosticsSubscription();
       stopDanmakuObservationsSubscription();
+      stopDanmakuAvailabilityDiagnostics();
       controlCenter.dispose();
       observerHub.destroy();
       styles.destroy();

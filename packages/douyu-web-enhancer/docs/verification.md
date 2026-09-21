@@ -1,5 +1,14 @@
 # Douyu Web Enhancer 验证记录
 
+## 2026-09-21：特殊时期恢复弹幕显示（verifying）
+
+- 范围为 `danmaku-availability` 的 document-start 窄 Hook、控制中心只读状态卡、自动化回归、构建和普通直播页只读验收。验证版本保持 `0.10.10`；未发布、未推送、未新增权限或网络请求。
+- 实现：`src/features/danmaku-availability.ts` 在 `sandbox: raw` 页面主世界自动安装，不增加普通设置开关。它只 Hook `Node.prototype.appendChild/insertBefore` 的动态内联 script，以及 `XMLHttpRequest.prototype.responseText` 的 `/betard` 响应；纯替换只接受转义 JSON 与普通 JSON 中精确对象键 `player_barrage:0`。字段已为 `1`、缺失、字符串值、相似键、外链 script 和非目标 URL 均保持原文。重复安装共享同一 Hook；descriptor 不可配置或环境不兼容时报告降级；pagehide 只恢复仍归属本次安装的 descriptor。
+- 控制中心不提供会让用户误以为可即时关闭的开关，只读区分“Hook 已安装”“已观察到官方允许飘屏”“实际发生恢复”和降级/异常，并展示 Hook、未命中、恢复、降级与异常计数。
+- 自动化：`node --test test/douyu-web-enhancer.test.mjs` **68/68**、package type-check 和 package build 通过；覆盖两种序列化、多个命中、无命中、已为 1、字符串/相似键、appendChild/insertBefore、外链/非目标 script、目标/非目标 XHR、重复安装、原方法 this/返回值/异常、清理恢复、descriptor 降级，以及自动安装和只读面板接线。最终全仓 `pnpm validate && pnpm test && pnpm type-check && pnpm build` 通过，其中测试 **209/209**。
+- Chrome 真实页面：开发壳由 `http://127.0.0.1:53986/douyu-web-enhancer.dev.user.js` 重装，`@require` 明确指向主项目构建产物 `packages/douyu-web-enhancer/dist/douyu-web-enhancer.user.js`；刷新 `https://www.douyu.com/52` 后控制中心显示 `v0.10.10`，弹幕分区出现无开关的只读卡片。实测为“Hook 已安装”“已观察到官方允许飘屏（1 次）”“本页尚未发生恢复”，计数为脚本 Hook `2/2`、XHR Hook 已安装、未命中 `17`、降级 `0`、异常 `0`；页面普通弹幕飘屏持续正常。未发送弹幕、点赞、关注、签到、送礼或修改账号状态。
+- 未覆盖项：真实特殊时期 `player_barrage:0` 样本和实际 responseText 0→1 页面恢复，只能等待自然出现；不人工制造限制或把普通时期零恢复写成特殊时期恢复通过。
+
 ## 2026-09-21：0.10.10 room-metrics 顶部摘要条紧凑化
 
 - 冻结契约要求只修复 Y 轴密度，不改变收入、贵宾人数、已观看的横向顺序和位置，不触碰斗鱼
