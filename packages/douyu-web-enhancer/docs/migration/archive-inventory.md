@@ -84,7 +84,7 @@
 | ID / 用户价值 | 归档源码与入口 | 默认 / 持久化 | 接口、依赖与当前失效点 | 建议 / 优先级 / 独立验收边界 |
 | --- | --- | --- | --- | --- |
 | `volume-wheel`：在音量控件滚轮调节 5% | `VolumeMouseScrolling/VolumeMouseScrolling.js`；原音量按钮 | 自动；写斗鱼自身音量键 | video/固定哈希类；新版类名很可能变化 | 窄适配；P1；每格 5%、边界/静音/UI 同步、停用后滚轮恢复页面默认。 |
-| `video-speed`：直播播放速度调节 | `VideoTools/VideoSpeed/`；播放器控制栏 | 动作/瞬时状态；无 | HTMLVideoElement；直播缓冲可能重置速度 | 提取；P1；入口反馈、倍率、重载/换清晰度和恢复 1x。 |
+| `video-speed`：直播播放速度调节 | `VideoTools/VideoSpeed/`；播放器控制栏 | 动作/瞬时状态；无 | HTMLVideoElement；斗鱼回看直播官方已有多档速度 | rejected；用户不需要增强版，不迁移。 |
 | `cinema-mode`：影院布局 | `VideoTools/Cinema/`；播放器近场按钮 | 关；无 | DOM/CSS 布局；可能与官方网页全屏重叠 | 调研；P2；先确认与官方模式差异，几何和退出恢复通过。 |
 | `video-sync`：将直播追到最新时间点 | `VideoTools/VideoSync/`；“同步时间”按钮 | 动作；无 | video buffered/currentTime | 提取；P1；播放/暂停、无缓冲、重复点击和提示。 |
 | `prevent-auto-pause`：写入斗鱼防挂机标志，避免自动暂停 | `ExpandTool/ExpandTool_TabSwitch.js` 的 `enableIgnoreAutoPause()`；无入口 | 自动写 `localStorage.freetimed=1` | 依赖斗鱼私有存储键；语义可能已失效，且没有停用 | 调研；P1；先用真实后台/前台行为证明必要性，再提供独立开关和恢复。 |

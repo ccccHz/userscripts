@@ -843,7 +843,7 @@ test("control center keeps its navigation outside the scrolling flex region", as
   assert.match(source, /main \{ flex:1 1 auto; min-height:0; overflow:auto;/);
 });
 
-test("danmaku availability is automatic and exposes read-only evidence states", async () => {
+test("danmaku availability is automatic and exposes a concise outcome state", async () => {
   const [mainSource, controlCenterSource, settingsSource] = await Promise.all([
     readFile(new URL("../packages/douyu-web-enhancer/src/main.ts", import.meta.url), "utf8"),
     readFile(new URL("../packages/douyu-web-enhancer/src/ui/control-center.ts", import.meta.url), "utf8"),
@@ -852,10 +852,12 @@ test("danmaku availability is automatic and exposes read-only evidence states", 
 
   assert.match(mainSource, /const danmakuAvailabilityHook = installDanmakuAvailabilityHook\(\);/);
   assert.doesNotMatch(settingsSource, /danmakuAvailability/);
-  assert.match(controlCenterSource, /Hook 已安装/);
-  assert.match(controlCenterSource, /已观察到官方允许飘屏/);
-  assert.match(controlCenterSource, /实际发生恢复/);
-  assert.match(controlCenterSource, /Hook 已降级或发生异常/);
+  assert.match(controlCenterSource, /未生效，当前无需恢复/);
+  assert.match(controlCenterSource, /已生效，正在恢复飘屏/);
+  assert.match(controlCenterSource, /等待识别弹幕状态/);
+  assert.match(controlCenterSource, /运行异常，可能无法恢复飘屏/);
+  assert.doesNotMatch(controlCenterSource, /脚本 Hook/);
+  assert.doesNotMatch(controlCenterSource, /未命中/);
   assert.doesNotMatch(controlCenterSource, /aria-label="特殊时期弹幕恢复"/);
 });
 

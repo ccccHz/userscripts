@@ -400,23 +400,18 @@ export class DouyuControlCenterElement extends LitElement {
       ? diagnostic.data as Partial<DanmakuAvailabilitySnapshot>
       : {};
     const installed = data.installed === true;
+    const recovering = typeof data.rewrites === "number" && data.rewrites > 0;
+    const officiallyAllowed = typeof data.observedEnabled === "number" && data.observedEnabled > 0;
     const runtime = diagnostic?.status === "degraded"
-      ? "Hook 已降级或发生异常"
-      : installed ? "Hook 已安装" : "Hook 未安装";
-    const official = typeof data.observedEnabled === "number" && data.observedEnabled > 0
-      ? `已观察到官方允许飘屏（${data.observedEnabled} 次）`
-      : "尚未观察到官方允许字段";
-    const recovery = typeof data.rewrites === "number" && data.rewrites > 0
-      ? `实际发生恢复（${data.rewrites} 次）`
-      : "本页尚未发生恢复";
-    const counters = [
-      `脚本 Hook ${data.inlineHooks === 2 ? "2/2" : data.inlineHooks === 1 ? "1/2" : "0/2"}`,
-      `XHR Hook ${data.responseHook ? "已安装" : "未安装"}`,
-      `未命中 ${typeof data.misses === "number" ? data.misses : 0}`,
-      `降级 ${typeof data.degraded === "number" ? data.degraded : 0}`,
-      `异常 ${typeof data.errors === "number" ? data.errors : 0}`,
-    ].join(" · ");
-    return html`<div class="row"><div><div class="name">特殊时期弹幕恢复</div><div class="desc">自动安装窄 Hook；仅在识别到精确 player_barrage 限制时恢复飘屏。</div><div class="runtime" data-status=${diagnostic?.status ?? "disabled"}>${runtime}</div><div class="runtime">${official}</div><div class="runtime">${recovery}</div><div class="runtime">${counters}</div></div></div>`;
+      ? "运行异常，可能无法恢复飘屏"
+      : recovering
+        ? "已生效，正在恢复飘屏"
+        : officiallyAllowed
+          ? "未生效，当前无需恢复"
+          : installed
+            ? "等待识别弹幕状态"
+            : "未运行，刷新页面后重试";
+    return html`<div class="row"><div><div class="name">特殊时期弹幕恢复</div><div class="desc">特殊日期遇到飘屏限制时自动恢复。</div><div class="runtime" data-status=${diagnostic?.status ?? "disabled"}>${runtime}</div></div></div>`;
   }
   #renderOverview() { return html`<section><h2>功能概览</h2><p class="hint">开关显示配置状态；状态行显示实际运行状态。页面工具栏中的高频入口仍可直接使用。</p>${featureDefinitions.map((item) => this.#renderFeature(item))}</section>`; }
   #renderPlayback() { const diagnostic = diagnosticFor(this.model, "auto-web-fullscreen"); const volumeWheel = featureDefinitions.find((item) => item.setting === "volumeWheel"); const liveTimeshift = featureDefinitions.find((item) => item.setting === "liveTimeshiftControls"); const highestQuality = featureDefinitions.find((item) => item.setting === "highestVideoQuality"); const disableOfflineJump = featureDefinitions.find((item) => item.setting === "disableOfflineJump"); return html`<section><h2>播放与页面</h2><div class="row"><div><div class="name">记住网页全屏</div><div class="desc">打开直播间后定位播放器，并恢复你上次选择的斗鱼网页全屏状态。</div><div class="runtime" data-status=${diagnostic?.status ?? "disabled"}>${statusText(diagnostic?.status)}${diagnostic?.detail ? ` · ${diagnostic.detail}` : ""}</div></div><button class="switch" role="switch" aria-label="记住网页全屏" aria-checked=${String(this.model.settings.preferences.autoWebFullscreen)} @click=${() => this.#run(() => this.model.onSetAutoWebFullscreen(!this.model.settings.preferences.autoWebFullscreen))}></button></div>${volumeWheel ? this.#renderFeature(volumeWheel) : nothing}${liveTimeshift ? this.#renderFeature(liveTimeshift) : nothing}${highestQuality ? this.#renderFeature(highestQuality) : nothing}${disableOfflineJump ? this.#renderFeature(disableOfflineJump) : nothing}</section>`; }

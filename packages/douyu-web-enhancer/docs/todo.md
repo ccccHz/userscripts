@@ -1,12 +1,10 @@
 # Douyu Web Enhancer TODO
 
-最后更新：2026-09-19。本页只保留开放事项、下一步和阻塞条件。已完成功能的状态见
+最后更新：2026-09-21。本页只保留开放事项、下一步和阻塞条件。已完成功能的状态见
 [`features.json`](migration/features.json)，验收证据见 [`verification.md`](verification.md)，长期顺序见
 [迁移路线图](migration/roadmap.md)。
 
 ## 当前主线
-
-- [ ] **P1 弹幕右键缺失操作补全实机收口**：已按 douyuEx 对齐播放器悬浮目标 `#comment-higher-container [data-comment-uuid]`、0 高度 portal 和官方 `.btnsInner-*` 操作行，并保留侧栏/右键兼容；官方“加一”与“+1”已统一识别，缺失时克隆官方按钮结构，以“举报｜加一｜回复｜收藏”的固定槽位补入。最新 dist、自动化测试和目标页无账号动作预检通过。当前未点击 +1/发送，真实回复填充、官方延迟出现和 +1 发送留给用户逐次手动验收。
 
 - [ ] **P1 弹幕疑似屏蔽记录面板（核心已验收）**：代码已接入统一控制中心“弹幕”分区，复用同一份
   IndexedDB/localStorage 有界 repository，提供时间/房间/正文/证据/迟到更正、三项筛选、JSON
@@ -20,9 +18,9 @@
 
 ## 下一批迁移候选
 
-- [ ] **M1 低风险播放控制**：先共同盘点 `video-sync` + `video-recall`，再依次考虑
-  `video-speed`、`disable-offline-jump`。实施前逐项确认原版行为、
-  当前官方能力、默认值和用户手动接管边界。
+- [ ] **低风险播放控制剩余盘点**：归档 `video-sync` + `video-recall` 已由 `live-timeshift-controls`
+  合并覆盖，不再重复迁移；后续候选另立契约。`disable-offline-jump` 已实现并降为长期自然验证；
+  `video-speed` 已 rejected，因为斗鱼回看直播官方已有多档速度，用户不需要增强版。
 
 ## 等待自然样本
 
@@ -31,7 +29,9 @@
   不领取、不改变账号状态。
 - [ ] **SC 遮挡弹幕工具栏**：等付费弹幕自然出现后，按
   [专项调研](research/sc-toolbar-obstruction.md)补齐 DOM 和层级证据，再建立实现契约。
-- [ ] **`danmaku-availability`**：只在特殊时期弹幕限制有真实样本后，设计可撤销的最窄 Hook。
+- [ ] **`danmaku-availability` 长期自然验证**：最新构建已实现最窄可撤销 Hook；当前普通页只有
+  `player_barrage:1`，待特殊时期出现真实 `0` 样本后只补恢复结果和无误伤证据，不人工制造限制。
+- [ ] **`disable-offline-jump` 长期自然验证**：待真实下播推荐弹窗自然出现后确认关闭与停留结果；不人工触发账号动作或猜测备用选择器。
 
 ## 需要单独授权或继续暂缓
 
