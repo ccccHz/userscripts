@@ -14,6 +14,23 @@
 | 开始/结束与墙钟 | 使用任务状态时间；等待用户时间另注 |
 | 5 小时 / 每周窗口前后 | 总体 usedPercent；缺失或并发即标污染 |
 
+## 2026-09-21：room-metrics 顶部摘要条紧凑化（gpt-5.6-luna / high）
+
+- task/thread：当前调度中心委派的 room-metrics 子任务；实际模型 / reasoning：`gpt-5.6-luna` / `high`；样本类型：冻结契约实现、定向回归、package
+  构建和只读 Chrome 几何验收；未提交、未推送、未发布。
+- 范围：`packages/douyu-web-enhancer/src/features/room-metrics.ts` 仅调整自有指标条的 Y 轴密度、
+  垂直居中和 1px 低对比度分隔；保留三项指标横向顺序、收入点击、hover/focus 详情、每秒推进/150 秒
+  校准、停播语义、DOM 重建、简洁模式和无障碍行为；版本 `0.10.10`。
+- 证据：Chrome 110% 的只读 `douyu.com/2561707` 修改前指标条/舞台/首消息为 `37.038px / y=37.038px /
+  y=45.036px`；修改后同一页指标条为 `27.997px`，舞台从指标条底部 `y=95.994px` 开始，首条为
+  `y=103.991px`，消息原生 `margin=8px 0` 保持；tooltip `position:fixed`、`z-index:10000` 且实测可见，
+  没有被父级 `overflow:hidden` 裁切。未执行任何账号或聊天写操作。
+- 轮次与返工：样式实现 1 轮，浅色聊天区可见性复核及边框颜色修正 1 轮，最小自动化断言 1 轮，文档
+  1 轮；无契约级返工。定向测试 `65/65`、package type-check/build 通过；全仓 `validate`、`test`
+  （`206/206`）、`type-check`、`build` 均已通过。
+- 未覆盖项：同一变更尚未在网页全屏和浏览器全屏分别采集几何证据；不把单页普通模式证据扩展为全模式
+  完成。未采集账户额度窗口，不能折算 token。
+
 ## 2026-09-20：防止斗鱼下播后自动跳转（Luna High，verifying）
 
 - task/thread：当前用户委派任务；实际模型 / reasoning：`gpt-5.6-luna` / `high`。样本类型：单功能实现、自动化测试、全仓门禁和迁移文档同步。

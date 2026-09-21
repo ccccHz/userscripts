@@ -2003,6 +2003,10 @@ test("room metrics keeps gift revenue, nobles, and the archived time semantics",
   assert.equal(parseTodayWatch({ error: 1, data: { todayWatch: 3661 } }), null);
   assert.equal(formatDuration(3661.9), "01:01:01");
   assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics/);
+  assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics[\s\S]*height: 28px/);
+  assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics[\s\S]*align-items: center/);
+  assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics[\s\S]*border-bottom: 1px solid rgba\(90, 96, 116, 0\.14\)/);
+  assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics__values[\s\S]*display: flex/);
   assert.match(ROOM_METRICS_CSS, /\.dwe-room-metrics__tooltip/);
   assert.match(ROOM_METRICS_CSS, /\.layout-Player-rank[\s\S]*top: 34px !important/);
 

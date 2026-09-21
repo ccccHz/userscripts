@@ -10,11 +10,16 @@ export const roomMetricsSelectors = {
 export const ROOM_METRICS_CSS = `
 .dwe-room-metrics {
   display: flex;
+  align-items: center;
   box-sizing: border-box;
   width: 100%;
+  height: 28px;
+  min-height: 28px;
   padding: 0 7px;
+  /* The room can render a light chat surface; a neutral low-alpha rule stays visible there and remains subtle in dark mode. */
+  border-bottom: 1px solid rgba(90, 96, 116, 0.14);
   color: rgb(153, 153, 153);
-  line-height: 33px;
+  line-height: 18px;
 }
 
 .dwe-room-metrics [data-dwe-metric="money"] {
@@ -45,8 +50,11 @@ export const ROOM_METRICS_CSS = `
 }
 
 .dwe-room-metrics__values {
+  display: flex;
+  align-items: center;
   flex: 1;
   min-width: 0;
+  line-height: 18px;
   white-space: nowrap;
 }
 
@@ -54,6 +62,7 @@ export const ROOM_METRICS_CSS = `
   display: inline-flex;
   align-items: center;
   margin-right: 3px;
+  line-height: 18px;
   white-space: nowrap;
 }
 

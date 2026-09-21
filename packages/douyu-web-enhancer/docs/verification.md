@@ -1,5 +1,26 @@
 # Douyu Web Enhancer 验证记录
 
+## 2026-09-21：0.10.10 room-metrics 顶部摘要条紧凑化
+
+- 冻结契约要求只修复 Y 轴密度，不改变收入、贵宾人数、已观看的横向顺序和位置，不触碰斗鱼
+  `.Barrage-listItem` 间距。修改范围仅为 `.dwe-room-metrics` 及其内部布局：高度约 37px 压缩为
+  28px，内容垂直居中，增加 1px 中性低对比度底边（`rgba(90,96,116,.14)`；兼容当前浅色弹幕区，
+  深色模式仍保持克制）形成指标条与弹幕舞台的过渡；未增加请求、定时器、
+  observer、权限、持久化或 UI 依赖。package 提高到 `0.10.10`。
+- 修改前基线（Chrome 110%，只读房间 `2561707`）：`.dwe-room-metrics` / `.layout-Player-rankAll`
+  高 `37.038px`，`.layout-Player-barrageStage` 起点 `y=37.038px`，首条可见
+  `.Barrage-listItem` 起点 `y=45.036px`，其 `margin=8px 0`。这与冻结证据一致，没有误判为原生排行榜
+  占位或改动全局弹幕项间距。
+- 修改后同一只读页面：指标条高 `27.997px`，弹幕舞台起点 `y=95.994px`（同页上方布局使绝对 y
+  不同，但与指标条底部完全衔接），首条可见消息起点 `y=103.991px`，仍保持 `8px` 原生消息上边距；
+  指标条底边计算为 `0.909px`，无额外占位。收入、贵宾和已观看仍保持原横向顺序，已观看相对指标条
+  右侧位置未被重排。
+- 已观看聚焦后，顶层 tooltip 仍可见且不被裁切：`display:block`、`position:fixed`、`z-index:10000`、
+  实测尺寸 `154×49.8px`，内容继续显示“本场已播/开播于”。未发送弹幕、关注、签到、送礼或修改账号状态。
+- 定向 room-metrics/增强包测试 `65/65`、package type-check 和 package build 通过；全仓
+  `validate`、`test`（`206/206`）、`type-check`、`build` 均已通过。当前只读真实页面验收覆盖普通页面，网页全屏和
+  浏览器全屏的几何回归留作未覆盖项。
+
 ## 2026-09-20：防止下播后自动跳转（verifying）
 
 - 实际执行配置：`gpt-5.6-luna` / `high`；范围为 `disable-offline-jump` 单功能、Settings v6/控制中心接线、迁移清单、自动化测试、类型检查、构建和文档。package 版本保持 `0.10.9`，未新增 userscript 权限、网络请求、账号动作或 Toast。
