@@ -36,7 +36,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate
-        run: pnpm test && pnpm type-check && pnpm build
+        run: pnpm validate && pnpm test && pnpm type-check && pnpm build
 
       - name: Prepare Pages artifact
         run: pnpm prepare-pages

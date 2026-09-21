@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   createDevelopmentProxy,
+  discoverPackageNames,
   packageNames,
   parseArguments,
 } from "../scripts/dev.mjs";
@@ -22,8 +23,9 @@ test("accepts package names and forwards Vite arguments", () => {
     packageName: "skip-ads",
     viteArguments: ["--host", "0.0.0.0"],
   });
-  assert.equal(packageNames.length, 8);
+  assert.deepEqual(packageNames, discoverPackageNames());
   assert.ok(packageNames.includes("weibo-improvement"));
+  assert.ok(packageNames.includes("douyu-web-enhancer"));
 });
 
 test("accepts shell-completable package paths", () => {

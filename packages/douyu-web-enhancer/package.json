@@ -1,0 +1,18 @@
+{
+  "name": "douyu-web-enhancer",
+  "private": true,
+  "version": "0.10.9",
+  "type": "module",
+  "userscript": {
+    "publish": false
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "node ../../scripts/dev.mjs douyu-web-enhancer",
+    "dev:hmr": "vite",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "lit": "^3.3.3"
+  }
+}

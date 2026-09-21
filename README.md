@@ -66,6 +66,10 @@ pnpm dev:hmr -- kuaishou-live-optimizer
 `pnpm prepare-pages` 会把所有产物汇总到忽略提交的 `site/`，用于本地检查或 Pages
 部署。
 
+处于开发验证期的 package 可以在 `package.json` 中设置
+`"userscript": { "publish": false }`。它仍参与测试、类型检查和全量构建，但不会被
+`prepare-pages` 放入 Pages 部署产物。
+
 推送到 `ccccHz/userscripts` 的 `main` 分支后，GitHub Actions 会依次执行测试、
 类型检查、构建和 GitHub Pages 部署。生产版安装入口为：
 
@@ -124,6 +128,7 @@ pnpm prepare-tampermonkey-import -- \
 | Package | 原项目 | 状态 |
 | --- | --- | --- |
 | `auto-fans-continue` | `../autoFansContinue/AutoFansContinue.user.js` | 代码已按 `douyuEX_new` 和 `douyuEx_meta` 重构，浏览器验证待完成 |
+| `douyu-web-enhancer` | `archive/douyuEx-2026.06.03.01` | 以仓库内只读 DouyuEx 快照为迁移基准；当前状态见 package 文档 |
 
 ## 文档
 
@@ -131,6 +136,8 @@ pnpm prepare-tampermonkey-import -- \
 - [TODO 清单](docs/todo.md)
 - [决策记录](docs/decisions.md)
 - [Tampermonkey 脚本整理清单](docs/tampermonkey-inventory.md)
+- [Douyu Web Enhancer 局部文档](packages/douyu-web-enhancer/docs/README.md)
+- [DouyuEx 调度规则](packages/douyu-web-enhancer/docs/task-routing.md)
 
 ## 迁移规则
 

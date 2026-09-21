@@ -8,23 +8,13 @@ import { inspectWorkspace } from "../scripts/inspect-workspace.mjs";
 
 const workspaceRoot = fileURLToPath(new URL("..", import.meta.url));
 
-test("discovers migrated userscript packages in priority order", async () => {
+test("discovers every userscript package in stable order", async () => {
   const result = await inspectWorkspace();
 
   assert.deepEqual(result.errors, []);
-  assert.deepEqual(
-    result.packages.map((pkg) => pkg.name),
-    [
-      "auto-fans-continue",
-      "douyin-live-optimizer",
-      "huya-extend",
-      "kuaishou-live-optimizer",
-      "skip-ads",
-      "vimium-c-blur-input-focus",
-      "weibo-improvement",
-      "wikipedia-auto-dark",
-    ],
-  );
+  const names = result.packages.map((pkg) => pkg.name);
+  assert.deepEqual(names, [...names].sort());
+  assert.ok(names.includes("douyu-web-enhancer"));
 });
 
 test("requires every userscript package to have its standard files", async () => {

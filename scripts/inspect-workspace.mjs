@@ -31,7 +31,9 @@ export async function inspectWorkspace(root = workspaceRoot) {
     const files = {
       packageJson: await exists(join(packageRoot, "package.json")),
       viteConfig: await exists(join(packageRoot, "vite.config.ts")),
-      entry: await exists(join(packageRoot, "src/main.js")),
+      entry:
+        (await exists(join(packageRoot, "src/main.ts"))) ||
+        (await exists(join(packageRoot, "src/main.js"))),
     };
 
     for (const [fileName, present] of Object.entries(files)) {
@@ -62,4 +64,3 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   console.log(JSON.stringify(result, null, 2));
   if (result.errors.length > 0) process.exitCode = 1;
 }
-

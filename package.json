@@ -17,7 +17,7 @@
     "prepare-tampermonkey-import": "python3 scripts/prepare_tampermonkey_import.py",
     "type-check": "pnpm -r type-check",
     "test": "node --test",
-    "validate": "node scripts/inspect-workspace.mjs"
+    "validate": "node scripts/inspect-workspace.mjs && node scripts/validate-feature-inventory.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

@@ -1,0 +1,11 @@
+# Project-local Codex permissions for the userscripts Git workspace.
+# Keep global approval and sandbox defaults unchanged.
+
+[plugins."codex-app-tools@openai-bundled".mcp_servers.codex_app.tools.send_message_to_thread]
+approval_mode = "approve"
+
+[plugins."codex-app-tools@openai-bundled".mcp_servers.codex_app.tools.create_thread]
+approval_mode = "approve"
+
+[browser_use.origins."https://**.douyu.com"]
+access = "allow"

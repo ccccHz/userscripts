@@ -1,0 +1,2 @@
+# Historical snapshots are intentionally byte-for-byte immutable.
+archive/** -whitespace

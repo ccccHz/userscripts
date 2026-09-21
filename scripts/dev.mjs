@@ -1,21 +1,25 @@
 import { spawn } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-export const packageNames = [
-  "auto-fans-continue",
-  "douyin-live-optimizer",
-  "huya-extend",
-  "kuaishou-live-optimizer",
-  "skip-ads",
-  "vimium-c-blur-input-focus",
-  "weibo-improvement",
-  "wikipedia-auto-dark",
-];
-
 const workspaceRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+
+export function discoverPackageNames(root = workspaceRoot) {
+  const packagesRoot = join(root, "packages");
+  return readdirSync(packagesRoot, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        existsSync(join(packagesRoot, entry.name, "package.json")),
+    )
+    .map((entry) => entry.name)
+    .sort();
+}
+
+export const packageNames = discoverPackageNames();
 
 function resolvePackageName(value) {
   const normalizedPath = value
