@@ -6,6 +6,10 @@ import { inspectWorkspace } from "./inspect-workspace.mjs";
 
 const workspaceRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
+export function shouldPublishPackage(packageJson) {
+  return packageJson.userscript?.publish !== false;
+}
+
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
@@ -30,6 +34,7 @@ export async function preparePages(root = workspaceRoot) {
     const packageJson = JSON.parse(
       await readFile(join(packageRoot, "package.json"), "utf8"),
     );
+    if (!shouldPublishPackage(packageJson)) continue;
     const userFile = `${pkg.name}.user.js`;
     const metaFile = `${pkg.name}.meta.js`;
 

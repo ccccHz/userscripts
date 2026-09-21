@@ -1,5 +1,6 @@
 import mscststs from "../../../shared/mscststs.js";
 import { ensurePlayerAudioOnOpen } from "./audio.js";
+import { observeAndRemoveCommerceAds } from "./commerce-ads.js";
 import { ensureDanmakuFiltersDisabled } from "./danmaku-settings.js";
 import {
   LIVE_BOTTOM_LAYOUT_SELECTORS,
@@ -11,14 +12,8 @@ import { registerPlaybackResumeEvents } from "./playback-resume.js";
 import { registerRuntimeEvents } from "./runtime-events.js";
 import { observeAndRemoveWishPopups } from "./wish-popup.js";
 
-const REMOVE_ELEMENT_RULES = [
-  {
-    name: "全部商品",
-    selector: '[data-douyin-live-product-entry="placeholder"]',
-  },
-];
-
 let wishPopupObserver = null;
+let commerceAdObserver = null;
 let playerAudioCheckedOnOpen = false;
 let danmakuFiltersCheckedOnOpen = false;
 let giftEffectBlockerTask = null;
@@ -55,16 +50,13 @@ async function getTarget(str, needContent = true) {
 
 function runMain() {
   console.log("userscript: douyin optim");
-  removeMatchedElements();
   const giftEffectTask = enableGiftEffectBlocker();
   ensurePlayerAudioEnabled();
   disableDanmakuFiltersOnOpen(giftEffectTask);
   removeWishPopupWhenShown();
+  removeCommerceAdsWhenShown();
   selectQualityOptions();
   removeLiveBottomLayouts();
-  getTarget('div[data-e2e="yellowCart-container"]').then((target) => {
-    if (target) target.remove();
-  });
 }
 
 function disableDanmakuFiltersOnOpen(previousTask) {
@@ -97,14 +89,6 @@ function removeLiveBottomLayouts() {
   LIVE_BOTTOM_LAYOUT_SELECTORS.forEach((selector) => {
     getTarget(selector, false).then((target) => {
       removeLiveBottomLayout(target);
-    });
-  });
-}
-
-function removeMatchedElements() {
-  REMOVE_ELEMENT_RULES.forEach((rule) => {
-    getTarget(rule.selector).then((target) => {
-      if (target) target.remove();
     });
   });
 }
@@ -150,6 +134,12 @@ function removeWishPopupWhenShown() {
   if (wishPopupObserver) return;
 
   wishPopupObserver = observeAndRemoveWishPopups({ document });
+}
+
+function removeCommerceAdsWhenShown() {
+  if (commerceAdObserver) return;
+
+  commerceAdObserver = observeAndRemoveCommerceAds({ document });
 }
 
 function selectQualityOptions() {

@@ -17,6 +17,7 @@
 ```bash
 pnpm install
 pnpm dev -- <package-name>
+pnpm dev:hmr -- <package-name>
 pnpm build
 pnpm prepare-pages
 pnpm type-check
@@ -30,7 +31,8 @@ Volta 会使用 `package.json` 中固定的 Node 版本。由 Volta 管理的 pn
 
 ## 开发版
 
-开发版回到 `vite-plugin-monkey` 官方的 `vite serve` 流程，一次只启动一个 package：
+默认开发模式使用 Vite 的监听构建和一个很小的本地代理 userscript，一次只启动一个
+package：
 
 ```bash
 pnpm dev -- kuaishou-live-optimizer
@@ -42,21 +44,31 @@ pnpm dev -- kuaishou-live-optimizer
 pnpm --filter kuaishou-live-optimizer dev
 ```
 
-Vite 启动后，插件会自动打开 Tampermonkey 开发版安装页；安装一次后，源码由 Vite
-原生模块服务加载并使用 HMR。所有 package 默认从 `5173` 启动；如果该端口已被占用，
-Vite 会自动尝试 `5174`、`5175` 等后续端口。正常一次只启动一个 package 时，开发地址
-会长期保持在 `127.0.0.1:5173`。
+首次构建后会生成 `dist/<package-name>.dev.user.js`，终端同时打印一个可点击的本地安装
+URL。在 Chrome 的 Tampermonkey 扩展详情中开启“允许访问文件网址”，点击终端 URL 安装，
+并停用同名正式版脚本。以后保存源码，等待终端出现 `built`，再刷新目标网页即可。安装
+URL 的临时 HTTP 服务只负责把代理交给 Tampermonkey；代理运行时通过 `@require file://...`
+加载本地构建产物，不会从目标网站访问 localhost，因此不受 Chrome Local Network Access、
+目标站点 CSP 或固定开发端口占用影响。
 
-官方开发入口会把本地 ES module 注入目标页面，因此仍受目标网站 CSP 约束。调试快手、
-虎牙、NGA、Wikipedia 等站点时，需要启用 `Disable-CSP` 扩展；只在开发期间、并尽量只对
-正在调试的站点启用。旧的 gateway、`GM_xmlhttpRequest` loader、bundle 轮询和整页刷新
-方案已经移除。
+仍可显式启用 `vite-plugin-monkey` 官方 HMR 模式：
+
+```bash
+pnpm dev:hmr -- kuaishou-live-optimizer
+```
+
+该模式会使用 localhost 和 `5173` 起始端口，可能受浏览器 Local Network Access 与目标
+网站 CSP 限制，仅在当前浏览器环境确认支持时使用。
 
 ## 构建和发布
 
 `pnpm build` 只负责在每个 package 的 `dist/` 下生成 `.user.js` 和 `.meta.js`；
 `pnpm prepare-pages` 会把所有产物汇总到忽略提交的 `site/`，用于本地检查或 Pages
 部署。
+
+处于开发验证期的 package 可以在 `package.json` 中设置
+`"userscript": { "publish": false }`。它仍参与测试、类型检查和全量构建，但不会被
+`prepare-pages` 放入 Pages 部署产物。
 
 推送到 `ccccHz/userscripts` 的 `main` 分支后，GitHub Actions 会依次执行测试、
 类型检查、构建和 GitHub Pages 部署。生产版安装入口为：
@@ -116,6 +128,7 @@ pnpm prepare-tampermonkey-import -- \
 | Package | 原项目 | 状态 |
 | --- | --- | --- |
 | `auto-fans-continue` | `../autoFansContinue/AutoFansContinue.user.js` | 代码已按 `douyuEX_new` 和 `douyuEx_meta` 重构，浏览器验证待完成 |
+| `douyu-web-enhancer` | `archive/douyuEx-2026.06.03.01` | 以仓库内只读 DouyuEx 快照为迁移基准；当前状态见 package 文档 |
 
 ## 文档
 
@@ -123,6 +136,8 @@ pnpm prepare-tampermonkey-import -- \
 - [TODO 清单](docs/todo.md)
 - [决策记录](docs/decisions.md)
 - [Tampermonkey 脚本整理清单](docs/tampermonkey-inventory.md)
+- [Douyu Web Enhancer 局部文档](packages/douyu-web-enhancer/docs/README.md)
+- [DouyuEx 调度规则](packages/douyu-web-enhancer/docs/task-routing.md)
 
 ## 迁移规则
 
