@@ -8,6 +8,7 @@
 - 重型 package 可以使用独立调度中心；调度中心的职责是澄清需求、冻结体验契约、创建任务、汇总结果并独立判断验收证据，不直接实现完整功能，也不重复已由指定负责人完成的浏览器路径。
 - 各调度中心只处理已约定的 package 范围；`douyu-web-enhancer` 的调度规则位于 `packages/douyu-web-enhancer/docs/task-routing.md`。
 - 完整且可独立验收的功能使用侧栏可见的独立任务；内部 subagent 只做边界清楚、一次性返回短结果的辅助工作。
+- 可写独立任务默认使用 `userscripts` 保存项目的 local 环境：调度中心先在主项目目录切好任务分支，同一时间只运行一个写任务。除非用户明确要求或主目录无法安全承载，不创建 worktree。
 - 每个独立任务是对应交付物的持续负责人：补功能、修正、复验和同一界面/模块的后续完善默认续用原任务。派发前先查找已有负责任务；“可独立验收”本身不是重建任务的理由。
 - 修改目标 package 前读取其最近的 `AGENTS.md`。只定向读取当前功能需要的契约和证据，不默认加载全部历史文档。
 - `archive/` 是只读历史样本；新实现必须放在 `packages/` 中，不得在归档源码上直接续改。
@@ -18,7 +19,7 @@
 - 不提交 Cookie、Token、个人导出数据或含这些内容的日志。
 - 每个可安装 userscript 使用独立 `packages/<name>`；共享代码放 `shared/`，仓库工具放 `scripts/`。
 - `main` 是唯一长期主线；功能分支使用 `<type>/<package>/<slug>`。不建立长期 package 分支，完整规则见 `docs/git-workflow.md`。
-- 一个独立任务只写自己的分支/worktree。worktree 必须挂在任务分支上，不把未提交文件复制到主项目，也不作为长期 Tampermonkey `@require` 来源。
+- 开发、构建和浏览器验收默认都在主项目目录的任务分支完成；Tampermonkey 开发代理始终 `@require` 主项目目录的 `dist`。
 - 用户可见版本是发布声明：验证中的构建和试验保持当前 package 版本；只有最新 `dist` 已通过约定的核心浏览器路径、并获用户验收或明确发布授权时才提高版本。验证期保持 `userscript.publish=false`。
 - 页面功能必须可撤销、幂等，避免无界轮询和 observer 自激。
 

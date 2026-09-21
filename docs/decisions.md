@@ -397,11 +397,12 @@ Cookie、身份、聊天和其他 runtime 数据。审计清空只操作脱敏 `
 **日期：** 2026-09-21
 
 **决策：** 以 `userscripts` 主项目目录为长期权威来源，`main` 为唯一长期主线。功能和修复使用
-`<type>/<package>/<slug>` 短期分支；一个独立任务对应一个分支和至多一个临时 worktree。
-worktree 不得跨目录复制未提交实现，也不作为长期 Tampermonkey 开发代理来源。版本只在用户确认发布后
-通过独立 release 提交提高，并为对应 package 创建 `<package>/v<version>` annotated tag；重要非发布快照
-使用 `<package>/baseline-YYYY-MM-DD`。
+`<type>/<package>/<slug>` 短期分支；调度中心先在主项目目录切换任务分支，再把可写独立任务放到该
+项目的 local 环境执行。同一时间只运行一个写任务，源码、构建和浏览器验收均使用同一个项目路径，
+Tampermonkey 开发代理始终指向主项目 `dist`。除非用户明确要求或主目录无法安全承载，不创建 worktree。
+版本只在用户确认发布后通过独立 release 提交提高，并为对应 package 创建
+`<package>/v<version>` annotated tag；重要非发布快照使用 `<package>/baseline-YYYY-MM-DD`。
 
 **原因：** 早期 `codex/douyin-commerce-dev-flow` 分支同时承载了多个 package 和 DouyuEx 迁移基线，
-后续 detached worktree 又与主目录产生重叠未提交修改及构建版本分叉。单一主线、任务级分支和 package 级
-tag 能保留隔离收益，同时让构建、安装、版本和集成入口保持唯一。
+后续 detached worktree 又与主目录产生重叠未提交修改及构建版本分叉。单一主线、主项目内的任务级分支
+和 package 级 tag 能让构建、安装、版本和集成入口保持唯一。
