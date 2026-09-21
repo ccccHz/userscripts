@@ -1,0 +1,51 @@
+# This trusted project uses one local checkout with short-lived feature branches.
+# Routine local Git history operations are allowed; remote and destructive
+# operations intentionally remain outside this allow list.
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Allow userscripts tasks to stage reviewed local changes.",
+)
+
+prefix_rule(
+    pattern = ["git", "restore", "--staged"],
+    decision = "allow",
+    justification = "Allow userscripts tasks to correct the staging area without discarding files.",
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "allow",
+    justification = "Allow userscripts tasks to create local feature commits.",
+)
+
+prefix_rule(
+    pattern = ["git", "switch"],
+    decision = "allow",
+    justification = "Allow the single local checkout to move between main and feature branches.",
+)
+
+prefix_rule(
+    pattern = ["git", "switch", ["--discard-changes", "--force", "-f"]],
+    decision = "prompt",
+    justification = "Confirm branch switches that may discard local changes.",
+)
+
+prefix_rule(
+    pattern = ["git", ["merge", "cherry-pick", "rebase"]],
+    decision = "allow",
+    justification = "Allow routine local integration and history maintenance in this single-user repository.",
+)
+
+prefix_rule(
+    pattern = ["git", "tag", ["-a", "--annotate"]],
+    decision = "allow",
+    justification = "Allow creation of the annotated local tags required by the repository workflow.",
+)
+
+prefix_rule(
+    pattern = ["pnpm", "install"],
+    decision = "allow",
+    justification = "Allow dependency installation inside the trusted userscripts project.",
+)

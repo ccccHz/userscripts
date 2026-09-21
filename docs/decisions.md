@@ -397,12 +397,13 @@ Cookie、身份、聊天和其他 runtime 数据。审计清空只操作脱敏 `
 **日期：** 2026-09-21
 
 **决策：** 以 `userscripts` 主项目目录为长期权威来源，`main` 为唯一长期主线。功能和修复使用
-`<type>/<package>/<slug>` 短期分支；调度中心先在主项目目录切换任务分支，再把可写独立任务放到该
-项目的 local 环境执行。同一时间只运行一个写任务，源码、构建和浏览器验收均使用同一个项目路径，
-Tampermonkey 开发代理始终指向主项目 `dist`。除非用户明确要求或主目录无法安全承载，不创建 worktree。
-版本只在用户确认发布后通过独立 release 提交提高，并为对应 package 创建
+`<type>/<package>/<slug>` 短期分支；主项目目录正常 checkout 当前任务分支，源码、构建和浏览器验收
+均在该 local 环境完成。Tampermonkey 开发代理固定指向主项目 `dist`，每次切换分支后重新构建或重启
+dev watcher。默认顺序开发，避免两个任务同时写同一 checkout；确有并行隔离价值时可以使用 worktree，
+但必须显式约定浏览器构建入口。版本只在用户确认发布后通过独立 release 提交提高，并为对应 package 创建
 `<package>/v<version>` annotated tag；重要非发布快照使用 `<package>/baseline-YYYY-MM-DD`。
 
 **原因：** 早期 `codex/douyin-commerce-dev-flow` 分支同时承载了多个 package 和 DouyuEx 迁移基线，
-后续 detached worktree 又与主目录产生重叠未提交修改及构建版本分叉。单一主线、主项目内的任务级分支
-和 package 级 tag 能让构建、安装、版本和集成入口保持唯一。
+后续 detached worktree 又与主目录产生重叠未提交修改及构建版本分叉。对当前单人本地开发而言，单一
+checkout 配合短期分支已经能提供足够隔离；Local 是低摩擦默认，worktree 只在真实并行需求出现时承担
+隔离职责，不再为了固定 `file://` 路径限制正常的本地 Git 操作。
