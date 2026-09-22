@@ -314,3 +314,10 @@
 - 实现：`resolveDouyuRoomId` 在 `$ROOM.room_id` 不可见时从 `[data-room-id]` 回退解析；新增 `37777 → 3903192` 隔离世界测试，并更新迁移契约。保持 30 秒迟到更正、匿名只读 WS 和现有本地存储边界不变。
 - 验证：定向 Douyu 测试 65/65；全仓 `pnpm test` 206/206；`pnpm validate`、全仓 `type-check`、全仓 `build` 和 `git diff --check` 均通过。最新 dist 仍为 `0.10.9`；当前已打开页面尚未刷新，故真实页面闭环待用户刷新后再次发送安全样本确认。
 - 额度：未采集可归因 token；账户级窗口受同一线程和其他使用污染，不推算。
+
+### 弹幕可见性记录管理抽屉与元数据迁移（2026-09-22）
+
+- 任务：当前用户委派续接；范围为 `danmaku-send-observation-store`、控制中心记录管理抽屉、主运行时接线、迁移契约和测试。保持匿名只读 WebSocket、发送检测窗口、迟到更正和本地 IndexedDB/localStorage 所有权不变；未升版本、未发布、未扩大权限。
+- 实现：记录 schema 从 v1 升至 v2，旧 IndexedDB/localStorage/JSON v1 记录缺失字段时归一化为 `tags: []`、`note: ""`；新增正文/房间/备注搜索、证据/结果/房间/标签筛选、推荐标签、复测备注和逐条“确认已收到”删除。移除清空全部入口；迟到更正保留标签和备注；仍最多保留 500 条，不上传。
+- 验证：Douyu 定向测试 **69/69**，全仓 `pnpm test` **210/210**；`pnpm validate`、全仓 `pnpm type-check`、全仓 `pnpm build` 和 `git diff --check` 均通过。最新 `dist/douyu-web-enhancer.user.js` 版本保持 `0.10.9`，体积 298.29 kB（gzip 77.19 kB）。本轮未刷新用户当前斗鱼页进行新的 UI 实机操作，抽屉的真实页面路径仍标记为 **verifying**。
+- 额度：未采集可归因 token；账户级窗口受同一线程和其他使用污染，不推算。

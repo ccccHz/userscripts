@@ -7,6 +7,20 @@ export const DANMAKU_SEND_OBSERVATIONS_FALLBACK_KEY =
 export const DANMAKU_SEND_OBSERVATIONS_DATABASE = "douyu-web-enhancer";
 export const DANMAKU_SEND_OBSERVATIONS_STORE = "danmaku-send-observations";
 export const DANMAKU_SEND_OBSERVATIONS_LIMIT = 500;
+export const DANMAKU_SEND_OBSERVATION_TAGS = [
+  { value: "manual-visible", label: "手动复测可见" },
+  { value: "manual-hidden", label: "手动复测不可见" },
+  { value: "room-only", label: "疑似房间独有" },
+  { value: "cross-room", label: "跨房间复现" },
+  { value: "site-wide", label: "疑似全站" },
+  { value: "false-positive", label: "误判" },
+  { value: "sensitive-word", label: "已知敏感词" },
+] as const;
+export type DanmakuSendObservationTag = (typeof DANMAKU_SEND_OBSERVATION_TAGS)[number]["value"];
+const DANMAKU_SEND_OBSERVATIONS_SCHEMA_VERSION = 2;
+const DANMAKU_SEND_OBSERVATION_MAX_NOTE_LENGTH = 2_000;
+const DANMAKU_SEND_OBSERVATION_MAX_TAG_LENGTH = 64;
+const DANMAKU_SEND_OBSERVATION_MAX_TAGS = 20;
 
 export interface DanmakuSendObservation {
   id: string;
@@ -15,17 +29,19 @@ export interface DanmakuSendObservation {
   message: string;
   evidence: "unconfirmed" | "suspected";
   resolution: "pending" | "confirmed-delayed";
+  tags: string[];
+  note: string;
   resolvedAt?: string;
 }
 
 interface StoredDanmakuSendObservations {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   events: DanmakuSendObservation[];
 }
 
 export interface DanmakuSendObservationExport {
   schema: "douyu-web-enhancer:danmaku-send-observations";
-  version: 1;
+  version: 2;
   exportedAt: string;
   events: DanmakuSendObservation[];
 }
@@ -39,16 +55,51 @@ export interface DanmakuSendObservationPersistence {
   ): Promise<void>;
 }
 
-function isDanmakuSendObservation(value: unknown): value is DanmakuSendObservation {
-  if (!value || typeof value !== "object") return false;
+function normalizeObservationTag(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const tag = value.trim().slice(0, DANMAKU_SEND_OBSERVATION_MAX_TAG_LENGTH);
+  return tag || null;
+}
+
+function normalizeObservationTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const tags: string[] = [];
+  for (const candidate of value) {
+    const tag = normalizeObservationTag(candidate);
+    if (tag && !tags.includes(tag)) tags.push(tag);
+    if (tags.length >= DANMAKU_SEND_OBSERVATION_MAX_TAGS) break;
+  }
+  return tags;
+}
+
+function normalizeObservationNote(value: unknown): string {
+  return typeof value === "string"
+    ? value.trim().slice(0, DANMAKU_SEND_OBSERVATION_MAX_NOTE_LENGTH)
+    : "";
+}
+
+function normalizeDanmakuSendObservation(value: unknown): DanmakuSendObservation | null {
+  if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
-  return typeof record.id === "string" &&
-    typeof record.observedAt === "string" &&
-    /^\d+$/.test(String(record.roomId)) &&
-    typeof record.message === "string" && Boolean(record.message.trim()) &&
-    (record.evidence === "unconfirmed" || record.evidence === "suspected") &&
-    (record.resolution === "pending" || record.resolution === "confirmed-delayed") &&
-    (record.resolvedAt === undefined || typeof record.resolvedAt === "string");
+  if (typeof record.id !== "string" ||
+    typeof record.observedAt !== "string" ||
+    !/^\d+$/.test(String(record.roomId)) ||
+    typeof record.message !== "string" || !record.message.trim() ||
+    (record.evidence !== "unconfirmed" && record.evidence !== "suspected") ||
+    (record.resolution !== "pending" && record.resolution !== "confirmed-delayed") ||
+    (record.resolvedAt !== undefined && typeof record.resolvedAt !== "string")) return null;
+  const normalized: DanmakuSendObservation = {
+    id: record.id,
+    observedAt: record.observedAt,
+    roomId: String(record.roomId),
+    message: record.message.trim(),
+    evidence: record.evidence,
+    resolution: record.resolution,
+    tags: normalizeObservationTags(record.tags),
+    note: normalizeObservationNote(record.note),
+  };
+  if (typeof record.resolvedAt === "string") normalized.resolvedAt = record.resolvedAt;
+  return normalized;
 }
 
 function sortObservations(
@@ -75,11 +126,11 @@ function mergeObservations(
 export function parseDanmakuSendObservations(
   value: unknown,
 ): StoredDanmakuSendObservations {
-  const empty: StoredDanmakuSendObservations = { schemaVersion: 1, events: [] };
+  const empty: StoredDanmakuSendObservations = { schemaVersion: DANMAKU_SEND_OBSERVATIONS_SCHEMA_VERSION, events: [] };
   if (!value || typeof value !== "object") return empty;
   const events = (value as { events?: unknown }).events;
   if (!Array.isArray(events)) return empty;
-  empty.events = sortObservations(events.filter(isDanmakuSendObservation))
+  empty.events = sortObservations(events.map(normalizeDanmakuSendObservation).filter((event): event is DanmakuSendObservation => event !== null))
     .slice(-DANMAKU_SEND_OBSERVATIONS_LIMIT);
   return empty;
 }
@@ -91,7 +142,7 @@ export function parseDanmakuSendObservationImport(
     throw new Error("导入文件不是有效的检测记录 JSON。");
   }
   const source = value as Record<string, unknown>;
-  if (source.schema !== "douyu-web-enhancer:danmaku-send-observations" || source.version !== 1) {
+  if (source.schema !== "douyu-web-enhancer:danmaku-send-observations" || (source.version !== 1 && source.version !== 2)) {
     throw new Error("不支持的检测记录导出格式。");
   }
   if (typeof source.exportedAt !== "string" || !Array.isArray(source.events)) {
@@ -105,7 +156,7 @@ export function exportDanmakuSendObservations(
 ): string {
   return JSON.stringify({
     schema: "douyu-web-enhancer:danmaku-send-observations",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     events: sortObservations(events),
   } satisfies DanmakuSendObservationExport, null, 2);
@@ -227,7 +278,7 @@ export function createBrowserDanmakuSendObservationPersistence(
     const storage = localStorage();
     if (!storage) throw new Error("浏览器本地存储不可用");
     storage.setItem(DANMAKU_SEND_OBSERVATIONS_FALLBACK_KEY, JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: DANMAKU_SEND_OBSERVATIONS_SCHEMA_VERSION,
       events: [...snapshot],
     } satisfies StoredDanmakuSendObservations));
   };
@@ -249,7 +300,7 @@ export function createBrowserDanmakuSendObservationPersistence(
           transaction.objectStore(DANMAKU_SEND_OBSERVATIONS_STORE)
             .index("observedAt").getAll() as IDBRequest<DanmakuSendObservation[]>,
         );
-        const validStored = stored.filter(isDanmakuSendObservation);
+        const validStored = stored.map(normalizeDanmakuSendObservation).filter((event): event is DanmakuSendObservation => event !== null);
         if (fallback.length > 0) {
           await writeIndexedDb(database, fallback, []);
           storage?.removeItem(DANMAKU_SEND_OBSERVATIONS_FALLBACK_KEY);
@@ -396,6 +447,8 @@ export class DanmakuSendObservationStore {
             message: attempt.message.trim(),
             evidence,
             resolution: "pending",
+            tags: [],
+            note: "",
           };
       const withoutCurrent = this.#events.filter(candidate => candidate.id !== id);
       const merged = sortObservations([...withoutCurrent, event]);
@@ -431,6 +484,44 @@ export class DanmakuSendObservationStore {
       };
       this.#events.splice(index, 1, event);
       return { changed: [event], removedIds: [], result: true };
+    });
+  }
+
+  async setTag(id: string, tag: string, enabled: boolean): Promise<boolean> {
+    const normalizedTag = normalizeObservationTag(tag);
+    if (!normalizedTag) return false;
+    return this.#mutate(() => {
+      const index = this.#events.findIndex(candidate => candidate.id === id);
+      if (index < 0) return null;
+      const current = this.#events[index];
+      const tags = enabled
+        ? [...current.tags, normalizedTag].filter((item, position, all) => all.indexOf(item) === position).slice(0, DANMAKU_SEND_OBSERVATION_MAX_TAGS)
+        : current.tags.filter(item => item !== normalizedTag);
+      if (JSON.stringify(tags) === JSON.stringify(current.tags)) return null;
+      const event = { ...current, tags };
+      this.#events.splice(index, 1, event);
+      return { changed: [event], removedIds: [], result: true };
+    });
+  }
+
+  async setNote(id: string, note: string): Promise<boolean> {
+    return this.#mutate(() => {
+      const index = this.#events.findIndex(candidate => candidate.id === id);
+      if (index < 0) return null;
+      const normalizedNote = normalizeObservationNote(note);
+      if (normalizedNote === this.#events[index].note) return null;
+      const event = { ...this.#events[index], note: normalizedNote };
+      this.#events.splice(index, 1, event);
+      return { changed: [event], removedIds: [], result: true };
+    });
+  }
+
+  async remove(id: string): Promise<boolean> {
+    return this.#mutate(() => {
+      const index = this.#events.findIndex(candidate => candidate.id === id);
+      if (index < 0) return null;
+      this.#events.splice(index, 1);
+      return { changed: [], removedIds: [id], result: true };
     });
   }
 
