@@ -60,7 +60,7 @@
   浏览器全屏、独立开关组合、刷新、换房、动态重建和停用恢复矩阵。
 - 只采集本次简洁模式需要的 UI/操作记忆；缺失截图不阻止纯源码事实登记，但阻止相关 UI 等价结论。
 - 稳定 `extension-entry-shell`，让未来功能都能复用可发现的近场入口和反馈，不退回 GM 菜单堆积。
-- `danmaku-availability` 保持 research，等待真实限制样本；没有样本不写猜测式 Hook。
+- `danmaku-availability` 已完成窄范围实现与自动化回归；普通页没有特殊时期 `0` 样本，状态保持 verifying/长期自然验证，不把构建证据写成真实恢复通过。
 - 把本次验收作为工作流试跑：逐项记录准备/执行耗时、重复步骤、失败点、可自动化项，以及配置、
   runtime、页面结果、体验证据中哪些可安全合并采集。
 - 在 `docs/verification.md` 的 M0 记录下增加工作流复盘，明确保留、删减或自动化的步骤，再更新后续
@@ -102,13 +102,12 @@
 统一配置页是该体验的近期前置任务：集中管理全包功能开关、默认值、自动化参数、执行状态和日志入口。
 原页面的高频就近入口继续保留；GM 菜单只在配置页完成前承载自动荧光棒目标房间等临时配置。
 
-### M1：低风险播放控制（迁移批次 1）
+### M1：低风险播放控制（迁移批次 1，状态收口）
 
-按独立任务依次迁移：`volume-wheel` → `video-sync` → `video-recall` → `video-speed` →
-`highest-quality` → `disable-offline-jump`。它们价值高、账号风险低、可用单页明确验收。
-
-组合策略：统一放入播放器近场体验，但每项拥有独立设置和 runtime。`disable-offline-jump` 必须先移除
-归档永久轮询方案；`highest-quality` 必须尊重用户手动选择。
+`volume-wheel`、合并归档 `video-sync`/`video-recall` 的 `live-timeshift-controls`、`highest-quality` 和
+`disable-offline-jump` 已按独立契约实现；其中 `disable-offline-jump` 仍等待自然下播窗口，保持 verifying。
+`video-speed` 标记为 rejected：斗鱼回看直播官方已有多档速度，用户不需要增强版；不再重复排期已被
+`live-timeshift-controls` 覆盖的归档功能。
 
 ### M2：低风险弹幕编辑与阅读（迁移批次 2）
 

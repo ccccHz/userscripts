@@ -54,7 +54,7 @@
 | `chat-decoration-cleanup`：隐藏粉丝牌、贵族等前缀 | `packages/Refresh/Refresh_Barrage.js`；弹幕工具栏“前缀” | 关；`ExSave_Refresh.barrage` | CSS 选择器；**待实测**新消息类型和系统消息误伤 | 窄适配；P0；正文/昵称/图片表情保留，入口、刷新与重建恢复正确。 |
 | `chat-layout`：隐藏榜单/活动并拉高弹幕区 | `packages/Refresh/Refresh_BarrageFrame.js`；弹幕工具栏“拉高” | 关；`ExSave_Refresh.barrageFrame` | DOM/几何；依赖房间统计保留；**待实测**全屏、SC 和活动区域变化 | 窄适配；P0；实际高度、相邻摘要和所有开关组合通过。 |
 | `room-metrics`：礼物、贵宾与已播/已观看时间摘要 | `packages/RealAudience/RealAudience.js`；排行榜顶部统计条，点击打开 doseeing 房间页 | 自动；运行时房间数据不持久化 | 斗鱼 `show_time`/`todayWatch`、`www.doseeing.com`；2026-09-04 用户批准移除失效人数指标，保留礼物、页面贵宾和归档版时间轮换，各来源独立降级；**待实测**新版成功样本与换房 | 窄适配；P0；礼物失败不遮蔽贵宾或时长，换房、重建和排行榜隐藏状态通过。 |
-| `danmaku-availability`：特殊时期恢复飘屏弹幕 | `packages/ShowDanmaku/ShowDanmaku.js`；无页面开关，启动时改写脚本/XHR 中 `player_barrage` | 自动；无存储 | 全局 Script/Response Hook；限制机制可能已变化；**待实测**只能等限制样本 | 调研；P1；先证明当前限制与最窄可撤销 Hook，再验证开启/停用结果。 |
+| `danmaku-availability`：特殊时期恢复飘屏弹幕 | 归档 `packages/ShowDanmaku/ShowDanmaku.js`；当前 `src/features/danmaku-availability.ts` 在 document-start/MAIN_WORLD 改写动态内联 script 与 `/betard` responseText 中精确 `player_barrage:0`；控制中心“弹幕”分区提供只读状态 | 自动；无持久化设置；pagehide 恢复 | 只覆盖转义 JSON/普通 JSON；不抓取或重放外链；状态卡区分 Hook 安装、官方已允许、实际恢复和降级/异常；普通页只有 `1`，缺特殊时期 `0` 样本 | verifying；P1；纯替换、双 DOM 方法、目标/非目标 XHR、幂等/清理/降级已自动化，真实特殊限制保持长期自然验证。 |
 | `daily-sign-in`：聚合每日任务 | `packages/Sign/Sign.js`；ExPanel 签到图标，单击仅开播房间、长按全部 | 动作；无统一存储 | 多个账号请求、跨子域与旧活动接口；详见 H 表 | 调研；优先级待全量筛选及跨 package 评估；只作为体验组合，原子请求逐项验收，部分成功不得伪装全部成功。 |
 
 ## B. 页面壳、导航与只读信息
@@ -84,7 +84,7 @@
 | ID / 用户价值 | 归档源码与入口 | 默认 / 持久化 | 接口、依赖与当前失效点 | 建议 / 优先级 / 独立验收边界 |
 | --- | --- | --- | --- | --- |
 | `volume-wheel`：在音量控件滚轮调节 5% | `VolumeMouseScrolling/VolumeMouseScrolling.js`；原音量按钮 | 自动；写斗鱼自身音量键 | video/固定哈希类；新版类名很可能变化 | 窄适配；P1；每格 5%、边界/静音/UI 同步、停用后滚轮恢复页面默认。 |
-| `video-speed`：直播播放速度调节 | `VideoTools/VideoSpeed/`；播放器控制栏 | 动作/瞬时状态；无 | HTMLVideoElement；直播缓冲可能重置速度 | 提取；P1；入口反馈、倍率、重载/换清晰度和恢复 1x。 |
+| `video-speed`：直播播放速度调节 | `VideoTools/VideoSpeed/`；播放器控制栏 | 动作/瞬时状态；无 | HTMLVideoElement；斗鱼回看直播官方已有多档速度 | rejected；用户不需要增强版，不迁移。 |
 | `cinema-mode`：影院布局 | `VideoTools/Cinema/`；播放器近场按钮 | 关；无 | DOM/CSS 布局；可能与官方网页全屏重叠 | 调研；P2；先确认与官方模式差异，几何和退出恢复通过。 |
 | `video-sync`：将直播追到最新时间点 | `VideoTools/VideoSync/`；“同步时间”按钮 | 动作；无 | video buffered/currentTime | 提取；P1；播放/暂停、无缓冲、重复点击和提示。 |
 | `prevent-auto-pause`：写入斗鱼防挂机标志，避免自动暂停 | `ExpandTool/ExpandTool_TabSwitch.js` 的 `enableIgnoreAutoPause()`；无入口 | 自动写 `localStorage.freetimed=1` | 依赖斗鱼私有存储键；语义可能已失效，且没有停用 | 调研；P1；先用真实后台/前台行为证明必要性，再提供独立开关和恢复。 |

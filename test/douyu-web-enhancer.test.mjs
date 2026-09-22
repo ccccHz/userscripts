@@ -141,6 +141,10 @@ import {
   isDouyuLiveRoomPage as isDisableOfflineJumpLiveRoomPage,
 } from "../packages/douyu-web-enhancer/src/features/disable-offline-jump.ts";
 import {
+  installDanmakuAvailabilityHook,
+  replacePlayerBarrage,
+} from "../packages/douyu-web-enhancer/src/features/danmaku-availability.ts";
+import {
   CHAT_CONTROL_DEFINITIONS,
   SIMPLIFIED_MODE_CONTROLS_CSS,
   simplifiedModeControlSelectors,
@@ -156,6 +160,118 @@ import {
   isPureVideoFullscreen,
   isVisibleChatPanel,
 } from "../packages/douyu-web-enhancer/src/ui/control-center.ts";
+
+function createDanmakuAvailabilityTarget() {
+  class FakeNode {
+    children = [];
+    lastThis = null;
+    lastArgs = null;
+    returnToken = { kind: "return" };
+    appendChild(...args) {
+      this.lastThis = this;
+      this.lastArgs = args;
+      if (args[0]?.throwOnAppend) throw new Error("append failed");
+      this.children.push(args[0]);
+      return this.returnToken;
+    }
+    insertBefore(...args) {
+      this.lastThis = this;
+      this.lastArgs = args;
+      if (args[0]?.throwOnInsert) throw new Error("insert failed");
+      this.children.push(args[0]);
+      return this.returnToken;
+    }
+  }
+  class FakeXHR {
+    constructor(url, text) {
+      this.responseURL = url;
+      this.text = text;
+    }
+  }
+  Object.defineProperty(FakeXHR.prototype, "responseText", {
+    configurable: true,
+    get() {
+      return this.text;
+    },
+  });
+  return { Node: FakeNode, XMLHttpRequest: FakeXHR };
+}
+
+test("danmaku availability replaces only proven payloads and cleans reversible hooks", () => {
+  const payload = String.raw`{"player_barrage":0,"player_barrage":0,"label":"player_barrage":0,"similar_player_barrage":0}`;
+  const result = replacePlayerBarrage(payload);
+  assert.equal(result.replacements, 2);
+  assert.equal(result.text, String.raw`{"player_barrage":1,"player_barrage":1,"label":"player_barrage":0,"similar_player_barrage":0}`);
+  assert.equal(result.observedEnabled, false);
+  assert.equal(replacePlayerBarrage(String.raw`{"player_barrage":1}`).text, String.raw`{"player_barrage":1}`);
+  assert.equal(replacePlayerBarrage(String.raw`{"label":"player_barrage":0}`).replacements, 0);
+  assert.equal(replacePlayerBarrage(String.raw`{"player_barrage\":0}`).replacements, 1);
+
+  const target = createDanmakuAvailabilityTarget();
+  const hook = installDanmakuAvailabilityHook(target);
+  const script = { tagName: "SCRIPT", src: "", textContent: String.raw`{"player_barrage":0}` };
+  const parent = new target.Node();
+  const appendResult = parent.appendChild(script);
+  assert.equal(appendResult, parent.returnToken);
+  assert.equal(parent.lastThis, parent);
+  assert.deepEqual(parent.lastArgs, [script]);
+  assert.equal(parent.children[0], script);
+  assert.equal(script.textContent, String.raw`{"player_barrage":1}`);
+
+  const secondScript = { nodeName: "script", src: "", textContent: String.raw`{"player_barrage":0}` };
+  const reference = {};
+  const insertResult = parent.insertBefore(secondScript, reference);
+  assert.equal(insertResult, parent.returnToken);
+  assert.deepEqual(parent.lastArgs, [secondScript, reference]);
+  assert.equal(secondScript.textContent, String.raw`{"player_barrage":1}`);
+
+  const externalScript = { tagName: "SCRIPT", src: "https://cdn.example/firstqueue.js", textContent: String.raw`{"player_barrage":0}` };
+  parent.appendChild(externalScript);
+  assert.equal(externalScript.textContent, String.raw`{"player_barrage":0}`);
+  const div = { tagName: "DIV", textContent: String.raw`{"player_barrage":0}` };
+  parent.appendChild(div);
+  assert.equal(div.textContent, String.raw`{"player_barrage":0}`);
+
+  const throwingScript = { tagName: "SCRIPT", src: "", textContent: String.raw`{"player_barrage":0}`, throwOnAppend: true };
+  assert.throws(() => parent.appendChild(throwingScript), /append failed/);
+  assert.equal(throwingScript.textContent, String.raw`{"player_barrage":0}`);
+  const throwingInsertScript = { tagName: "SCRIPT", src: "", textContent: String.raw`{"player_barrage":0}`, throwOnInsert: true };
+  assert.throws(() => parent.insertBefore(throwingInsertScript, reference), /insert failed/);
+  assert.equal(throwingInsertScript.textContent, String.raw`{"player_barrage":0}`);
+
+  const targetXhr = new target.XMLHttpRequest(
+    "https://www.douyu.com/betard/123",
+    String.raw`{"player_barrage":0,"player_barrage":1}`,
+  );
+  assert.equal(targetXhr.responseText, String.raw`{"player_barrage":1,"player_barrage":1}`);
+  const nonTargetXhr = new target.XMLHttpRequest(
+    "https://www.douyu.com/other",
+    String.raw`{"player_barrage":0}`,
+  );
+  assert.equal(nonTargetXhr.responseText, String.raw`{"player_barrage":0}`);
+
+  const duplicate = installDanmakuAvailabilityHook(target);
+  assert.equal(duplicate.snapshot().inlineHooks, 2);
+  duplicate.dispose();
+  assert.equal(parent.appendChild(script), parent.returnToken);
+  hook.dispose();
+  assert.equal(hook.snapshot().installed, false);
+  const cleanScript = { tagName: "SCRIPT", src: "", textContent: String.raw`{"player_barrage":0}` };
+  assert.equal(parent.appendChild(cleanScript), parent.returnToken);
+  assert.equal(cleanScript.textContent, String.raw`{"player_barrage":0}`);
+  assert.equal(targetXhr.responseText, String.raw`{"player_barrage":0,"player_barrage":1}`);
+});
+
+test("danmaku availability safely degrades when descriptors are not configurable", () => {
+  const target = createDanmakuAvailabilityTarget();
+  Object.defineProperty(target.Node.prototype, "appendChild", { configurable: false });
+  const hook = installDanmakuAvailabilityHook(target);
+  const snapshot = hook.snapshot();
+  assert.equal(snapshot.inlineHooks, 1);
+  assert.equal(snapshot.responseHook, true);
+  assert.equal(snapshot.degraded, 1);
+  hook.dispose();
+});
 
 test("settings use safe defaults and retain supported values", async () => {
   const writes = [];
@@ -725,6 +841,24 @@ test("control center keeps its navigation outside the scrolling flex region", as
   assert.match(source, /header \{ flex:0 0 auto;/);
   assert.match(source, /nav \{ flex:0 0 44px;/);
   assert.match(source, /main \{ flex:1 1 auto; min-height:0; overflow:auto;/);
+});
+
+test("danmaku availability is automatic and exposes a concise outcome state", async () => {
+  const [mainSource, controlCenterSource, settingsSource] = await Promise.all([
+    readFile(new URL("../packages/douyu-web-enhancer/src/main.ts", import.meta.url), "utf8"),
+    readFile(new URL("../packages/douyu-web-enhancer/src/ui/control-center.ts", import.meta.url), "utf8"),
+    readFile(new URL("../packages/douyu-web-enhancer/src/core/settings.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(mainSource, /const danmakuAvailabilityHook = installDanmakuAvailabilityHook\(\);/);
+  assert.doesNotMatch(settingsSource, /danmakuAvailability/);
+  assert.match(controlCenterSource, /未生效，当前无需恢复/);
+  assert.match(controlCenterSource, /已生效，正在恢复飘屏/);
+  assert.match(controlCenterSource, /等待识别弹幕状态/);
+  assert.match(controlCenterSource, /运行异常，可能无法恢复飘屏/);
+  assert.doesNotMatch(controlCenterSource, /脚本 Hook/);
+  assert.doesNotMatch(controlCenterSource, /未命中/);
+  assert.doesNotMatch(controlCenterSource, /aria-label="特殊时期弹幕恢复"/);
 });
 
 test("control center formats audit timestamps locally and validates saved room ids", () => {

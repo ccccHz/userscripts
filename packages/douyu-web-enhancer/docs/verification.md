@@ -1,5 +1,14 @@
 # Douyu Web Enhancer 验证记录
 
+## 2026-09-21：特殊时期恢复弹幕显示（verifying）
+
+- 范围为 `danmaku-availability` 的 document-start 窄 Hook、控制中心只读状态卡、自动化回归、构建和普通直播页只读验收。验证版本保持 `0.10.10`；未发布、未推送、未新增权限或网络请求。
+- 实现：`src/features/danmaku-availability.ts` 在 `sandbox: raw` 页面主世界自动安装，不增加普通设置开关。它只 Hook `Node.prototype.appendChild/insertBefore` 的动态内联 script，以及 `XMLHttpRequest.prototype.responseText` 的 `/betard` 响应；纯替换只接受转义 JSON 与普通 JSON 中精确对象键 `player_barrage:0`。字段已为 `1`、缺失、字符串值、相似键、外链 script 和非目标 URL 均保持原文。重复安装共享同一 Hook；descriptor 不可配置或环境不兼容时报告降级；pagehide 只恢复仍归属本次安装的 descriptor。
+- 控制中心不提供会让用户误以为可即时关闭的开关，也不展示 Hook 数量和未命中等实现计数。普通时期明确显示“未生效，当前无需恢复”；识别并改写限制后显示“已生效，正在恢复飘屏”；尚无配置样本或异常时才显示等待/故障状态。
+- 自动化：`node --test test/douyu-web-enhancer.test.mjs` **68/68**、package type-check 和 package build 通过；覆盖两种序列化、多个命中、无命中、已为 1、字符串/相似键、appendChild/insertBefore、外链/非目标 script、目标/非目标 XHR、重复安装、原方法 this/返回值/异常、清理恢复、descriptor 降级，以及自动安装和只读面板接线。最终全仓 `pnpm validate && pnpm test && pnpm type-check && pnpm build` 通过，其中测试 **209/209**。
+- Chrome 真实页面：开发壳由 `http://127.0.0.1:53986/douyu-web-enhancer.dev.user.js` 重装，`@require` 明确指向主项目构建产物 `packages/douyu-web-enhancer/dist/douyu-web-enhancer.user.js`；刷新 `https://www.douyu.com/52` 后控制中心显示 `v0.10.10`，弹幕分区出现无开关的只读卡片。精简前诊断证明脚本 Hook `2/2`、XHR Hook 已安装、官方允许字段观察 `1` 次、恢复 `0`、降级 `0`、异常 `0`，页面普通弹幕飘屏持续正常；该结果在精简状态中对应“未生效，当前无需恢复”。未发送弹幕、点赞、关注、签到、送礼或修改账号状态。
+- 未覆盖项：真实特殊时期 `player_barrage:0` 样本和实际 responseText 0→1 页面恢复，只能等待自然出现；不人工制造限制或把普通时期零恢复写成特殊时期恢复通过。
+
 ## 2026-09-21：0.10.10 room-metrics 顶部摘要条紧凑化
 
 - 冻结契约要求只修复 Y 轴密度，不改变收入、贵宾人数、已观看的横向顺序和位置，不触碰斗鱼
@@ -29,13 +38,13 @@
 - 真实浏览器：本轮未进行 Computer Use / Chrome 自然下播验收；自然下播窗口不可稳定复现，不能据此声称真实弹窗关闭或不跳转通过。控制中心的实际页面开关、最新 dist 刷新闭环、后台标签页和自然 SPA 换房仍标记为未覆盖；自动化结果不替代自然下播实机证据。
 - 备注：归档基线为 `douyuEX_new/src/packages/DisableCloseJump/DisableCloseJump.js` 的官方选择器与 1 秒点击语义；未增加备用选择器、未改为全页 MutationObserver、未阻止用户主动导航。
 
-## 2026-09-19：弹幕右键缺失操作补全（verifying）
+## 2026-09-19—21：弹幕右键缺失操作补全（done）
 
 - 按冻结契约实现 `message-context-action-fallback`：回复与 +1 分别判断，官方存在时不注入，官方延迟出现时撤回；官方 +1 同时识别斗鱼两种文案“+1”和“加一”。触发入口覆盖弹幕悬浮/右键，并适配斗鱼播放器悬浮弹幕 `#comment-higher-container [data-comment-uuid]`；仅在官方入口缺失时，克隆当前官方按钮的外层、图标、文字类名和“加一”文案，挂入官方 `.btnsInner-*` 操作行的固定槽位，顺序保持“举报｜加一｜回复｜收藏”，分隔线沿用原版 `sugun-e3fbf6`。只处理数字直播页普通用户纯文字弹幕，排除自身、系统/礼物/进场/主播通知、空正文、图片和富媒体。
-- 回复复用现有输入适配，只填入 `@作者：正文` 并聚焦；+1 只在用户点击后调用现有发送按钮路径一次，动作完成恢复草稿与光标/选区，不新增发送队列，既有聊天历史和两秒回显检测继续接收提交。
+- 回复复用现有输入适配，只填入 `@作者：正文` 并聚焦；+1 只在用户点击后调用现有发送按钮路径一次，动作完成恢复草稿与光标/选区，不新增发送队列，既有聊天历史和两秒回显检测继续接收提交。2026-09-21 用户已实测右键“回复”和“加一”均存在且正常，功能收口为 done。
 - 自动化：`pnpm test` **200/200**，覆盖数字房间范围、归档回复格式、官方入口优先级、能力缓存等待、目标隔离和 Settings v6 开关；`pnpm validate`、`pnpm type-check`、`pnpm build` 全部通过。最新 `dist/douyu-web-enhancer.user.js` 为约 `266.95 kB`（gzip `70.12 kB`）。
 - Chrome 最新 dist 只读核验：刷新用户当前 `https://www.douyu.com/5135383?dyshid=16c8694-a12f0ece4ef4b08c1fe4763e00091701` 后，控制中心版本仍为 `v0.10.9`，弹幕分区出现“弹幕右键补全”且 `aria-checked="true"`；目标页为数字直播页，读取到普通弹幕卡片、作者和正文 DOM，`#comment-dzjy-container` 存在但自身为 0 高度 portal 根节点，当前未注入任何脚本按钮。全程未点击脚本 +1、发送、点赞、举报、收藏或其他账号动作。
-- 本次复核发现并修正三处问题：原实现只监听右键，没有监听悬浮；错误要求 portal 根节点自身可见；目标误用了侧栏 `#js-barrage-list`，且按钮挂到了 portal 根而非官方 `.btnsInner-*` 操作行。修复后已重新构建并通过 200/200 测试与 package type-check/build；真实卡片动作闭环仍保持 `verifying`，未点击 +1 或发送。
+- 本次复核发现并修正三处问题：原实现只监听右键，没有监听悬浮；错误要求 portal 根节点自身可见；目标误用了侧栏 `#js-barrage-list`，且按钮挂到了 portal 根而非官方 `.btnsInner-*` 操作行。修复后已重新构建并通过自动化、package type-check/build；用户随后完成右键“回复”和“加一”真实操作验收，未执行发送、点赞、举报、收藏或其他账号写操作。
 - 房间 52 的用户截图进一步确认第四处问题：官方入口显示为“加一”，不是“+1”；此前会误判为缺失并追加自定义末尾 `+1`。现已补齐文案别名判断，官方“加一”优先，页面不会再重复插入 fallback。
 - 房间 52 当前 DOM 进一步确认视觉基准：`danmuMenuAddOneButton-*` 与 `danmuMenuAddOneIcon-*` 组成“加一”，回复使用对应的 `danmuMenuReplyButton-*` / `ReplyIcon-*`；补全按钮现在复用这些结构和当前操作行槽位，不能再退化为普通文字 `+1`。
 
