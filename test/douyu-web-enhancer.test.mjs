@@ -1805,15 +1805,21 @@ test("unconfirmed send observations persist with evidence level and correct late
     message: "maybe hidden",
     evidence: "unconfirmed",
     resolution: "pending",
+    tags: [],
+    note: "",
   });
   await store.setEvidence("session:7", "suspected");
   assert.equal(store.events()[0].evidence, "suspected");
+  assert.equal(await store.setTag("session:7", "manual-hidden", true), true);
+  assert.equal(await store.setNote("session:7", "复测 2 次，均未在公共流出现"), true);
   assert.equal(
     await store.markConfirmedDelayed("session:7", new Date("2026-09-05T01:02:05Z")),
     true,
   );
   assert.equal(store.events()[0].resolution, "confirmed-delayed");
   assert.equal(store.events()[0].resolvedAt, "2026-09-05T01:02:05.000Z");
+  assert.deepEqual(store.events()[0].tags, ["manual-hidden"]);
+  assert.equal(store.events()[0].note, "复测 2 次，均未在公共流出现");
 
   const invalidRoom = { ...attempt, id: 8, scope: "/directory/all" };
   assert.equal(await store.addUnconfirmed("session:8", invalidRoom), false);
@@ -1937,14 +1943,49 @@ test("send observation history is shared, exportable, importable, and clearable"
 
 test("send observation review labels and filters retain the evidence distinction", () => {
   const records = [
-    { id: "a", observedAt: "2026-09-05T01:02:03.000Z", roomId: "1", message: "pending", evidence: "unconfirmed", resolution: "pending" },
-    { id: "b", observedAt: "2026-09-05T01:02:04.000Z", roomId: "2", message: "corrected", evidence: "suspected", resolution: "confirmed-delayed", resolvedAt: "2026-09-05T01:02:05.000Z" },
+    { id: "a", observedAt: "2026-09-05T01:02:03.000Z", roomId: "1", message: "pending", evidence: "unconfirmed", resolution: "pending", tags: ["manual-hidden"], note: "第一次复测" },
+    { id: "b", observedAt: "2026-09-05T01:02:04.000Z", roomId: "2", message: "corrected", evidence: "suspected", resolution: "confirmed-delayed", tags: ["false-positive"], note: "后来收到了", resolvedAt: "2026-09-05T01:02:05.000Z" },
   ];
   assert.deepEqual(filterDanmakuObservations(records, "", "all", "all").map(record => record.id), ["b", "a"]);
   assert.deepEqual(filterDanmakuObservations(records, "2", "suspected", "confirmed-delayed").map(record => record.id), ["b"]);
+  assert.deepEqual(filterDanmakuObservations(records, "", "all", "all", "false-positive", "后来").map(record => record.id), ["b"]);
   assert.equal(danmakuObservationEvidenceText("unconfirmed"), "未确认");
   assert.equal(danmakuObservationEvidenceText("suspected"), "疑似未公开");
   assert.equal(danmakuObservationResolutionText("confirmed-delayed"), "迟到更正");
+});
+
+test("send observation metadata safely migrates v1 imports and removes one confirmed false positive", async () => {
+  const commits = [];
+  const store = new DanmakuSendObservationStore(null, {
+    async load() { return []; },
+    async commit(changed, removedIds, snapshot) { commits.push({ changed, removedIds, snapshot }); },
+  });
+  await store.ready();
+  const imported = await store.importJson(JSON.stringify({
+    schema: "douyu-web-enhancer:danmaku-send-observations",
+    version: 1,
+    exportedAt: "2026-09-05T01:02:03.000Z",
+    events: [{ id: "legacy", observedAt: "2026-09-05T01:02:03.000Z", roomId: "1", message: "legacy", evidence: "suspected", resolution: "pending" }],
+  }));
+  assert.deepEqual(imported, { imported: 1, retained: 1 });
+  assert.deepEqual(store.events()[0].tags, []);
+  assert.equal(store.events()[0].note, "");
+  assert.equal(await store.setTag("legacy", "manual-visible", true), true);
+  assert.equal(await store.setNote("legacy", "确认收到"), true);
+  await store.importJson(JSON.stringify({
+    schema: "douyu-web-enhancer:danmaku-send-observations",
+    version: 1,
+    exportedAt: "2026-09-05T01:02:04.000Z",
+    events: [{ id: "legacy", observedAt: "2026-09-05T01:02:04.000Z", roomId: "1", message: "legacy re-import", evidence: "suspected", resolution: "pending" }],
+  }));
+  assert.deepEqual(store.events()[0].tags, ["manual-visible"], "v1 import cannot erase local tags");
+  assert.equal(store.events()[0].note, "确认收到", "v1 import cannot erase local note");
+  const exported = JSON.parse(store.exportJson());
+  assert.equal(exported.version, 2);
+  assert.deepEqual(exported.events[0].tags, ["manual-visible"]);
+  assert.equal(await store.remove("legacy"), true);
+  assert.deepEqual(commits.at(-1).removedIds, ["legacy"]);
+  assert.equal(await store.remove("legacy"), false);
 });
 
 test("send observations use localStorage only when IndexedDB is unavailable", async () => {
@@ -1971,6 +2012,8 @@ test("send observations use localStorage only when IndexedDB is unavailable", as
     message: "fallback",
     evidence: "unconfirmed",
     resolution: "pending",
+    tags: [],
+    note: "",
   };
   await persistence.commit([event], [], [event]);
   assert.ok(values.has(DANMAKU_SEND_OBSERVATIONS_FALLBACK_KEY));

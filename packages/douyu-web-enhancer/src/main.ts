@@ -431,7 +431,9 @@ async function start(): Promise<void> {
       onExportSettings: exportSettings,
       onExportDanmakuObservations: () => danmakuObservations.exportJson(),
       onImportDanmakuObservations: (serialized) => danmakuObservations.importJson(serialized),
-      onClearDanmakuObservations: () => danmakuObservations.clear(),
+      onSetDanmakuObservationTag: (id, tag, enabled) => danmakuObservations.setTag(id, tag, enabled),
+      onSetDanmakuObservationNote: (id, note) => danmakuObservations.setNote(id, note),
+      onRemoveDanmakuObservation: (id) => danmakuObservations.remove(id),
     }),
     onOpened: () => { void refreshAutomationSummaries().then(() => refreshControlCenter()); },
   });
