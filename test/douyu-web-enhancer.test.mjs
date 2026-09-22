@@ -1972,6 +1972,14 @@ test("send observation metadata safely migrates v1 imports and removes one confi
   assert.equal(store.events()[0].note, "");
   assert.equal(await store.setTag("legacy", "manual-visible", true), true);
   assert.equal(await store.setNote("legacy", "确认收到"), true);
+  await store.importJson(JSON.stringify({
+    schema: "douyu-web-enhancer:danmaku-send-observations",
+    version: 1,
+    exportedAt: "2026-09-05T01:02:04.000Z",
+    events: [{ id: "legacy", observedAt: "2026-09-05T01:02:04.000Z", roomId: "1", message: "legacy re-import", evidence: "suspected", resolution: "pending" }],
+  }));
+  assert.deepEqual(store.events()[0].tags, ["manual-visible"], "v1 import cannot erase local tags");
+  assert.equal(store.events()[0].note, "确认收到", "v1 import cannot erase local note");
   const exported = JSON.parse(store.exportJson());
   assert.equal(exported.version, 2);
   assert.deepEqual(exported.events[0].tags, ["manual-visible"]);

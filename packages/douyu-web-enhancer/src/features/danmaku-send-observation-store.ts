@@ -394,7 +394,15 @@ export class DanmakuSendObservationStore {
         const existing = current.get(event.id);
         // A late correction is stronger local evidence than a stale exported pending state.
         if (existing?.resolution === "confirmed-delayed" && event.resolution !== "confirmed-delayed") continue;
-        current.set(event.id, event);
+        // Local review metadata is authoritative: an older v1 export has no metadata and
+        // must never erase tags or notes that were added in this browser.
+        const localTags = Array.isArray(existing?.tags) ? existing.tags : [];
+        const localNote = typeof existing?.note === "string" ? existing.note : "";
+        current.set(event.id, {
+          ...event,
+          tags: localTags.length > 0 ? localTags : event.tags,
+          note: localNote || event.note,
+        });
       }
       const merged = sortObservations([...current.values()]);
       const removed = merged.length > DANMAKU_SEND_OBSERVATIONS_LIMIT
