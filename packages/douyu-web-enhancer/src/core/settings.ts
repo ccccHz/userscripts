@@ -7,6 +7,7 @@ export interface Settings {
     chatMemory: boolean;
     chatDecorationCleanup: boolean;
     chatLayout: boolean;
+    transientGuidanceCleanup: boolean;
     compactPlayer: boolean;
     danmakuSendCheck: boolean;
     roomMetrics: boolean;
@@ -35,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
     chatMemory: true,
     chatDecorationCleanup: true,
     chatLayout: true,
+    transientGuidanceCleanup: true,
     compactPlayer: true,
     danmakuSendCheck: true,
     roomMetrics: true,
@@ -60,7 +62,7 @@ export interface SettingsDifference {
 }
 
 const featureKeys = [
-  "chatMemory", "chatDecorationCleanup", "chatLayout", "compactPlayer",
+  "chatMemory", "chatDecorationCleanup", "chatLayout", "transientGuidanceCleanup", "compactPlayer",
   "danmakuSendCheck", "roomMetrics", "volumeWheel", "liveTimeshiftControls", "dailyAutomation", "highestVideoQuality", "messageContextActionFallback", "disableOfflineJump",
 ] as const;
 const preferenceKeys = ["autoWebFullscreen"] as const;
@@ -95,7 +97,12 @@ export function parseSettingsImport(value: unknown): Settings {
   const features = record(root.features, "features");
   const preferences = record(root.preferences, "preferences");
   const automation = record(root.automation, "automation");
-  exactKeys(features, featureKeys, "features");
+  // Settings v6 exports predating this feature may omit the new visual-only
+  // toggle; keep all other fields strict and default this one on.
+  const importFeatureKeys = Object.prototype.hasOwnProperty.call(features, "transientGuidanceCleanup")
+    ? featureKeys
+    : featureKeys.filter((key) => key !== "transientGuidanceCleanup");
+  exactKeys(features, importFeatureKeys, "features");
   exactKeys(preferences, preferenceKeys, "preferences");
   exactKeys(automation, automationKeys, "automation");
   const importedRoomId = automation.autoFansRestRoomId;
@@ -104,7 +111,12 @@ export function parseSettingsImport(value: unknown): Settings {
   }
   return {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
-    features: Object.fromEntries(featureKeys.map((key) => [key, booleanSetting(features[key], `features.${key}`)])) as Settings["features"],
+    features: Object.fromEntries(featureKeys.map((key) => [
+      key,
+      key === "transientGuidanceCleanup" && !(key in features)
+        ? DEFAULT_SETTINGS.features.transientGuidanceCleanup
+        : booleanSetting(features[key], `features.${key}`),
+    ])) as Settings["features"],
     preferences: {
       autoWebFullscreen: booleanSetting(preferences.autoWebFullscreen, "preferences.autoWebFullscreen"),
     },
@@ -119,6 +131,7 @@ const labels: Record<string, string> = {
   "features.chatMemory": "弹幕历史",
   "features.chatDecorationCleanup": "隐藏弹幕前缀",
   "features.chatLayout": "拉高弹幕区",
+  "features.transientGuidanceCleanup": "隐藏瞬态引导",
   "features.compactPlayer": "隐藏礼物栏",
   "features.danmakuSendCheck": "发送检测",
   "features.roomMetrics": "房间统计",
@@ -187,6 +200,10 @@ function parseSettings(value: unknown): Settings {
         typeof features.chatLayout === "boolean"
           ? features.chatLayout
           : DEFAULT_SETTINGS.features.chatLayout,
+      transientGuidanceCleanup:
+        typeof features.transientGuidanceCleanup === "boolean"
+          ? features.transientGuidanceCleanup
+          : DEFAULT_SETTINGS.features.transientGuidanceCleanup,
       compactPlayer:
         typeof features.compactPlayer === "boolean"
           ? features.compactPlayer

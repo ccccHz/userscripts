@@ -67,7 +67,7 @@
 | `no-login-overlay-cleanup`：移除未登录遮罩 | `NoLogin/NoLogin.js`；无入口 | 自动；无 | DOM/CSS；可能改变站点登录提示；**待用户确认**是否保留 | 调研；P3；未登录页仍可观看且不破坏登录入口。 |
 | `night-mode`：旧版页面夜间配色 | `Night/Night.js`；页头日/月按钮 | 关；`localStorage.ExSave_Mode` | 巨型 CSS、iframe 同步；源码对 `live-next-body` 直接退出，说明新版已不工作 | 调研；P2；先截图确认仍有价值，再用小范围主题 token，覆盖弹窗和恢复。 |
 | `follow-list`：关注列表只显示在播、展示开播时长、点击/长按打开 | `FollowList/FollowList.js`；页头关注下拉 | 自动；`GM.Ex_LoadInCurrentPage` 默认 false | 登录态 `follow/list`；长按依赖多画面；**待实测**新版下拉重建 | 窄适配；P2；默认新页、可选当前页、中键与长按互不冲突，失败保留原列表。 |
-| `last-live-time`：未开播时显示上次开播时间 | `LastLiveTime/LastLiveTime.js`；播放器内自动卡片，可关闭 | 自动；无 | 从页面 HTML 取 `show_status/show_time`，最多轮询 180 次；字段和 `.LastLiveTime` 可能失效 | 窄适配；P1；仅未开播出现、时间正确、关闭/导航/清理无残留。 |
+| `last-live-time`：未开播时显示上次开播时间 | `LastLiveTime/LastLiveTime.js`；播放器内自动卡片，可关闭 | 自动；无 | 从页面 HTML 取 `show_status/show_time`，最多轮询 180 次；字段和 `.LastLiveTime` 可能失效 | rejected；当前斗鱼离线房间已提供足够的上次直播时间，不再重构离线播放器画面；如仍有广告问题另建窄范围清理功能。 |
 | `bag-info`：背包礼物过期天数、总价值和亲密度 | `BagInfo/BagInfo.js`；打开背包时增强头部和礼物项 | 自动；无 | 登录态背包 API、动态 DOM；与危险的 `bag-clear-all` 同文件 | 窄适配；P2；只读数据与礼物项一一对应，重复打开不重复插入，失败不触发赠送。 |
 | `room-vip-expiry`：VIP 五天内到期提醒 | `RoomVip/RoomVip.js`；背包入口附近自动提示 | 自动；阈值常量 5 天 | 登录态 HTML `effect_list`、固定 property id；接口/结构可能失效 | 调研；P3；仅匹配当前房间的 VIP，日期边界与无权限失败安全。 |
 | `anchor-pocket`：粉丝牌弹窗展示主播口袋活动 | `CheckAnchorPocket/CheckAnchorPocket.js`；粉丝牌面板自动追加 | 自动；仅内存按日缓存 | `getBindGroup`/`fsjk` 类接口；活动很可能过期 | 放弃候选；P3；若保留须先证明当前活动仍存在并有自然样本。 |
@@ -107,17 +107,17 @@
 
 | ID / 用户价值 | 归档源码与入口 | 默认 / 持久化 | 接口、依赖与当前失效点 | 建议 / 优先级 / 独立验收边界 |
 | --- | --- | --- | --- | --- |
-| `danmaku-tail`：发送前自动添加自定义前/后缀 | `DanmakuTail/`；输入区工具栏图标+面板 | 关；`ExSave_DanmakuTail` | 输入框和发送按钮事件；动态重建会丢监听 | 提取；P1；空值拒绝、仅加一次、Enter/点击一致、停用清理、重建恢复。 |
+| `danmaku-tail`：发送前自动添加自定义前/后缀 | `DanmakuTail/`；输入区工具栏图标+面板 | 关；`ExSave_DanmakuTail` | 归档版直接拦截输入框 Enter 和发送按钮，动态重建会丢监听 | deferred；不单独迁移归档实现。后续与用户自定义的 WebSocket Hook 发送功能共同深化，届时重新冻结插入时机、发送语义与验收边界。 |
 | `chat-memory`：用上下方向键恢复最近提交的弹幕 | `ChatTools/ChatMemory/`；输入框首/尾位置按 ↑/↓ | 归档为自动、仅内存、最多 200 条；新契约为每房间本地持久化 | 归档在 Enter/点击时无条件记录，会收入空内容，丢草稿且动态重建会丢监听 | 已实现，待实机；P2；保留提交时入库，过滤空内容，委托事件覆盖重建并恢复草稿；每房间 200 条，LRU 保留 50 个房间；不依赖发送检测。 |
 | `message-plus-one`：右键弹幕后一键复读文本/图片标记 | `BarragePanel/BarragePanel_Tip.js`；原评论浮层“+1” | 自动；无 | 直接调用发送函数；图片分支依赖 `image-danmaku`，会产生账号发言 | 调研；P3；文本与图片拆分、发送前确认/频控和服务端结果。 |
 | `chat-length-extension`：把原 50 字限制增至 70 | `RemoveChatLengthLimit/ChangeDanmakuLengthLimit.js`；无入口 | 自动；无 | 改按钮 class/maxLength；服务端限制可能不同 | 调研；P2；先测当前服务端/客户端限制，超限反馈真实，不仅验证属性。 |
-| `danmaku-collection`：云收藏满后本地无限收藏并搜索 | `DanmakuCollect/` + `ResponseHook`；原收藏弹窗内搜索 | 自动；`ExSave_DanmakuCollect` | 改写收藏 query/add/del 响应；可能污染全局 XHR，DOM 选择器易变 | 调研；P2；本地/云项区分、增删/搜索/重开、Hook 可撤销且不改无关响应。 |
+| `danmaku-collection`：云收藏满后本地无限收藏并搜索 | `DanmakuCollect/` + `ResponseHook`；原收藏弹窗内搜索 | 自动；`ExSave_DanmakuCollect` | 改写收藏 query/add/del 响应；可能污染全局 XHR，DOM 选择器易变；归档将所有添加失败误当云收藏满 | deferred；P3；用户 2026-09-27 确认因复杂度暂缓，不进入近期排期。未来重启须区分本地/云项和失败原因，并验证增删/搜索/重开及 Hook 可撤销、不改无关响应。 |
 | `image-danmaku`：上传图片并用标记在插件用户间显示 | `ImageDanmaku/`、`BarragePanel/`；输入区上传图标和消息渲染 | **未注册**；无 | 鱼吧预签名、douyucdn 上传、DOMPurify、私有标记；外部上传与内容风险 | 放弃候选；P3；若保留须单独确认上传、可见性和内容边界。 |
 | `message-context-info`：右键卡片补粉丝牌、房管/贵族/等级 | `BarragePanel/BarragePanel.js`；原弹幕右键面板 | 自动；无 | 从最近弹幕克隆信息；哈希类名极易失效 | 窄适配；P2；不同消息类型、同名用户和动态卡片不串数据。 |
 | `message-context-reply`：一键把“@用户：内容”填入输入框 | 同上；右键面板“回复” | 自动；无 | 只写输入框；依赖 card 解析 | 提取；P1；textarea/contenteditable、光标/特殊字符、只填充不自动发送。 |
 | `message-context-search`：跳转外站查用户弹幕 | 同上；“查弹幕” | 自动；无 | `www.doseeing.com`、旧 `fz996.com` 代码；会发送昵称并打开外站 | 放弃候选；P3；**待用户确认**数据披露后再调研。 |
 | `message-context-mute`：按 1 分钟至 360 天禁言 | 同上；“禁言”+时长选择 | 自动；无 | 账号管理接口；高风险外部影响 | 调研；P3；必须房管账号单独授权、确认对象/时长和成功回读。 |
-| `shield-danmaku-background`：隐藏彩色/特殊弹幕背景 | `Shield/RemoveDanmakuBackground.js`；屏蔽面板复选框 | 关；`ExSave_isRemoveDanmakuBackground` | DOM/CSS/可能改写节点 | 窄适配；P2；正文可读、特殊消息覆盖、停用恢复。 |
+| `shield-danmaku-background`：隐藏彩色/特殊弹幕背景 | `Shield/RemoveDanmakuBackground.js`；归档版曾放在斗鱼屏蔽面板；当前样本见 [特殊弹幕背景屏蔽调研](../research/danmaku-background.md) | 关；`ExSave_isRemoveDanmakuBackground` | 本质是 CSS 选择器规则集；2024-03 至 2025-11 历史多次因哈希 class、贵族/自定义背景和图片前缀变化而修正，并曾误伤整条弹幕或钻粉彩字；2026-09 单条实机样本由内联 PNG/WebP 与独立左右装饰图组成 | P1 高优先级多类型样本采集，暂停实现（用户 2026-09-27 确认）；待排除头像、表情、图片正文与彩字误伤后再窄适配。未来入口为脚本默认控制中心独立开关，不融入斗鱼原生面板；只清除经证明的背景/装饰属性，并验证停用恢复。 |
 | `shield-plugin-images`：屏蔽 DouyuEx 图片弹幕 | `Shield/RemoveDanmakuImage.js`；屏蔽面板 | 关；`ExSave_isRemoveDanmakuImage` | 依赖 `image-danmaku` 标记 | 放弃随图片功能；P3；仅在图片弹幕保留时迁移。 |
 | `shield-entry-messages`：隐藏进场消息 | `Shield/RemoveEnter.js` + `RemoveAD` CSS 变量；屏蔽面板 | 关；`ExSave_isRemoveEnterBarrage` | `#js-barrage-extend-container`；与通用去广告规则冲突 | 窄适配；P2；只影响进场消息，礼物/系统消息和开关恢复正确。 |
 | `shield-repeated-danmaku`：按时间窗屏蔽重复弹幕 | `Shield/RemoveRepeatedDanmaku.js` + ScriptHook；屏蔽面板 | 关；启用与秒数键 | 前置脚本 Hook、消息归一化；可能误伤同文不同用户 | 调研；P2；时间窗边界、内存上限、系统消息与停用清理。 |

@@ -12,6 +12,7 @@
 - [局部决策](decisions.md)
 - [DouyuEx 接口研究与对比](research/douyuex-api-landscape.md)
 - [登录态接口实测指南](authenticated-api-testing.md)：使用真实 Chrome 状态验证同源/跨域接口的最短安全路径
+- [瞬态 DOM 采集指南](transient-dom-capture.md)：短暂弹窗与飘屏弹幕的提前接入、即时存证、有界观察及可见生命周期补证
 - [统一控制中心设计调研](research/control-center-design.md)：页内配置中心、近场入口分工、数据与风险边界
 - [TODO](todo.md)
 - [实机验证记录](verification.md)

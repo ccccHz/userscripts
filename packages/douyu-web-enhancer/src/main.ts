@@ -97,6 +97,11 @@ import {
   disableOfflineJumpSelectors,
 } from "./features/disable-offline-jump.ts";
 import {
+  TRANSIENT_GUIDANCE_CLEANUP_ID,
+  transientGuidanceCleanupFeature,
+  transientGuidanceSelectors,
+} from "./features/transient-guidance-cleanup.ts";
+import {
   DANMAKU_AVAILABILITY_ID,
   installDanmakuAvailabilityHook,
 } from "./features/danmaku-availability.ts";
@@ -160,6 +165,7 @@ async function start(): Promise<void> {
     liveTimeshiftSyncToolbar: liveTimeshiftControlsSelectors.syncToolbar,
     ...messageContextActionSelectors,
     ...disableOfflineJumpSelectors,
+    ...transientGuidanceSelectors,
     ...simplifiedModeControlSelectors,
   });
   const settingsStore = new SettingsStore(GM_getValue, GM_setValue);
@@ -172,7 +178,7 @@ async function start(): Promise<void> {
   const persistedFeatures = persistedRecord.features && typeof persistedRecord.features === "object"
     ? persistedRecord.features as Record<string, unknown>
     : {};
-  const needsSettingsMigration = !persistedRecord.preferences || !persistedRecord.automation || typeof persistedFeatures.disableOfflineJump !== "boolean";
+  const needsSettingsMigration = !persistedRecord.preferences || !persistedRecord.automation || typeof persistedFeatures.disableOfflineJump !== "boolean" || typeof persistedFeatures.transientGuidanceCleanup !== "boolean";
   if (!persistedRecord.preferences) {
     settings.preferences.autoWebFullscreen = (await GM_getValue(AUTO_WEB_FULLSCREEN_STATE_KEY, null)) !== false;
   }
@@ -232,6 +238,7 @@ async function start(): Promise<void> {
       highestVideoQualityFeature,
       messageContextActionFallbackFeature,
       createDisableOfflineJumpFeature(),
+      transientGuidanceCleanupFeature,
       createDailyAutomationFeature({
         request: (details: GmRequestDetails) => request(details),
         read: GM_getValue,
@@ -289,6 +296,10 @@ async function start(): Promise<void> {
     {
       id: DISABLE_OFFLINE_JUMP_ID,
       setting: "disableOfflineJump",
+    },
+    {
+      id: TRANSIENT_GUIDANCE_CLEANUP_ID,
+      setting: "transientGuidanceCleanup",
     },
     {
       id: DAILY_AUTOMATION_ID,

@@ -82,6 +82,11 @@ import {
   chatLayoutFeature,
 } from "../packages/douyu-web-enhancer/src/features/chat-layout.ts";
 import {
+  TRANSIENT_GUIDANCE_CLEANUP_ID,
+  TRANSIENT_GUIDANCE_CLEANUP_CSS,
+  transientGuidanceCleanupFeature,
+} from "../packages/douyu-web-enhancer/src/features/transient-guidance-cleanup.ts";
+import {
   COMPACT_PLAYER_ID,
   COMPACT_PLAYER_CSS,
   COMPACT_PLAYER_TOOLBAR_HOST_ATTRIBUTE,
@@ -290,6 +295,7 @@ test("settings use safe defaults and retain supported values", async () => {
   assert.equal(settings.features.danmakuSendCheck, true);
   assert.equal(settings.features.chatDecorationCleanup, true);
   assert.equal(settings.features.chatLayout, true);
+  assert.equal(settings.features.transientGuidanceCleanup, true);
   assert.equal(settings.features.compactPlayer, false);
   assert.equal(settings.features.roomMetrics, true);
   assert.equal(settings.features.volumeWheel, true);
@@ -318,6 +324,7 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       chatMemory: false,
       chatDecorationCleanup: false,
       chatLayout: false,
+      transientGuidanceCleanup: false,
       compactPlayer: false,
       danmakuSendCheck: false,
       roomMetrics: false,
@@ -337,6 +344,7 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       chatMemory: false,
       chatDecorationCleanup: false,
       chatLayout: false,
+      transientGuidanceCleanup: false,
       compactPlayer: false,
       danmakuSendCheck: false,
       roomMetrics: false,
@@ -350,8 +358,11 @@ test("Settings JSON import is exact, strict, and reports every supported change"
     preferences: { autoWebFullscreen: false },
     automation: { autoFansRestRoomId: "52", autoFansContinue: false },
   });
-  assert.equal(diffSettings(current, imported).length, 14, "all supported fields participate in preview");
+  assert.equal(diffSettings(current, imported).length, 15, "all supported fields participate in preview");
   assert.deepEqual(diffSettings(imported, structuredClone(imported)), [], "an idempotent import has no write-worthy change");
+  const legacyImport = structuredClone(imported);
+  delete legacyImport.features.transientGuidanceCleanup;
+  assert.equal(parseSettingsImport(legacyImport).features.transientGuidanceCleanup, true, "older Settings v6 exports default the visual cleanup on");
   assert.throws(
     () => parseSettingsImport({ ...imported, unexpected: true }),
     /未知字段：unexpected/,
@@ -2250,6 +2261,14 @@ test("selector registry records the first matching fallback", () => {
   assert.deepEqual(queried, [".layout-Player-video", ".stream__T55I3"]);
 });
 
+test("transient guidance cleanup scopes the two observed prompts and preserves nearby UI", () => {
+  assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /FansMedalDialog-normal:has\(> \.FansMedalDialog-desc\.is-geted/);
+  assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /#js-layout-fixed-buff-content > \.AnchorPocketTips/);
+  assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /#js-layout-fixed-buff[^{}]*\.close__D27HS/);
+  assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /pointer-events: none/);
+  assert.doesNotMatch(TRANSIENT_GUIDANCE_CLEANUP_CSS, /#js-layout-fixed-buff\s*\{/);
+});
+
 test("feature runtime is idempotent and cleans up on disable", () => {
   let starts = 0;
   let disposals = 0;
@@ -2375,6 +2394,7 @@ test("persisted simplified-mode settings restore the actual feature runtime", as
       compactPlayerFeature,
       chatLayoutFeature,
       chatDecorationCleanupFeature,
+      transientGuidanceCleanupFeature,
       {
         id: ROOM_METRICS_ID,
         start({ diagnostics, root, styles }) {
@@ -2393,6 +2413,7 @@ test("persisted simplified-mode settings restore the actual feature runtime", as
     { id: COMPACT_PLAYER_ID, setting: "compactPlayer" },
     { id: CHAT_LAYOUT_ID, setting: "chatLayout" },
     { id: CHAT_DECORATION_CLEANUP_ID, setting: "chatDecorationCleanup" },
+    { id: TRANSIENT_GUIDANCE_CLEANUP_ID, setting: "transientGuidanceCleanup" },
     { id: ROOM_METRICS_ID, setting: "roomMetrics" },
   ];
 
@@ -2410,6 +2431,7 @@ test("persisted simplified-mode settings restore the actual feature runtime", as
       [CHAT_LAYOUT_ID, "active"],
       [COMPACT_PLAYER_ID, "active"],
       [ROOM_METRICS_ID, "active"],
+      [TRANSIENT_GUIDANCE_CLEANUP_ID, "active"],
     ],
   );
 

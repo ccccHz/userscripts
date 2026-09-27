@@ -72,6 +72,14 @@
 | 结果 | 完成、verifying、blocked、system error 或用户叫停 |
 | 可比性 | 有效、辅助或无效，并说明原因 |
 
+## 2026-09-27：简洁模式瞬态引导清理（gpt-5.6-luna / high，done）
+
+- task/thread：当前调度中心委派的 `transient-guidance-cleanup` 子任务；样本类型为冻结迁移契约实现、自动化回归、package 构建、只读 Chrome 预检与文档同步；未提交、未推送、未发布。
+- 范围：`douyu-web-enhancer` 新增独立 Settings v6 扩展字段 `transientGuidanceCleanup`（默认开启），控制中心接线和 CSS-only runtime；目标为已拥有徽章佩戴提示与亲密度 BUFF 瞬态横条。保留正常粉丝牌入口、礼物栏/播放器控制栏、房间统计摘要和账号状态；不增加 observer、请求、权限、轮询或第二套持久化。
+- 轮次与返工：实现 1 轮；设置导入兼容、精确目标选择器和 BUFF 共享容器保护各补充 1 轮；自动化/文档 1 轮。定向测试 `70/70`；最终全仓 `pnpm validate && pnpm test && pnpm type-check && pnpm build` 通过，测试 `211/211`，package 与全仓类型检查/构建均通过。
+- 浏览器证据：用户刷新直播间后确认已拥有徽章提示与亲密度 BUFF 两类弹窗均消失，并确认独立开关可控制该功能；此前只读检查已确认 `style[data-douyu-web-enhancer-style="transient-guidance-cleanup"]` 已加载。未执行任何账号写操作。
+- 可比性：有效样本；自动化覆盖选择器边界和设置/运行时接线，真实页面完成刷新恢复与开关启停验收。
+
 ## 已知样本
 
 ### 弹幕发送检测靓号房间真实 rid 修复（2026-09-20，Terra Luna High）

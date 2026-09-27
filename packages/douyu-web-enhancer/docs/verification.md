@@ -1,5 +1,13 @@
 # Douyu Web Enhancer 验证记录
 
+## 2026-09-27：简洁模式瞬态引导清理（done）
+
+- 实际执行配置：`gpt-5.6-luna` / `high`；范围为新增独立的 `transientGuidanceCleanup` 开关、Settings v6 兼容扩展、控制中心接线、自动化回归、构建和只读 Chrome 预检。包版本保持 `0.10.10`，未发布、未推送、未新增权限、网络请求或账号动作。
+- 迁移基准：不改动正常粉丝牌入口、礼物栏、播放器控制栏或账号状态。只隐藏已确认拥有徽章时的 `.FansMedalDialog-normal` 瞬态提示，以及 `#js-layout-fixed-buff-content > .AnchorPocketTips` 亲密度 BUFF 横条；共享 BUFF 容器仅在目标为唯一直接子节点时收缩，避免误伤同容器其他内容。CSS-only，无新增 observer、轮询或 DOM 注入。
+- 设置与兼容：新开关默认开启，使用既有 GM 持久化；Settings v6 导入若缺少该字段则安全补为 `true`，不提升 schema 版本，不维护第二套持久化。运行时与控制中心均绑定同一 feature definition，停用时移除样式。
+- 自动化：定向测试 `70/70`；最终全仓 `pnpm validate && pnpm test && pnpm type-check && pnpm build` 通过，测试总数 `211/211`，package 与全仓类型检查/构建均通过。未点击佩戴、签到、关注、送礼、发送或其他账号写操作。
+- Chrome 用户验收：刷新直播间后，已拥有徽章提示与亲密度 BUFF 两类弹窗均消失；切换独立“隐藏瞬态引导”开关可控制显示/隐藏，确认设置持久化与 runtime 接线有效。此前只读预检已确认页面实际加载 `style[data-douyu-web-enhancer-style="transient-guidance-cleanup"]`。未点击佩戴、签到、关注、送礼、发送或其他账号写操作。
+
 ## 2026-09-21：特殊时期恢复弹幕显示（verifying）
 
 - 范围为 `danmaku-availability` 的 document-start 窄 Hook、控制中心只读状态卡、自动化回归、构建和普通直播页只读验收。验证版本保持 `0.10.10`；未发布、未推送、未新增权限或网络请求。

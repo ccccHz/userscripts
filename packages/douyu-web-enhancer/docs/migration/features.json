@@ -24,7 +24,7 @@
         "room-metrics"
       ],
       "contract": {
-        "experience": "隐藏播放器礼物展示栏并扩展画面；提供原版就近悬浮控制；在右侧弹幕区提供隐藏前缀和隐藏排行榜的独立开关；排行榜隐藏后弹幕区向上扩展，同时保留紧凑的房间统计摘要；待补齐 DOM 证据后，仅隐藏粉丝团权益与徽章佩戴的两类瞬态引导。",
+        "experience": "隐藏播放器礼物展示栏并扩展画面；提供原版就近悬浮控制；在右侧弹幕区提供隐藏前缀和隐藏排行榜的独立开关；排行榜隐藏后弹幕区向上扩展，同时保留紧凑的房间统计摘要；通过独立开关仅隐藏已确认的粉丝团亲密度 BUFF 与徽章佩戴两类瞬态引导。",
         "stateOwner": "各原子功能的 GM 持久化设置是唯一规范状态；页面按钮、样式和 DOM 结果均由该状态派生。",
         "restorationTriggers": [
           "脚本启动",
@@ -50,10 +50,10 @@
         "deviations": []
       }
     },
-    {
-      "id": "chat-sending-experience",
-      "name": "弹幕发送体验",
-      "status": "verifying",
+      {
+        "id": "chat-sending-experience",
+        "name": "弹幕发送体验",
+        "status": "verifying",
       "featureIds": [
         "chat-memory",
         "danmaku-send-check"
@@ -221,18 +221,18 @@
         ]
       }
     },
-    {
-      "id": "transient-guidance-cleanup",
-      "name": "隐藏粉丝团与徽章佩戴瞬态引导",
-      "priority": "P2",
-      "status": "inventory",
+      {
+        "id": "transient-guidance-cleanup",
+        "name": "隐藏粉丝团与徽章佩戴瞬态引导",
+        "priority": "P2",
+        "status": "done",
       "decision": "rewrite",
-      "notes": "2026-09-17 用户在房间 2016309 提供体验证据并确认纳入简化直播间；由于两类元素均为瞬态，实现前仍需在自然出现时捕获 DOM 与关闭行为。",
+      "notes": "2026-09-17 用户在房间 2016309 提供体验证据并确认纳入简化直播间；2026-09-27 已取得两类瞬态节点的真实 DOM、可见生命周期与共享宿主边界，采用 CSS-only 规则并由独立 Settings v6 扩展开关控制。",
       "contract": {
-        "behavior": "仅隐藏首次或当日首次进入后播放器左下的“超级粉丝团/亲密度权益”引导条，以及已拥有粉丝牌房间聊天区底部的“您已拥有该主播徽章/立即佩戴”提示卡。",
-        "interaction": "无额外点击或操作；作为简化直播间的窄视觉规则生效。",
-        "persistence": "待 DOM 证据与现有简化设置的边界对齐后确定；不得为两类瞬态引导写入任何账号状态。",
-        "stateOwner": "待实施时冻结；页面结果必须由简化直播间的规范设置派生，不保存“已佩戴/已领取”等伪状态。",
+        "behavior": "仅隐藏播放器左下的 #js-layout-fixed-buff-content > .AnchorPocketTips 亲密度 BUFF 横条，以及已拥有粉丝牌房间中由 .FansMedalDialog-desc.is-geted 与 .FansMedalDialog-wareMedal 标识的徽章佩戴提示卡。",
+        "interaction": "无额外点击或操作；由独立简洁模式设置控制 CSS 生效，正常粉丝牌入口、播放器控制和输入发送保持原版。",
+        "persistence": "Settings v6 的 features.transientGuidanceCleanup 是唯一持久化开关，默认开启；不写入佩戴、领取、亲密度或其他账号状态。旧 Settings v6 快照缺失该新字段时归一化为开启。",
+        "stateOwner": "SettingsStore/FeatureRuntime 的 transient-guidance-cleanup 绑定拥有开关与 CSS 生命周期；页面节点和可见状态均由斗鱼 DOM 派生，不保存“已佩戴/已领取”等伪状态。",
         "evidencePrerequisites": [
           "在引导自然出现时采集实际 DOM 层级、类名和稳定语义特征",
           "确认播放器左下引导与官方控制栏的挂载边界",
@@ -263,7 +263,17 @@
           "播放器控制、聊天输入、正常粉丝牌展示和礼物功能保持正常",
           "验收过程没有任何佩戴、领取或其他账号写操作"
         ],
-        "deviations": []
+          "deviations": [
+            {
+              "status": "approved",
+              "baseline": "归档通过页面就近提示及宿主自身生命周期处理两类瞬态引导。",
+              "proposal": "采用 CSS :has() 的窄结构选择器，不新增采集 Observer；BUFF 仅在共享内容宿主没有其他直接子内容时收缩空壳与关闭图标。",
+              "reason": "两类引导都由斗鱼 DOM 自然出现/移除，CSS 规则即可稳定覆盖，避免新的观察器和运行时状态。",
+              "objective": "只隐藏已确认的瞬态提示，同时保留正常粉丝牌入口、播放器控制、其他共享宿主内容和账号状态。",
+              "decisionRecord": "2026-09-27 用户确认以独立简洁模式开关继续完成这两类瞬态引导迁移。",
+              "fallback": "若斗鱼 DOM 结构变化导致窄选择器失效，先更新证据和迁移记录，不扩大到全局宿主隐藏或新增 Observer。"
+            }
+          ]
       }
     },
     {

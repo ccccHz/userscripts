@@ -111,8 +111,12 @@
 
 ### M2：低风险弹幕编辑与阅读（迁移批次 2）
 
-`message-context-reply` → `danmaku-tail` → `chat-memory` + `danmaku-send-check` → `shield-entry-messages` →
-`shield-danmaku-background`。`chat-length-extension` 先实测当前限制后再决定是否插入本批。
+`message-context-reply` 和优化后的缺失操作补全已实现；`chat-memory` + `danmaku-send-check`
+已进入自然使用补证。`shield-danmaku-background` 升为 P1 多类型样本采集，暂不实现，
+待排除头像、表情等误伤后再排期；未来开关独立放入脚本默认控制中心，不融入斗鱼屏蔽面板。
+`shield-entry-messages` 另行排期；
+`chat-length-extension` 先实测当前限制后再决定是否迁移。`danmaku-tail` 不再作为独立迁移项，
+暂缓至用户自定义的 WebSocket Hook 发送功能一并设计。
 
 组合策略：`chat-memory` 与 `danmaku-send-check` 属于同一 `chat-sending-experience`
 验收簇，但分别拥有持久历史与瞬时发送队列，任一失败不阻断另一项。入口可以共享输入区/右键卡片宿主，但发送前修改、纯填充和纯 CSS 屏蔽绝不共用状态。
@@ -120,7 +124,9 @@
 
 ### M3：本地数据与只读信息（迁移批次 3）
 
-`last-live-time` → `bag-info`（只读，不含清空）→ `barrage-speed` → `danmaku-collection`。
+优先 `bag-info`（只读，不含清空），其次评估 `barrage-speed`；`danmaku-collection` 经用户
+2026-09-27 确认暂缓、降为 P3，不进入近期排期。`last-live-time`
+已 rejected：当前斗鱼离线房间的原生信息已满足需求，不再为此重构离线播放器。
 `follow-list` 在用户接受登录态只读请求后加入；`room-vip-expiry`、`fans-badge-date` 只有当前页面仍存在时加入。
 
 组合策略：信息卡片可共享视觉规范，不共享缓存。任何只读功能都不得顺手带入相邻的送礼、删除或关注动作。
