@@ -247,10 +247,10 @@ export function formatBackpackExpiry(
     const date = new Date(expiresAt);
     if (Number.isFinite(date.getTime())) {
       if (expiresAt <= nowMs) {
-        return { status: "expired", text: "已到期", title: `到期时间：${date.toLocaleString()}` };
+        return { status: "expired", text: "已到期", title: `到期时间：${formatLocalDateTime(date)}` };
       }
       const remainingMs = expiresAt - nowMs;
-      const title = `过期时间：${date.toLocaleString()}`;
+      const title = `过期时间：${formatLocalDateTime(date)}`;
       if (remainingMs < 60 * 60 * 1000) {
         return { status: "timed", text: `约${Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)))}小时`, title };
       }
@@ -294,6 +294,11 @@ function setText(element: Element | null, text: string): void {
   if (element && element.textContent !== text) element.textContent = text;
 }
 
+function formatLocalDateTime(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 function ensureSummary(header: Element): HTMLElement {
   const existing = header.querySelector<HTMLElement>(`[${BAG_INFO_SUMMARY_ATTRIBUTE}]`);
   if (existing) return existing;
@@ -309,14 +314,15 @@ function renderSummary(header: Element, data: BackpackData): void {
   const summary = ensureSummary(header);
   const values = calculateBackpackSummary(data.items);
   const valueText = values.totalValue === null
-    ? "总价值：未知（仅 isValuable=1）"
-    : `总价值：${values.totalValue.toFixed(2)} 鱼翅（仅 isValuable=1）`;
+    ? "总价值：未知"
+    : `总价值：${values.totalValue.toFixed(2)} 鱼翅`;
   const intimacyText = values.totalIntimacy === null
-    ? "基础亲密度：未知"
-    : `基础亲密度：${values.totalIntimacy}`;
+    ? "总亲密度：未知"
+    : `总亲密度：${values.totalIntimacy}`;
   setText(summary.querySelector('[data-dwe-bag-stat="value"]'), valueText);
   setText(summary.querySelector('[data-dwe-bag-stat="intimacy"]'), intimacyText);
   summary.setAttribute("aria-label", `${valueText}；${intimacyText}`);
+  summary.title = "总价值按可计入道具的鱼翅单价与数量汇总；亲密度按道具标注数值汇总，不含活动加成";
 }
 
 function renderItemExpiry(panel: Element, data: BackpackData, nowMs: number): void {
@@ -384,7 +390,7 @@ export function createBagInfoFeature(): FeatureDefinition {
         renderSummary(header, data);
         renderItemExpiry(panel, data, Date.now());
         diagnostics.update(BAG_INFO_ID, "active", {
-          detail: "背包只读汇总与期限已更新；鱼翅价值仅统计 isValuable=1",
+          detail: "背包只读汇总与期限已更新；价值按鱼翅口径统计",
           selector: `${bagInfoSelectors.backpackPanel[0]} | ${bagInfoSelectors.items[0]}`,
           data: { roomId, itemCount: data.items.length },
         });

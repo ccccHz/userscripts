@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -2323,13 +2324,23 @@ test("bag expiry uses met seconds, permanent/expired/unknown states, and conserv
   const timed = formatBackpackExpiry({ met: 1_793_030_649, exp: 2, expiry: 31 }, now);
   assert.equal(timed.status, "timed");
   assert.match(timed.text, /天|小时/);
-  assert.match(timed.title, /2026/);
+  assert.match(timed.title, /^过期时间：2026-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
   assert.doesNotMatch(timed.title, /1970/);
   assert.equal(formatBackpackExpiry({ met: -1, exp: 2, expiry: 31 }, now).text, "永久有效");
   assert.equal(formatBackpackExpiry({ met: 1, exp: 2, expiry: 31 }, 2_000).text, "已到期");
   assert.equal(formatBackpackExpiry({ met: null, exp: 2, expiry: 1 }, now).text, "今天到期");
   assert.equal(formatBackpackExpiry({ met: null, exp: 1, expiry: 2 }, now).text, "明天到期");
   assert.equal(formatBackpackExpiry({ met: null, exp: 1, expiry: null }, now).text, "期限未知");
+});
+
+test("bag summary uses concise user-facing labels and hides implementation fields", () => {
+  const source = readFileSync(new URL("../packages/douyu-web-enhancer/src/features/bag-info.ts", import.meta.url), "utf8");
+  assert.match(source, /总价值：未知/);
+  assert.match(source, /总亲密度：未知/);
+  assert.match(source, /亲密度按道具标注数值汇总，不含活动加成/);
+  assert.doesNotMatch(source, /总价值：.*isValuable=1/);
+  assert.doesNotMatch(source, /基础亲密度/);
+  assert.doesNotMatch(source, /toLocaleString\(\)/);
 });
 
 test("bag API request is same-origin, single-read, and rejects business errors", async () => {

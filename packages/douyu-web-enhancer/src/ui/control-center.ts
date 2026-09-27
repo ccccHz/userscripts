@@ -68,7 +68,7 @@ const featureDefinitions: ReadonlyArray<{
   { setting: "disableOfflineJump", id: "disable-offline-jump", name: "下播后停留当前页", description: "主播下播后自动关闭官方推荐跳转弹窗，继续停留当前直播间页面。" },
   { setting: "chatDecorationCleanup", id: "chat-decoration-cleanup", name: "隐藏弹幕前缀", description: "精简弹幕徽章和前缀，不隐藏正文。", nearField: "弹幕栏“前缀”" },
   { setting: "transientGuidanceCleanup", id: "transient-guidance-cleanup", name: "隐藏瞬态引导", description: "隐藏已拥有徽章的佩戴提示和亲密度 BUFF 横条，不改变粉丝牌、播放器或账号状态。" },
-  { setting: "bagInfo", id: "bag-info", name: "背包只读信息", description: "在原生背包中追加只读总价值、基础亲密度和期限提示；价值按鱼翅口径且仅统计 isValuable=1，不执行赠送或清理。" },
+  { setting: "bagInfo", id: "bag-info", name: "背包只读信息", description: "在原生背包中追加只读总价值、总亲密度和期限提示；价值按鱼翅口径统计，不执行赠送或清理。" },
   { setting: "chatLayout", id: "chat-layout", name: "拉高弹幕区", description: "隐藏排行榜并扩大弹幕阅读区域。", nearField: "弹幕栏“拉高”" },
 ];
 
