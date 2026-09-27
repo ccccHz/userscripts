@@ -87,6 +87,16 @@ import {
   transientGuidanceCleanupFeature,
 } from "../packages/douyu-web-enhancer/src/features/transient-guidance-cleanup.ts";
 import {
+  BAG_INFO_ID,
+  BAG_INFO_CSS,
+  backpackItemKey,
+  calculateBackpackSummary,
+  extractBackpackRoomId,
+  formatBackpackExpiry,
+  parseBackpackResponse,
+  requestBackpackData,
+} from "../packages/douyu-web-enhancer/src/features/bag-info.ts";
+import {
   COMPACT_PLAYER_ID,
   COMPACT_PLAYER_CSS,
   COMPACT_PLAYER_TOOLBAR_HOST_ATTRIBUTE,
@@ -296,6 +306,7 @@ test("settings use safe defaults and retain supported values", async () => {
   assert.equal(settings.features.chatDecorationCleanup, true);
   assert.equal(settings.features.chatLayout, true);
   assert.equal(settings.features.transientGuidanceCleanup, true);
+  assert.equal(settings.features.bagInfo, true);
   assert.equal(settings.features.compactPlayer, false);
   assert.equal(settings.features.roomMetrics, true);
   assert.equal(settings.features.volumeWheel, true);
@@ -325,6 +336,7 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       chatDecorationCleanup: false,
       chatLayout: false,
       transientGuidanceCleanup: false,
+      bagInfo: false,
       compactPlayer: false,
       danmakuSendCheck: false,
       roomMetrics: false,
@@ -345,6 +357,7 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       chatDecorationCleanup: false,
       chatLayout: false,
       transientGuidanceCleanup: false,
+      bagInfo: false,
       compactPlayer: false,
       danmakuSendCheck: false,
       roomMetrics: false,
@@ -358,11 +371,13 @@ test("Settings JSON import is exact, strict, and reports every supported change"
     preferences: { autoWebFullscreen: false },
     automation: { autoFansRestRoomId: "52", autoFansContinue: false },
   });
-  assert.equal(diffSettings(current, imported).length, 15, "all supported fields participate in preview");
+  assert.equal(diffSettings(current, imported).length, 16, "all supported fields participate in preview");
   assert.deepEqual(diffSettings(imported, structuredClone(imported)), [], "an idempotent import has no write-worthy change");
   const legacyImport = structuredClone(imported);
   delete legacyImport.features.transientGuidanceCleanup;
+  delete legacyImport.features.bagInfo;
   assert.equal(parseSettingsImport(legacyImport).features.transientGuidanceCleanup, true, "older Settings v6 exports default the visual cleanup on");
+  assert.equal(parseSettingsImport(legacyImport).features.bagInfo, true, "older Settings v6 exports default bag info on");
   assert.throws(
     () => parseSettingsImport({ ...imported, unexpected: true }),
     /未知字段：unexpected/,
@@ -2267,6 +2282,73 @@ test("transient guidance cleanup scopes the two observed prompts and preserves n
   assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /#js-layout-fixed-buff[^{}]*\.close__D27HS/);
   assert.match(TRANSIENT_GUIDANCE_CLEANUP_CSS, /pointer-events: none/);
   assert.doesNotMatch(TRANSIENT_GUIDANCE_CLEANUP_CSS, /#js-layout-fixed-buff\s*\{/);
+});
+
+test("bag info parses the read-only contract without treating exp as expiry", () => {
+  const data = parseBackpackResponse({
+    error: 0,
+    msg: "success",
+    data: {
+      totalNum: 60,
+      validNum: 60,
+      list: [
+        { id: 5, propType: 2, count: 1, price: 20, intimate: 2, isValuable: 0, exp: 2, expiry: 31, met: 1793030649 },
+        {
+          id: 23,
+          propType: 2,
+          count: 2,
+          price: 10,
+          intimate: 1,
+          isValuable: 1,
+          exp: 1,
+          expiry: 18,
+          met: 1791956514,
+          batchInfo: { "520": { batchNum: 520, name: "我爱你" } },
+        },
+      ],
+    },
+  });
+  assert.ok(data);
+  assert.equal(data.items[0].exp, 2);
+  assert.equal(data.items[0].met, 1793030649);
+  assert.deepEqual(data.items[1].batchInfo["520"], { batchNum: 520, name: "我爱你" });
+  assert.equal(backpackItemKey(2, 23), "2:23");
+  assert.deepEqual(calculateBackpackSummary(data.items), { totalValue: 0.2, totalIntimacy: 4 });
+  assert.equal(extractBackpackRoomId({ pathname: "/52" }), "52");
+  assert.equal(extractBackpackRoomId({ pathname: "/room/52" }), null);
+});
+
+test("bag expiry uses met seconds, permanent/expired/unknown states, and conservative fallback", () => {
+  const now = 1_790_443_790_000;
+  const timed = formatBackpackExpiry({ met: 1_793_030_649, exp: 2, expiry: 31 }, now);
+  assert.equal(timed.status, "timed");
+  assert.match(timed.text, /天|小时/);
+  assert.match(timed.title, /2026/);
+  assert.doesNotMatch(timed.title, /1970/);
+  assert.equal(formatBackpackExpiry({ met: -1, exp: 2, expiry: 31 }, now).text, "永久有效");
+  assert.equal(formatBackpackExpiry({ met: 1, exp: 2, expiry: 31 }, 2_000).text, "已到期");
+  assert.equal(formatBackpackExpiry({ met: null, exp: 2, expiry: 1 }, now).text, "今天到期");
+  assert.equal(formatBackpackExpiry({ met: null, exp: 1, expiry: 2 }, now).text, "明天到期");
+  assert.equal(formatBackpackExpiry({ met: null, exp: 1, expiry: null }, now).text, "期限未知");
+});
+
+test("bag API request is same-origin, single-read, and rejects business errors", async () => {
+  const calls = [];
+  const data = await requestBackpackData("52", async (url, init) => {
+    calls.push([url, init]);
+    return new Response(JSON.stringify({ error: 0, data: { list: [] } }), { status: 200 });
+  });
+  assert.deepEqual(data.items, []);
+  assert.deepEqual(calls, [[
+    "/japi/prop/backpack/web/v5?rid=52",
+    { credentials: "same-origin", signal: calls[0][1].signal },
+  ]]);
+  await assert.rejects(
+    () => requestBackpackData("52", async () => new Response(JSON.stringify({ error: 9, msg: "请登录" }), { status: 200 })),
+    /请登录/,
+  );
+  assert.match(BAG_INFO_CSS, /data-dwe-bag-info-expiry/);
+  assert.equal(BAG_INFO_ID, "bag-info");
 });
 
 test("feature runtime is idempotent and cleans up on disable", () => {

@@ -8,6 +8,7 @@ export interface Settings {
     chatDecorationCleanup: boolean;
     chatLayout: boolean;
     transientGuidanceCleanup: boolean;
+    bagInfo: boolean;
     compactPlayer: boolean;
     danmakuSendCheck: boolean;
     roomMetrics: boolean;
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
     chatDecorationCleanup: true,
     chatLayout: true,
     transientGuidanceCleanup: true,
+    bagInfo: true,
     compactPlayer: true,
     danmakuSendCheck: true,
     roomMetrics: true,
@@ -62,7 +64,7 @@ export interface SettingsDifference {
 }
 
 const featureKeys = [
-  "chatMemory", "chatDecorationCleanup", "chatLayout", "transientGuidanceCleanup", "compactPlayer",
+  "chatMemory", "chatDecorationCleanup", "chatLayout", "transientGuidanceCleanup", "bagInfo", "compactPlayer",
   "danmakuSendCheck", "roomMetrics", "volumeWheel", "liveTimeshiftControls", "dailyAutomation", "highestVideoQuality", "messageContextActionFallback", "disableOfflineJump",
 ] as const;
 const preferenceKeys = ["autoWebFullscreen"] as const;
@@ -97,11 +99,13 @@ export function parseSettingsImport(value: unknown): Settings {
   const features = record(root.features, "features");
   const preferences = record(root.preferences, "preferences");
   const automation = record(root.automation, "automation");
-  // Settings v6 exports predating this feature may omit the new visual-only
-  // toggle; keep all other fields strict and default this one on.
-  const importFeatureKeys = Object.prototype.hasOwnProperty.call(features, "transientGuidanceCleanup")
-    ? featureKeys
-    : featureKeys.filter((key) => key !== "transientGuidanceCleanup");
+  // Settings v6 exports predating these visual-only toggles may omit them;
+  // keep all other fields strict and default the missing toggles on.
+  const legacyOptionalFeatureKeys = ["transientGuidanceCleanup", "bagInfo"] as const;
+  const importFeatureKeys = featureKeys.filter((key) => {
+    const optionalKey = key as (typeof legacyOptionalFeatureKeys)[number];
+    return !legacyOptionalFeatureKeys.includes(optionalKey) || Object.prototype.hasOwnProperty.call(features, key);
+  });
   exactKeys(features, importFeatureKeys, "features");
   exactKeys(preferences, preferenceKeys, "preferences");
   exactKeys(automation, automationKeys, "automation");
@@ -113,8 +117,8 @@ export function parseSettingsImport(value: unknown): Settings {
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     features: Object.fromEntries(featureKeys.map((key) => [
       key,
-      key === "transientGuidanceCleanup" && !(key in features)
-        ? DEFAULT_SETTINGS.features.transientGuidanceCleanup
+      legacyOptionalFeatureKeys.includes(key as (typeof legacyOptionalFeatureKeys)[number]) && !(key in features)
+        ? DEFAULT_SETTINGS.features[key]
         : booleanSetting(features[key], `features.${key}`),
     ])) as Settings["features"],
     preferences: {
@@ -132,6 +136,7 @@ const labels: Record<string, string> = {
   "features.chatDecorationCleanup": "隐藏弹幕前缀",
   "features.chatLayout": "拉高弹幕区",
   "features.transientGuidanceCleanup": "隐藏瞬态引导",
+  "features.bagInfo": "背包只读信息",
   "features.compactPlayer": "隐藏礼物栏",
   "features.danmakuSendCheck": "发送检测",
   "features.roomMetrics": "房间统计",
@@ -204,6 +209,10 @@ function parseSettings(value: unknown): Settings {
         typeof features.transientGuidanceCleanup === "boolean"
           ? features.transientGuidanceCleanup
           : DEFAULT_SETTINGS.features.transientGuidanceCleanup,
+      bagInfo:
+        typeof features.bagInfo === "boolean"
+          ? features.bagInfo
+          : DEFAULT_SETTINGS.features.bagInfo,
       compactPlayer:
         typeof features.compactPlayer === "boolean"
           ? features.compactPlayer

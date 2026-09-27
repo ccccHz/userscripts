@@ -602,6 +602,25 @@
       }
     },
     {
+      "id": "bag-info",
+      "name": "背包只读信息增强",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-09-27 已完成当前 v0.10.10 最新构建的登录态房间 52 实机验收：摘要、met 精确期限、开启/停用/恢复通过；未迁移归档中的清空背包赠送动作。重复批次、业务错误和空背包异常保留自然验证。",
+      "contract": {
+        "behavior": "打开原生背包时追加只读总价值、基础亲密度和逐项期限信息。总价值只按 isValuable=1 的 price×count/100 统计并标明鱼翅口径；基础亲密度按 intimate×count 统计。期限优先使用 met Unix 秒，-1 为永久、过期状态安全显示；缺失或无效时才 fallback 到 expiry。",
+        "interaction": "沿用原生背包入口和礼物操作；插件只追加可识别的摘要和期限节点，不点击、使用、赠送、清理或修改账号资产。控制中心提供默认开启的独立“背包只读信息”开关。",
+        "persistence": "Settings v6 的 features.bagInfo 是唯一持久化开关，缺失时默认 true；当前房间成功读取结果只保存在 runtime cache，不写入用户库存或账号状态。",
+        "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有当前房间请求、取消、缓存和插件节点；斗鱼背包 API 与原生 DOM 拥有库存、数量和官方操作状态。",
+        "restorationTrigger": "原生背包打开、斗鱼背包节点动态重建、数字房间路径变化和功能重新启用；关闭只清理插件节点，切房取消旧请求，不使用常驻轮询。",
+        "affectedRegions": ["原生背包头部的插件摘要", "原生背包礼物项的插件期限提示", "控制中心中的背包只读信息开关"],
+        "preservedRegions": ["原生背包入口和布局", "礼物使用/赠送按钮的官方所有权", "充值、鱼翅、鱼丸和播放器控制", "账号资产和服务端库存"],
+        "stateMatrix": ["有效登录态单次读取", "met 精确期限/永久/过期", "expiry fallback", "isValuable 价值口径", "intimate 基础亲密度", "重复键安全未知", "API 失败保留原生背包", "关闭/重开/切房/停用清理", "空背包和异常响应安全降级"],
+        "deviations": []
+      }
+    },
+    {
       "id": "daily-sign-in",
       "name": "每日自动签到",
       "priority": "P2",

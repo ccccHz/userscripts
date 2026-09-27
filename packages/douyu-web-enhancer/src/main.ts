@@ -102,6 +102,11 @@ import {
   transientGuidanceSelectors,
 } from "./features/transient-guidance-cleanup.ts";
 import {
+  BAG_INFO_ID,
+  bagInfoSelectors,
+  createBagInfoFeature,
+} from "./features/bag-info.ts";
+import {
   DANMAKU_AVAILABILITY_ID,
   installDanmakuAvailabilityHook,
 } from "./features/danmaku-availability.ts";
@@ -166,6 +171,7 @@ async function start(): Promise<void> {
     ...messageContextActionSelectors,
     ...disableOfflineJumpSelectors,
     ...transientGuidanceSelectors,
+    ...bagInfoSelectors,
     ...simplifiedModeControlSelectors,
   });
   const settingsStore = new SettingsStore(GM_getValue, GM_setValue);
@@ -178,7 +184,7 @@ async function start(): Promise<void> {
   const persistedFeatures = persistedRecord.features && typeof persistedRecord.features === "object"
     ? persistedRecord.features as Record<string, unknown>
     : {};
-  const needsSettingsMigration = !persistedRecord.preferences || !persistedRecord.automation || typeof persistedFeatures.disableOfflineJump !== "boolean" || typeof persistedFeatures.transientGuidanceCleanup !== "boolean";
+  const needsSettingsMigration = !persistedRecord.preferences || !persistedRecord.automation || typeof persistedFeatures.disableOfflineJump !== "boolean" || typeof persistedFeatures.transientGuidanceCleanup !== "boolean" || typeof persistedFeatures.bagInfo !== "boolean";
   if (!persistedRecord.preferences) {
     settings.preferences.autoWebFullscreen = (await GM_getValue(AUTO_WEB_FULLSCREEN_STATE_KEY, null)) !== false;
   }
@@ -239,6 +245,7 @@ async function start(): Promise<void> {
       messageContextActionFallbackFeature,
       createDisableOfflineJumpFeature(),
       transientGuidanceCleanupFeature,
+      createBagInfoFeature(),
       createDailyAutomationFeature({
         request: (details: GmRequestDetails) => request(details),
         read: GM_getValue,
@@ -300,6 +307,10 @@ async function start(): Promise<void> {
     {
       id: TRANSIENT_GUIDANCE_CLEANUP_ID,
       setting: "transientGuidanceCleanup",
+    },
+    {
+      id: BAG_INFO_ID,
+      setting: "bagInfo",
     },
     {
       id: DAILY_AUTOMATION_ID,
