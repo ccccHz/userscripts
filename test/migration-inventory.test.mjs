@@ -27,6 +27,7 @@ test("DouyuEx migration inventory is valid and contains the agreed scope", async
     "live-timeshift-controls",
     "disable-offline-jump",
     "danmaku-availability",
+    "bag-info",
     "daily-sign-in",
   ]);
   assert.ok(inventory.baselinePolicy);
