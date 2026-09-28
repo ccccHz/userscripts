@@ -58,8 +58,7 @@ function findQualityMenus(player: Element): QualityMenu[] {
   for (const input of player.querySelectorAll<HTMLInputElement>("input[value^='画质']")) {
     let current: HTMLElement | null = input.parentElement;
     for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
-      const options = [...current.querySelectorAll<HTMLElement>("ul > li")];
-      if (options.length > 0) {
+      if (current.querySelector("ul")) {
         roots.add(current);
         break;
       }
@@ -80,7 +79,11 @@ function hasVisibleRect(element: Element): boolean {
 function findQualityTrigger(menu: QualityMenu): HTMLElement | null {
   const rate = menu.root.closest<HTMLElement>("[class^='rate-']");
   if (!rate) return null;
-  const selected = menu.options.find(isSelectedQualityOption)?.textContent?.trim();
+  const selected = menu.options.find(isSelectedQualityOption)?.textContent?.trim()
+    ?? [...rate.querySelectorAll<HTMLElement>("[class^='textLabel-'], [class^='text-']")]
+      .filter((element) => !menu.root.contains(element) && hasVisibleRect(element))
+      .map(textOf)
+      .find(Boolean);
   if (!selected) return null;
   return [...rate.querySelectorAll<HTMLElement>("div,span,button")]
     .filter((element) => element !== menu.root && !menu.root.contains(element))
