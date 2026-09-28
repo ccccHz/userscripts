@@ -127,7 +127,9 @@ import {
 // bootstrap can be inserted immediately after the userscript starts.
 const danmakuAvailabilityHook = installDanmakuAvailabilityHook();
 globalThis.addEventListener?.("pagehide", () => danmakuAvailabilityHook.dispose(), { once: true });
-const pageSocketHook = installPageSocketHook();
+// Tampermonkey can give a userscript its own global object even in raw mode.
+// Patch the document's window so page-created sockets pass through this Hook.
+const pageSocketHook = installPageSocketHook(document.defaultView ?? undefined);
 globalThis.addEventListener?.("pagehide", () => pageSocketHook.dispose(), { once: true });
 
 function updatePageSocketDiagnostics(diagnostics: Diagnostics): void {

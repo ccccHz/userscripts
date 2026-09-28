@@ -1,10 +1,10 @@
 # 页面 WebSocket Hook：第一阶段契约与验收
 
-状态：实现中；真实斗鱼页面的最新 `dist` 验证前保持 `verifying`。用户 2026-09-28 确认目标是斗鱼页面自己建立的直播间 WebSocket，第一阶段只实现 Hook，不加入屏蔽、提醒、小尾巴或礼物改写。
+状态：`verifying`；Chrome 真实页面已确认 Hook 接线和普通弹幕，礼物与榜单自然样本待验证。用户 2026-09-28 确认目标是斗鱼页面自己建立的直播间 WebSocket，第一阶段只实现 Hook，不加入屏蔽、提醒、小尾巴或礼物改写。
 
 ## 范围与行为
 
-- 在现有 `document-start`、页面主世界入口安装一次构造器 Hook；仅观察斗鱼域名的页面 WebSocket。返回原生实例，页面原本的 `onmessage`、`addEventListener`、`send`、`close`、`binaryType`、消息事件与消息字节保持原样。
+- 在现有 `document-start` 入口明确以 `document.defaultView` 安装一次构造器 Hook；Tampermonkey 的 userscript `globalThis` 不一定等于页面 Window。仅观察斗鱼域名的页面 WebSocket。返回原生实例，页面原本的 `onmessage`、`addEventListener`、`send`、`close`、`binaryType`、消息事件与消息字节保持原样。
 - 只在内存中统计连接、断开、错误、入站帧，以及可识别的 `chatmsg`、`uenter`、`dgb`、`ranklist` 与其他消息类型。诊断不包含原始包、正文、UID、昵称、Cookie、Token 或完整连接 URL；不持久化、不上传。
 - 不自行建立登录态连接，不复用匿名连接，不发送任何消息。既有 `danmaku-send-check` 的匿名连接显式使用 Hook 安装前的原生构造器，避免算作页面连接。
 - `socketHook` 旧项目的入站改写仅作协议参考；DouyuEx 的“荧光棒变超火”是礼物横幅 DOM 改写，第一阶段不迁移。当前消息类型只用于接线证据，不断言斗鱼当前完整协议或各展示区域一定由同一实例驱动。
