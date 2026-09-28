@@ -17,6 +17,10 @@ import {
   togglePersistedFeature,
 } from "./core/feature-settings.ts";
 import { ObserverHub } from "./core/observer-hub.ts";
+import {
+  installPageSocketHook,
+  PAGE_SOCKET_HOOK_ID,
+} from "./core/page-socket-hook.ts";
 import { SelectorRegistry } from "./core/selectors.ts";
 import { DEFAULT_SETTINGS, type Settings, SettingsStore } from "./core/settings.ts";
 import { StyleRegistry } from "./core/styles.ts";
@@ -123,6 +127,25 @@ import {
 // bootstrap can be inserted immediately after the userscript starts.
 const danmakuAvailabilityHook = installDanmakuAvailabilityHook();
 globalThis.addEventListener?.("pagehide", () => danmakuAvailabilityHook.dispose(), { once: true });
+// Tampermonkey can give a userscript its own global object even in raw mode.
+// Patch the document's window so page-created sockets pass through this Hook.
+const pageSocketHook = installPageSocketHook(document.defaultView ?? undefined);
+globalThis.addEventListener?.("pagehide", () => pageSocketHook.dispose(), { once: true });
+
+function updatePageSocketDiagnostics(diagnostics: Diagnostics): void {
+  const snapshot = pageSocketHook.snapshot();
+  diagnostics.update(
+    PAGE_SOCKET_HOOK_ID,
+    !snapshot.installed || snapshot.hookErrors > 0 ? "degraded"
+      : snapshot.capturedConnections > 0 ? "active" : "waiting",
+    {
+      detail: !snapshot.installed ? "页面 WebSocket Hook 未安装"
+        : snapshot.capturedConnections === 0 ? "等待斗鱼页面创建直播间 WebSocket"
+          : "正在只读观察斗鱼页面 WebSocket",
+      data: snapshot,
+    },
+  );
+}
 
 function updateDanmakuAvailabilityDiagnostics(diagnostics: Diagnostics): void {
   const snapshot = danmakuAvailabilityHook.snapshot();
@@ -155,6 +178,8 @@ async function start(): Promise<void> {
   const diagnostics = new Diagnostics();
   const stopDanmakuAvailabilityDiagnostics = danmakuAvailabilityHook.subscribe(() => updateDanmakuAvailabilityDiagnostics(diagnostics));
   updateDanmakuAvailabilityDiagnostics(diagnostics);
+  const stopPageSocketDiagnostics = pageSocketHook.subscribe(() => updatePageSocketDiagnostics(diagnostics));
+  updatePageSocketDiagnostics(diagnostics);
   const observerHub = new ObserverHub(root);
   const styles = new StyleRegistry(document);
   const selectors = new SelectorRegistry(document, {
@@ -518,6 +543,7 @@ async function start(): Promise<void> {
       stopDiagnosticsSubscription();
       stopDanmakuObservationsSubscription();
       stopDanmakuAvailabilityDiagnostics();
+      stopPageSocketDiagnostics();
       controlCenter.dispose();
       observerHub.destroy();
       styles.destroy();

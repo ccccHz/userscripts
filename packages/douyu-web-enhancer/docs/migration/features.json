@@ -602,6 +602,25 @@
       }
     },
     {
+      "id": "page-socket-hook",
+      "name": "斗鱼页面 WebSocket 只读 Hook",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-09-28 用户确认第一阶段只 Hook 斗鱼页面自己建立的直播间 WebSocket，不迁移旧实验的消息改写。完整契约见 page-socket-hook-contract.md；真实最新 dist 页面证据待验收。",
+      "contract": {
+        "behavior": "只读观察页面直播间 WebSocket 的连接和入站消息类型，保留斗鱼原生消息与连接行为。",
+        "interaction": "自动在 document-start 安装；不提供功能开关，不实现屏蔽、关注提醒、小尾巴或礼物改写。通过现有复制诊断信息入口查看有限计数。",
+        "persistence": "无持久化；诊断计数只存在当前页面生命周期，pagehide 清理。",
+        "stateOwner": "早期页面 Socket Hook 持有连接监听与内存计数；Diagnostics 只投影快照。",
+        "restorationTrigger": "页面首次 document-start 安装；斗鱼自行新建或重连 Socket 时观察新实例；pagehide 清理。",
+        "affectedRegions": ["页面 WebSocket 构造入口", "复制诊断信息中的 page-socket-hook 项"],
+        "preservedRegions": ["斗鱼原生 WebSocket 实例、入站事件与字节、出站发送和重连", "独立的匿名发送检测连接", "右栏弹幕、飘屏、礼物及其他页面展示"],
+        "stateMatrix": ["早安装和晚安装", "onmessage 与 addEventListener", "Blob 与 ArrayBuffer", "斗鱼与非斗鱼连接", "坏包与大包", "斗鱼自行重连与换房", "重复安装与 pagehide 清理", "其他 Hook 后续接管构造器", "正常弹幕、飘屏和自然礼物样本"],
+        "deviations": []
+      }
+    },
+    {
       "id": "bag-info",
       "name": "背包只读信息增强",
       "priority": "P1",
