@@ -3,3 +3,4 @@ dist/
 site/
 artifacts/
 .vite/
+packages/douyu-web-enhancer/.local/
