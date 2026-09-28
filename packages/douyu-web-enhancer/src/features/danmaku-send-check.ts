@@ -1,4 +1,5 @@
 import type { FeatureDefinition } from "../core/feature.ts";
+import { nativePageWebSocketConstructor } from "../core/page-socket-hook.ts";
 import {
   createChatSendTracker,
   type PendingChatSend,
@@ -309,7 +310,9 @@ export function createDanmakuSendCheckFeature(
           roomId,
           onMessage: onAnonymousMessage,
           onStatus: onSocketStatus,
-          WebSocketCtor: document.defaultView?.WebSocket,
+          WebSocketCtor: document.defaultView
+            ? nativePageWebSocketConstructor(document.defaultView)
+            : undefined,
         });
       };
 
