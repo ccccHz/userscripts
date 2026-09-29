@@ -1,4 +1,5 @@
 import { decodeDouyuPackets } from "./anonymous-danmaku.ts";
+import { filterDouyuFrame, type ChatMessageFilter } from "./douyu-message-filter.ts";
 
 export const PAGE_SOCKET_HOOK_ID = "page-socket-hook";
 
@@ -24,6 +25,15 @@ export interface PageSocketHookSnapshot {
     other: number;
   };
   hookErrors: number;
+  filterEnabled: boolean;
+  filteredFrames: number;
+  filteredMessages: number;
+  filterSkippedFrames: number;
+  filterSkippedUnsupportedFrames: number;
+  filterSkippedIncompleteFrames: number;
+  filterSkippedInvalidFrames: number;
+  filterSkippedOversizedFrames: number;
+  filterErrors: number;
 }
 
 type SocketTarget = {
@@ -47,6 +57,8 @@ type HookState = {
   sockets: Map<WebSocket, SocketListeners>;
   listeners: Set<() => void>;
   snapshot: PageSocketHookSnapshot;
+  chatFilter: ChatMessageFilter | null;
+  syntheticEvents: WeakSet<Event>;
   notificationTimer: ReturnType<typeof setTimeout> | undefined;
   refs: number;
   disposed: boolean;
@@ -55,6 +67,7 @@ type HookState = {
 export interface PageSocketHook {
   snapshot(): PageSocketHookSnapshot;
   subscribe(listener: () => void): () => void;
+  setIncomingChatFilter(filter: ChatMessageFilter | null): void;
   dispose(): void;
 }
 
@@ -71,6 +84,15 @@ function initialSnapshot(): PageSocketHookSnapshot {
     oversizedFrames: 0,
     messageTypes: { chatmsg: 0, uenter: 0, dgb: 0, ranklist: 0, other: 0 },
     hookErrors: 0,
+    filterEnabled: false,
+    filteredFrames: 0,
+    filteredMessages: 0,
+    filterSkippedFrames: 0,
+    filterSkippedUnsupportedFrames: 0,
+    filterSkippedIncompleteFrames: 0,
+    filterSkippedInvalidFrames: 0,
+    filterSkippedOversizedFrames: 0,
+    filterErrors: 0,
   };
 }
 
@@ -169,6 +191,7 @@ function observeSocket(state: HookState, socket: WebSocket): void {
   };
   const message: EventListener = (event) => {
     if (state.disposed) return;
+    if (state.syntheticEvents.has(event)) return;
     const data = (event as MessageEvent<unknown>).data;
     if (data instanceof Blob) {
       if (data.size > MAX_OBSERVED_FRAME_BYTES) {
@@ -185,6 +208,46 @@ function observeSocket(state: HookState, socket: WebSocket): void {
       }
     } else {
       inspectFrame(state, data);
+    }
+    const filter = state.chatFilter;
+    if (!filter) return;
+    if (!(data instanceof ArrayBuffer) || data.byteLength > MAX_OBSERVED_FRAME_BYTES) {
+      state.snapshot.filterSkippedFrames += 1;
+      if (!(data instanceof ArrayBuffer)) state.snapshot.filterSkippedUnsupportedFrames += 1;
+      else state.snapshot.filterSkippedOversizedFrames += 1;
+      scheduleNotify(state);
+      return;
+    }
+    try {
+      const result = filterDouyuFrame(data, filter);
+      if (result.kind === "pass") {
+        if (result.reason === "invalid" || result.reason === "incomplete") {
+          state.snapshot.filterSkippedFrames += 1;
+          if (result.reason === "incomplete") state.snapshot.filterSkippedIncompleteFrames += 1;
+          else state.snapshot.filterSkippedInvalidFrames += 1;
+        }
+        scheduleNotify(state);
+        return;
+      }
+      let replacement: MessageEvent<unknown> | null = null;
+      if (result.kind === "replace") {
+        const original = event as MessageEvent<unknown>;
+        replacement = new MessageEvent("message", {
+          data: result.data,
+          origin: original.origin,
+          lastEventId: original.lastEventId,
+        });
+        state.syntheticEvents.add(replacement);
+      }
+      event.stopImmediatePropagation();
+      state.snapshot.filteredFrames += 1;
+      state.snapshot.filteredMessages += result.removedMessages;
+      scheduleNotify(state);
+      if (replacement) socket.dispatchEvent(replacement);
+    } catch {
+      state.snapshot.filterErrors += 1;
+      scheduleNotify(state);
+      // Before stopImmediatePropagation, every failure keeps native delivery.
     }
   };
   const error: EventListener = () => {
@@ -235,12 +298,19 @@ function handle(state: HookState): PageSocketHook {
       state.listeners.add(listener);
       return () => state.listeners.delete(listener);
     },
+    setIncomingChatFilter(filter) {
+      if (released || state.disposed) return;
+      state.chatFilter = filter;
+      state.snapshot.filterEnabled = filter !== null;
+      notify(state);
+    },
     dispose() {
       if (released) return;
       released = true;
       state.refs -= 1;
       if (state.refs > 0) return;
       state.disposed = true;
+      state.chatFilter = null;
       if (state.notificationTimer !== undefined) clearTimeout(state.notificationTimer);
       for (const socket of state.sockets.keys()) detachSocket(state, socket);
       state.listeners.clear();
@@ -275,7 +345,7 @@ export function installPageSocketHook(target: SocketTarget = globalThis as Socke
   ))) {
     const snapshot = initialSnapshot();
     snapshot.hookErrors = 1;
-    return { snapshot: () => ({ ...snapshot, messageTypes: { ...snapshot.messageTypes } }), subscribe: () => () => undefined, dispose: () => undefined };
+    return { snapshot: () => ({ ...snapshot, messageTypes: { ...snapshot.messageTypes } }), subscribe: () => () => undefined, setIncomingChatFilter: () => undefined, dispose: () => undefined };
   }
   const state: HookState = {
     target,
@@ -285,6 +355,8 @@ export function installPageSocketHook(target: SocketTarget = globalThis as Socke
     sockets: new Map(),
     listeners: new Set(),
     snapshot: initialSnapshot(),
+    chatFilter: null,
+    syntheticEvents: new WeakSet(),
     notificationTimer: undefined,
     refs: 1,
     disposed: false,

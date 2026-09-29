@@ -607,7 +607,7 @@
       "priority": "P1",
       "status": "verifying",
       "decision": "rewrite",
-      "notes": "2026-09-28 用户确认第一阶段只 Hook 斗鱼页面自己建立的直播间 WebSocket，不迁移旧实验的消息改写。完整契约见 page-socket-hook-contract.md；真实最新 dist 页面证据待验收。",
+      "notes": "2026-09-28 用户确认第一阶段只 Hook 斗鱼页面自己建立的直播间 WebSocket，不迁移旧实验的消息改写。该只读基线仍是默认行为；2026-09-29 的可选入站过滤由独立 user-blocking 功能控制。完整基线契约见 page-socket-hook-contract.md。",
       "contract": {
         "behavior": "只读观察页面直播间 WebSocket 的连接和入站消息类型，保留斗鱼原生消息与连接行为。",
         "interaction": "自动在 document-start 安装；不提供功能开关，不实现屏蔽、关注提醒、小尾巴或礼物改写。通过现有复制诊断信息入口查看有限计数。",
@@ -617,6 +617,25 @@
         "affectedRegions": ["页面 WebSocket 构造入口", "复制诊断信息中的 page-socket-hook 项"],
         "preservedRegions": ["斗鱼原生 WebSocket 实例、入站事件与字节、出站发送和重连", "独立的匿名发送检测连接", "右栏弹幕、飘屏、礼物及其他页面展示"],
         "stateMatrix": ["早安装和晚安装", "onmessage 与 addEventListener", "Blob 与 ArrayBuffer", "斗鱼与非斗鱼连接", "坏包与大包", "斗鱼自行重连与换房", "重复安装与 pagehide 清理", "其他 Hook 后续接管构造器", "正常弹幕、飘屏和自然礼物样本"],
+        "deviations": []
+      }
+    },
+    {
+      "id": "user-blocking",
+      "name": "按 UID 本地屏蔽普通弹幕",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-09-29 用户确认消息处理独立栏目、按功能展开、默认关闭、全房间或当前房间 UID 规则；首项优先验证右栏与飘屏同步。真实 Chrome DEV 已计数过滤目标消息，右栏有初步证据；虽已找到自然飘屏节点，双区域仍未同步验收。详细证据见 docs/research/user-blocking-contract.md。",
+      "contract": {
+        "behavior": "在本机对当前访问直播间的顶层 chatmsg 按数值 UID 精确过滤；规则可适用所有访问房间或指定当前房间。仅影响之后到达的消息。",
+        "interaction": "控制中心消息处理栏目内展开用户规则，添加、移除、启停规则；默认关闭。连接诊断只显示聚合计数。",
+        "persistence": "独立 GM 键保存开关与规则，不持久化正文、昵称或原始帧。版本验证期维持 0.10.10。",
+        "stateOwner": "GM 用户规则是唯一规范状态；page-socket-hook 在启用时读取当前规则并过滤入站消息，关闭时恢复只读。",
+        "restorationTrigger": "页面启动与刷新、斗鱼自行重连、SPA 数字房间变化、窗口焦点与可见性恢复时同步规则；无额外 Socket。",
+        "affectedRegions": ["消息处理控制中心", "目标 UID 的后续普通弹幕入站帧"],
+        "preservedRegions": ["非目标和非普通弹幕帧", "礼物、进场与榜单", "斗鱼账号与服务端规则", "弹幕发送与页面自身连接"],
+        "stateMatrix": ["默认关闭", "全房间与当前房间规则", "刷新与换房", "启停后新消息", "混合协议包内仅目标 chatmsg 变化", "不完整、未知、Blob 与超限帧原样放行", "onmessage 与 addEventListener", "右栏与自然飘屏待分别验证"],
         "deviations": []
       }
     },

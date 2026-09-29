@@ -111,6 +111,15 @@ import {
   createBagInfoFeature,
 } from "./features/bag-info.ts";
 import {
+  addUserBlockRule,
+  normalizeUserBlockingState,
+  removeUserBlockRule,
+  shouldBlockUser,
+  USER_BLOCKING_ID,
+  USER_BLOCKING_KEY,
+  type UserBlockingState,
+} from "./features/user-blocking.ts";
+import {
   DANMAKU_AVAILABILITY_ID,
   installDanmakuAvailabilityHook,
 } from "./features/danmaku-availability.ts";
@@ -141,7 +150,7 @@ function updatePageSocketDiagnostics(diagnostics: Diagnostics): void {
     {
       detail: !snapshot.installed ? "页面 WebSocket Hook 未安装"
         : snapshot.capturedConnections === 0 ? "等待斗鱼页面创建直播间 WebSocket"
-          : "正在只读观察斗鱼页面 WebSocket",
+          : snapshot.filterEnabled ? "正在按 UID 本地过滤普通弹幕" : "正在只读观察斗鱼页面 WebSocket",
       data: snapshot,
     },
   );
@@ -217,6 +226,55 @@ async function start(): Promise<void> {
     settings.automation.autoFansRestRoomId = normalizeRoomId(localStorage.getItem(REST_ROOM_ID_KEY));
   }
   if (needsSettingsMigration) await settingsStore.save(settings);
+  let userBlocking = normalizeUserBlockingState(await GM_getValue(USER_BLOCKING_KEY, null));
+  const currentRoomId = (): string | null => /^\/([1-9]\d{0,11})$/.exec(document.defaultView?.location.pathname ?? "")?.[1] ?? null;
+  const updateUserBlockDiagnostics = (): void => {
+    const hook = pageSocketHook.snapshot();
+    const roomId = currentRoomId();
+    const applicableRuleCount = roomId === null ? 0
+      : userBlocking.rules.filter((rule) => rule.roomId === null || rule.roomId === roomId).length;
+    diagnostics.update(USER_BLOCKING_ID,
+      !userBlocking.enabled ? "disabled"
+        : !hook.installed || hook.filterErrors > 0 ? "degraded"
+          : applicableRuleCount === 0 ? "waiting" : "active",
+      {
+        detail: !userBlocking.enabled ? "本地屏蔽已关闭"
+          : !hook.installed ? "页面 Socket Hook 不可用，原生弹幕照常显示"
+            : userBlocking.rules.length === 0 ? "等待添加 UID 规则"
+              : roomId === null ? "仅数字直播间生效"
+                : applicableRuleCount === 0 ? "当前房间没有适用规则"
+                  : `当前房间有 ${applicableRuleCount} 条适用规则；仅影响之后到达的普通弹幕`,
+        data: {
+          ruleCount: userBlocking.rules.length,
+          applicableRuleCount,
+          filteredMessages: hook.filteredMessages,
+          filterSkippedFrames: hook.filterSkippedFrames,
+          filterErrors: hook.filterErrors,
+        },
+      });
+  };
+  const stopUserBlockDiagnostics = pageSocketHook.subscribe(updateUserBlockDiagnostics);
+  const syncUserBlockFilter = (): void => {
+    const active = userBlocking.enabled && userBlocking.rules.length > 0;
+    pageSocketHook.setIncomingChatFilter(active
+      ? (uid, roomId) => shouldBlockUser(userBlocking, currentRoomId(), uid, roomId)
+      : null);
+    updateUserBlockDiagnostics();
+  };
+  syncUserBlockFilter();
+  let userBlockingWrite: Promise<void> = Promise.resolve();
+  const mutateUserBlocking = (change: (state: UserBlockingState) => UserBlockingState): Promise<void> => {
+    const run = userBlockingWrite.then(async () => {
+      const next = normalizeUserBlockingState(change(userBlocking));
+      if (JSON.stringify(next) === JSON.stringify(userBlocking)) return;
+      await GM_setValue(USER_BLOCKING_KEY, next);
+      userBlocking = next;
+      syncUserBlockFilter();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    });
+    userBlockingWrite = run.catch(() => undefined);
+    return run;
+  };
   const legacyDanmakuObservations = await GM_getValue(DANMAKU_SEND_OBSERVATIONS_KEY, null);
   const danmakuObservations = new DanmakuSendObservationStore(
     legacyDanmakuObservations,
@@ -465,6 +523,11 @@ async function start(): Promise<void> {
       runtime,
       automation: automationSummaries,
       danmakuObservations: danmakuObservations.events(),
+      userBlocking,
+      currentRoomId: currentRoomId(),
+      onSetUserBlockingEnabled: (enabled) => mutateUserBlocking((state) => ({ ...state, enabled })),
+      onAddUserBlockRule: (uid, roomId) => mutateUserBlocking((state) => addUserBlockRule(state, uid, roomId)),
+      onRemoveUserBlockRule: (uid, roomId) => mutateUserBlocking((state) => removeUserBlockRule(state, uid, roomId)),
       onToggleFeature: toggleFeature,
       onSetAutoWebFullscreen: saveAutoWebFullscreen,
       onSetAutoFansRoomId: saveAutoFansRoomId,
@@ -497,11 +560,21 @@ async function start(): Promise<void> {
   );
   document.addEventListener("dwe-settings-changed", refreshControlCenter);
   const syncSettingsOnFocus = () => { void syncSettingsFromStore().catch((error: unknown) => console.error("[douyu-web-enhancer] 设置同步失败", error)); };
+  const syncUserBlockingOnFocus = () => {
+    void userBlockingWrite.then(() => GM_getValue(USER_BLOCKING_KEY, null)).then((stored: unknown) => {
+      const next = normalizeUserBlockingState(stored);
+      if (JSON.stringify(next) === JSON.stringify(userBlocking)) return;
+      userBlocking = next;
+      syncUserBlockFilter();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    }).catch((error: unknown) => console.error("[douyu-web-enhancer] 用户屏蔽规则同步失败", error));
+  };
   const syncSettingsOnVisibility = () => {
-    if (document.visibilityState === "visible") syncSettingsOnFocus();
+    if (document.visibilityState === "visible") { syncSettingsOnFocus(); syncUserBlockingOnFocus(); }
   };
   document.addEventListener("visibilitychange", syncSettingsOnVisibility);
   document.defaultView?.addEventListener("focus", syncSettingsOnFocus);
+  document.defaultView?.addEventListener("focus", syncUserBlockingOnFocus);
 
   GM_registerMenuCommand("复制诊断信息", () => {
     GM_setClipboard(
@@ -538,12 +611,14 @@ async function start(): Promise<void> {
       document.removeEventListener("dwe-settings-changed", refreshControlCenter);
       document.removeEventListener("visibilitychange", syncSettingsOnVisibility);
       document.defaultView?.removeEventListener("focus", syncSettingsOnFocus);
+      document.defaultView?.removeEventListener("focus", syncUserBlockingOnFocus);
       stopControlCenterObserver();
       stopRuntimeSubscription();
       stopDiagnosticsSubscription();
       stopDanmakuObservationsSubscription();
       stopDanmakuAvailabilityDiagnostics();
       stopPageSocketDiagnostics();
+      stopUserBlockDiagnostics();
       controlCenter.dispose();
       observerHub.destroy();
       styles.destroy();

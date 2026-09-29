@@ -28,6 +28,7 @@ test("DouyuEx migration inventory is valid and contains the agreed scope", async
     "disable-offline-jump",
     "danmaku-availability",
     "page-socket-hook",
+    "user-blocking",
     "bag-info",
     "daily-sign-in",
   ]);

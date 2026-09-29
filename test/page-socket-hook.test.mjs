@@ -16,13 +16,20 @@ class FakeWebSocket extends EventTarget {
 
   binaryType = "blob";
   readyState = FakeWebSocket.CONNECTING;
-  onmessage = null;
+  _onmessage = null;
   sent = [];
 
   constructor(url) {
     super();
     this.url = url;
     FakeWebSocket.instances.push(this);
+  }
+
+  get onmessage() { return this._onmessage; }
+  set onmessage(listener) {
+    if (this._onmessage) this.removeEventListener("message", this._onmessage);
+    this._onmessage = listener;
+    if (listener) this.addEventListener("message", listener);
   }
 
   send(data) { this.sent.push(data); }
@@ -37,7 +44,6 @@ class FakeWebSocket extends EventTarget {
   receive(data) {
     const event = new MessageEvent("message", { data });
     this.dispatchEvent(event);
-    this.onmessage?.(event);
     return event;
   }
 }
@@ -146,5 +152,81 @@ test("malformed and large frames degrade diagnostics without interrupting page d
   assert.equal(hook.snapshot().unparsedFrames, 1);
   assert.equal(hook.snapshot().oversizedFrames, 1);
   assert.equal(hook.snapshot().hookErrors, 0);
+  hook.dispose();
+});
+
+test("opt-in filtering suppresses only target chat messages for both page listener styles", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const fromProperty = [];
+  const fromListener = [];
+  socket.onmessage = (event) => fromProperty.push(event.data);
+  socket.addEventListener("message", (event) => fromListener.push(event.data));
+  hook.setIncomingChatFilter((uid, rid) => uid === "123" && rid === "52");
+  const blocked = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/txt@=blocked/");
+  socket.receive(blocked);
+  assert.equal(fromProperty.length, 0);
+  assert.equal(fromListener.length, 0);
+
+  const other = encodeDouyuPacket("type@=dgb/rid@=52/uid@=123/gfid@=1/");
+  const mixed = new Uint8Array(blocked.byteLength + other.byteLength);
+  mixed.set(new Uint8Array(blocked));
+  mixed.set(new Uint8Array(other), blocked.byteLength);
+  socket.receive(mixed.buffer);
+  assert.equal(fromProperty.length, 1);
+  assert.equal(fromListener.length, 1);
+  assert.deepEqual(new Uint8Array(fromProperty[0]), new Uint8Array(other));
+  assert.equal(fromProperty[0], fromListener[0]);
+  assert.equal(hook.snapshot().filteredFrames, 2);
+  assert.equal(hook.snapshot().filteredMessages, 2);
+  assert.equal(hook.snapshot().messageTypes.chatmsg, 2);
+  assert.equal(hook.snapshot().messageTypes.dgb, 1);
+  assert.equal(socket.binaryType, "blob");
+
+  hook.setIncomingChatFilter(null);
+  socket.receive(blocked);
+  assert.equal(fromProperty.length, 2);
+  assert.equal(fromProperty[1], blocked);
+  hook.dispose();
+});
+
+test("active filtering fails open for Blob and incomplete frames", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const received = [];
+  socket.addEventListener("message", (event) => received.push(event.data));
+  hook.setIncomingChatFilter(() => true);
+  const frame = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/txt@=hello/");
+  const blob = new Blob([frame]);
+  socket.receive(blob);
+  socket.receive(frame.slice(0, 15));
+  assert.deepEqual(received, [blob, frame.slice(0, 15)]);
+  assert.equal(hook.snapshot().filterSkippedFrames, 2);
+  assert.equal(hook.snapshot().filterSkippedUnsupportedFrames, 1);
+  assert.equal(hook.snapshot().filterSkippedIncompleteFrames, 1);
+  hook.dispose();
+});
+
+test("page-driven reconnect inherits the current filter and disabling restores new delivery", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  hook.setIncomingChatFilter((uid, rid) => uid === "123" && rid === "52");
+  const first = new page.WebSocket("wss://wsproxy.douyu.com/");
+  first.close();
+  const replacement = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const delivered = [];
+  replacement.addEventListener("message", function (event) {
+    assert.equal(this, replacement);
+    delivered.push(event.data);
+  });
+  const blocked = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/txt@=blocked/");
+  replacement.receive(blocked);
+  assert.equal(delivered.length, 0);
+  hook.setIncomingChatFilter(null);
+  replacement.receive(blocked);
+  assert.deepEqual(delivered, [blocked]);
+  assert.equal(hook.snapshot().capturedConnections, 2);
   hook.dispose();
 });
