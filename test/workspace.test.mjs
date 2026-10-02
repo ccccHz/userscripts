@@ -29,7 +29,7 @@ test("requires every userscript package to have its standard files", async () =>
   }
 });
 
-test("live optimizer packages use the shared local mscststs helper", async () => {
+test("live optimizer packages use local runtime helpers without remote require", async () => {
   for (const pkg of ["douyin-live-optimizer", "kuaishou-live-optimizer"]) {
     const packageRoot = join(workspaceRoot, "packages", pkg);
     const entry = await readFile(join(packageRoot, "src/main.js"), "utf8");
@@ -37,8 +37,8 @@ test("live optimizer packages use the shared local mscststs helper", async () =>
 
     assert.match(
       entry,
-      /from "\.\.\/\.\.\/\.\.\/shared\/mscststs\.js"/,
-      `${pkg} should import the local shared helper`,
+      pkg === "douyin-live-optimizer" ? /from "\.\/task\.js"/ : /from "\.\.\/\.\.\/\.\.\/shared\/mscststs\.js"/,
+      `${pkg} should import a local runtime helper`,
     );
     assert.doesNotMatch(
       viteConfig,

@@ -35,21 +35,30 @@ export function registerPlaybackResumeEvents({
   logger = console,
   retryDelays = [0, 250, 1000, 2500],
   setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+  isEnabled = () => true,
 }) {
   let returnGeneration = 0;
+  let timers = [];
+  const cancel = () => {
+    returnGeneration += 1;
+    timers.forEach(clearTimeoutFn);
+    timers = [];
+  };
 
   const resumeAfterReturn = () => {
-    if (document.hidden) return;
+    cancel();
+    if (document.hidden || !isEnabled()) return;
 
     const generation = ++returnGeneration;
     let resumed = false;
 
     for (const delay of retryDelays) {
-      setTimeoutFn(() => {
-        if (generation !== returnGeneration || resumed || document.hidden) return;
+      timers.push(setTimeoutFn(() => {
+        if (generation !== returnGeneration || resumed || document.hidden || !isEnabled()) return;
 
         resumed = resumePausedPlayback({ document, logger });
-      }, delay);
+      }, delay));
     }
   };
 
@@ -57,6 +66,13 @@ export function registerPlaybackResumeEvents({
   window.addEventListener("focus", resumeAfterReturn);
   window.addEventListener("pageshow", resumeAfterReturn);
 
+  resumeAfterReturn.destroy = () => {
+    cancel();
+    document.removeEventListener("visibilitychange", resumeAfterReturn);
+    window.removeEventListener("focus", resumeAfterReturn);
+    window.removeEventListener("pageshow", resumeAfterReturn);
+  };
+  resumeAfterReturn.cancel = cancel;
   return resumeAfterReturn;
 }
 

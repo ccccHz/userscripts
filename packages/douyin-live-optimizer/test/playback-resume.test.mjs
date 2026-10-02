@@ -69,6 +69,27 @@ test("retries resuming playback after the tab becomes visible", () => {
   assert.equal(clicks, 1);
 });
 
+test("disable and explicit cancellation prevent a queued return retry from clicking", () => {
+  let clicks = 0; let enabled = true;
+  const callbacks = [];
+  const button = fakeElement("继续播放", () => clicks++);
+  const document = fakeEventTarget({ hidden: false, body: {
+    innerText: "长时间无操作，已暂停播放 继续播放", querySelectorAll: () => [button],
+  } });
+  const window = fakeEventTarget();
+  const resume = registerPlaybackResumeEvents({ document, window, isEnabled: () => enabled,
+    setTimeoutFn(fn) { callbacks.push(fn); return callbacks.length; }, clearTimeoutFn() {} });
+  window.dispatch("focus");
+  enabled = false; callbacks.forEach((fn) => fn());
+  assert.equal(clicks, 0);
+  enabled = true; resume(); resume.cancel(); callbacks.forEach((fn) => fn());
+  assert.equal(clicks, 0);
+  resume.destroy();
+  const count = callbacks.length;
+  window.dispatch("focus");
+  assert.equal(callbacks.length, count);
+});
+
 function fakeDocument({ pageText, candidates }) {
   return {
     body: {
@@ -100,6 +121,9 @@ function fakeEventTarget(properties = {}) {
     },
     dispatch(type) {
       for (const listener of listeners.get(type) || []) listener();
+    },
+    removeEventListener(type, listener) {
+      listeners.set(type, (listeners.get(type) || []).filter((current) => current !== listener));
     },
   };
 }

@@ -1,8 +1,9 @@
 import {
   hoverGiftSetting,
-  isSwitchEnabled,
+  readSwitchState,
   leaveGiftSetting,
 } from "./gift-effects.js";
+import { sleep as cancellableSleep, throwIfAborted, waitFor } from "./task.js";
 
 const DANMAKU_SETTING_TRIGGER_SELECTOR =
   '[data-e2e="danmaku-setting-icon"]';
@@ -10,11 +11,14 @@ const DISABLED_FILTER_LABELS = ["送礼信息", "福袋口令"];
 
 export async function ensureDanmakuFiltersDisabled({
   document = globalThis.document,
-  sleep = defaultSleep,
+  sleep = cancellableSleep,
+  signal,
+  disabled = true,
 } = {}) {
   const trigger = await waitForElement(
     () => document?.querySelector?.(DANMAKU_SETTING_TRIGGER_SELECTOR),
     sleep,
+    signal,
   );
   if (!trigger) return danmakuResult(false, [], []);
 
@@ -22,35 +26,29 @@ export async function ensureDanmakuFiltersDisabled({
   hoverGiftSetting(hoverTarget);
   if (hoverTarget !== trigger) hoverGiftSetting(trigger);
 
-  const switches = await waitForElement(() => {
-    const matched = DISABLED_FILTER_LABELS.map((label) =>
-      findDanmakuFilterSwitch(document, label),
-    );
-    return matched.every(isVisibleSwitch) ? matched : null;
-  }, sleep);
+  try {
+    const switches = await waitForElement(() => {
+      const matched = DISABLED_FILTER_LABELS.map((label) => findDanmakuFilterSwitch(document, label));
+      return matched.every((target) => isVisibleSwitch(target) && isDanmakuSwitchEnabled(target) !== null) ? matched : null;
+    }, sleep, signal);
+    if (!switches) return danmakuResult(true, [], []);
 
-  if (!switches) {
+    const clickedLabels = [];
+    DISABLED_FILTER_LABELS.forEach((label, index) => {
+      const switchTarget = switches[index];
+      throwIfAborted(signal);
+      if (isDanmakuSwitchEnabled(switchTarget) === !disabled) return;
+      switchTarget.click();
+      clickedLabels.push(label);
+    });
+    const verified = Boolean(await waitFor(() => DISABLED_FILTER_LABELS.every((label) => {
+      const current = findDanmakuFilterSwitch(document, label);
+      return isVisibleSwitch(current) && isDanmakuSwitchEnabled(current) === !disabled;
+    }), { signal, attempts: 10, sleepFn: sleep }));
+    return { ...danmakuResult(true, [...DISABLED_FILTER_LABELS], clickedLabels), verified };
+  } finally {
     closeDanmakuSettingsPanel(trigger, hoverTarget);
-    return danmakuResult(true, [], []);
   }
-
-  const clickedLabels = [];
-  DISABLED_FILTER_LABELS.forEach((label, index) => {
-    const switchTarget = switches[index];
-    if (!isDanmakuSwitchEnabled(switchTarget)) return;
-
-    switchTarget.click();
-    clickedLabels.push(label);
-  });
-
-  await sleep(100);
-  closeDanmakuSettingsPanel(trigger, hoverTarget);
-
-  return danmakuResult(
-    true,
-    [...DISABLED_FILTER_LABELS],
-    clickedLabels,
-  );
 }
 
 export function findDanmakuFilterSwitch(root, labelText) {
@@ -95,7 +93,7 @@ function isDanmakuSwitchEnabled(target) {
     return ratio >= 0.58;
   }
 
-  return isSwitchEnabled(target);
+  return readSwitchState(target);
 }
 
 function isVisibleSwitch(target) {
@@ -108,14 +106,16 @@ function isVisibleSwitch(target) {
 async function waitForElement(
   find,
   sleep,
-  maxAttempts = 600,
+  signal,
+  maxAttempts = 50,
   interval = 100,
 ) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    throwIfAborted(signal);
     const element = find();
     if (element) return element;
 
-    await sleep(interval);
+    await sleep(interval, signal);
   }
 
   return null;
@@ -152,11 +152,5 @@ function getCompactText(node) {
 }
 
 function danmakuResult(triggerFound, switchLabels, clickedLabels) {
-  return { triggerFound, switchLabels, clickedLabels };
-}
-
-function defaultSleep(milliseconds) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
+  return { triggerFound, switchLabels, clickedLabels, verified: false };
 }

@@ -1,27 +1,58 @@
+import { sleep as cancellableSleep, throwIfAborted, waitFor } from "./task.js";
+
 const GIFT_EFFECT_LABEL = "屏蔽礼物特效";
 const GIFT_EFFECT_SWITCH_SELECTOR = '[data-e2e="effect-switch"]';
 const GIFT_SETTING_SELECTOR = '[data-e2e="gift-setting"]';
 
 export async function ensureGiftEffectsBlocked({
   document = globalThis.document,
-  sleep = defaultSleep,
+  sleep = cancellableSleep,
+  signal,
+  blocked = true,
+  maxRetries = 3,
 } = {}) {
-  const trigger = await waitForGiftSettingTrigger(document, sleep);
-  if (!trigger) return giftEffectResult(false, false, false);
-
-  openGiftSettingsPanel(trigger);
-
-  const switchTarget = await waitForGiftEffectSwitch(document, sleep);
-  if (!switchTarget) return giftEffectResult(true, false, false);
-  if (isSwitchEnabled(switchTarget)) return giftEffectResult(true, true, false);
-
-  activateGiftEffectSwitch(getGiftEffectClickTarget(switchTarget));
-  await sleep(100);
-  leaveGiftSetting(trigger);
-  return giftEffectResult(true, true, true);
+  const result = { triggerFound: false, switchFound: false, clicked: false, verified: false };
+  for (let retry = 0; retry < maxRetries; retry += 1) {
+    const trigger = await waitFor(() => findGiftSettingTrigger(document), {
+      signal, sleepFn: sleep,
+    });
+    if (!trigger) return result;
+    result.triggerFound = true;
+    throwIfAborted(signal);
+    openGiftSettingsPanel(trigger);
+    try {
+      const switchTarget = await waitFor(() => {
+        const target = findGiftEffectSwitch(document);
+        return target && readSwitchState(target) !== null ? target : null;
+      }, { signal, attempts: 10, sleepFn: sleep });
+      if (!switchTarget) continue;
+      result.switchFound = true;
+      throwIfAborted(signal);
+      if (readSwitchState(switchTarget) !== blocked) {
+        activateGiftEffectSwitch(getGiftEffectClickTarget(switchTarget));
+        result.clicked = true;
+      }
+      // Read the current node again: React may replace the clicked switch.
+      let confirmedReads = 0;
+      result.verified = Boolean(await waitFor(() => {
+        const current = findGiftEffectSwitch(document);
+        confirmedReads = current && readSwitchState(current) === blocked ? confirmedReads + 1 : 0;
+        return confirmedReads >= 2;
+      }, { signal, attempts: 10, sleepFn: sleep }));
+      if (result.verified) return result;
+    } finally {
+      leaveGiftSetting(trigger);
+    }
+    await sleep(200, signal);
+    throwIfAborted(signal);
+  }
+  return result;
 }
 
 export function findGiftSettingTrigger(root) {
+  if (root?.querySelectorAll) {
+    return Array.from(root.querySelectorAll(GIFT_SETTING_SELECTOR)).find(isAvailableControl) || null;
+  }
   return (
     root?.querySelector?.(GIFT_SETTING_SELECTOR) ||
     findDescendant(root, (node) => node.getAttribute?.("data-e2e") === "gift-setting")
@@ -29,8 +60,12 @@ export function findGiftSettingTrigger(root) {
 }
 
 export function findGiftEffectSwitch(root) {
+  if (root?.querySelectorAll) {
+    const visible = Array.from(root.querySelectorAll(GIFT_EFFECT_SWITCH_SELECTOR)).find(isAvailableControl);
+    if (visible) return visible;
+  }
   const stableSwitch = root?.querySelector?.(GIFT_EFFECT_SWITCH_SELECTOR);
-  if (stableSwitch) return stableSwitch;
+  if (stableSwitch && isAvailableControl(stableSwitch)) return stableSwitch;
 
   const label = findSmallestTextElement(root, GIFT_EFFECT_LABEL);
   if (!label) return null;
@@ -59,14 +94,22 @@ export function findGiftEffectSwitch(root) {
 }
 
 export function isSwitchEnabled(target) {
-  if (target.checked === true) return true;
-  if (target.getAttribute?.("aria-checked") === "true") return true;
-  if (target.getAttribute?.("data-state") === "checked") return true;
-  if (isSwitchKnobOnRight(target)) return true;
+  return readSwitchState(target) === true;
+}
 
-  return /\b(?:checked|is-checked|active|selected|on)\b/i.test(
-    String(target.className || ""),
-  );
+export function readSwitchState(target) {
+  if (!target) return null;
+  if (typeof target.checked === "boolean") return target.checked;
+  const aria = target.getAttribute?.("aria-checked");
+  if (aria === "true" || aria === "false") return aria === "true";
+  const state = target.getAttribute?.("data-state");
+  if (state === "checked" || state === "unchecked") return state === "checked";
+  const position = isSwitchKnobOnRight(target);
+  if (position !== null) return position;
+  const className = String(target.className || "");
+  if (/\b(?:unchecked|is-unchecked|off)\b/i.test(className)) return false;
+  if (/\b(?:checked|is-checked|active|selected|on)\b/i.test(className)) return true;
+  return null;
 }
 
 export function getGiftEffectClickTarget(target) {
@@ -75,30 +118,14 @@ export function getGiftEffectClickTarget(target) {
   return target.firstElementChild || target;
 }
 
-async function waitForGiftSettingTrigger(root, sleep) {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const trigger = findGiftSettingTrigger(root);
-    if (trigger) return trigger;
-
-    await sleep(200);
-  }
-
-  return null;
-}
-
-async function waitForGiftEffectSwitch(root, sleep) {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    await sleep(200);
-
-    const switchTarget = findGiftEffectSwitch(root);
-    if (switchTarget) return switchTarget;
-  }
-
-  return null;
-}
-
 function openGiftSettingsPanel(trigger) {
   hoverGiftSetting(trigger);
+}
+
+function isAvailableControl(target) {
+  // Real DOM controls must be connected and visible; plain fixture nodes have
+  // no isConnected property. Hidden stale panels are never state evidence.
+  return target?.isConnected === undefined || (target.isConnected && isUsableRect(getRect(target)));
 }
 
 function activateGiftEffectSwitch(target) {
@@ -209,7 +236,7 @@ function isSwitchKnobOnRight(target) {
   const trackRect = getRect(track);
   const knobRect = getRect(knob);
 
-  if (!isUsableRect(trackRect) || !isUsableRect(knobRect)) return false;
+  if (!isUsableRect(trackRect) || !isUsableRect(knobRect)) return null;
 
   const knobCenterX = knobRect.x + knobRect.width / 2;
   const ratio = (knobCenterX - trackRect.x) / trackRect.width;
@@ -219,15 +246,17 @@ function isSwitchKnobOnRight(target) {
 
 function findSmallestTextElement(root, text) {
   const matches = collectDescendants(root).filter((node) =>
-    getCompactText(node).includes(text),
+    isAvailableControl(node) && getCompactText(node).includes(text),
   );
 
   return matches.sort(
-    (left, right) => getCompactText(left).length - getCompactText(right).length,
+    (left, right) => getCompactText(left).length - getCompactText(right).length ||
+      (left !== right && containsNode(left, right) ? 1 : left !== right && containsNode(right, left) ? -1 : 0),
   )[0] || null;
 }
 
 function isSemanticSwitchCandidate(node) {
+  if (!isAvailableControl(node)) return false;
   const role = node.getAttribute?.("role");
   const inputType = node.getAttribute?.("type");
 
@@ -240,11 +269,12 @@ function isSemanticSwitchCandidate(node) {
 }
 
 function isGiftEffectSwitch(node) {
-  return node.getAttribute?.("data-e2e") === "effect-switch";
+  return isAvailableControl(node) && node.getAttribute?.("data-e2e") === "effect-switch";
 }
 
 function findFallbackSwitchCandidate(root) {
   const candidates = collectDescendants(root).filter((node) => {
+    if (!isAvailableControl(node)) return false;
     if (getCompactText(node)) return false;
     if ((node.childNodes || []).length > 1) return false;
 
@@ -346,21 +376,5 @@ function compareRightSideCandidates(left, right) {
 }
 
 function getCompactText(node) {
-  let text = String(node.textContent || "");
-
-  for (const child of node.childNodes || []) {
-    text += getCompactText(child);
-  }
-
-  return text.replace(/\s+/g, "");
-}
-
-function giftEffectResult(triggerFound, switchFound, clicked) {
-  return { triggerFound, switchFound, clicked };
-}
-
-function defaultSleep(milliseconds) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
+  return String(node?.textContent || "").replace(/\s+/g, "");
 }

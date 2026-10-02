@@ -61,6 +61,12 @@ export function findWishPopup(root) {
 
 export function findWishPopups(root) {
   const start = root?.body || root;
+  if (start?.querySelectorAll) {
+    return uniqueNodes([
+      ...Array.from(start.querySelectorAll(`.${TOOLTIP_CLASS}`)).filter(hasBlockedTooltipText),
+      ...Array.from(start.querySelectorAll(LEGACY_EXHIBITION_TOOLTIP_SELECTOR)),
+    ]);
+  }
   const tooltips = collectDescendants(start).filter(isTooltip);
   const matchedTooltips = tooltips.filter(hasBlockedTooltipText);
   const legacyExhibitionTooltips = Array.from(
