@@ -110,3 +110,13 @@ test("auto-fans-continue imports granted userscript APIs through the plugin clie
   assert.doesNotMatch(entry, /globalThis\s*\[\s*["'](?:GM_|unsafeWindow)/);
   assert.doesNotMatch(entry, /getGlobalValue\s*\(\s*["'](?:GM_|unsafeWindow)/);
 });
+
+test("Douyin settings grant only the menu API and request the native player page realm", async () => {
+  const root = join(workspaceRoot, "packages", "douyin-live-optimizer");
+  const entry = await readFile(join(root, "src/main.js"), "utf8");
+  const config = await readFile(join(root, "vite.config.ts"), "utf8");
+  assert.match(entry, /import\s*\{\s*GM_registerMenuCommand\s*\}\s*from\s*"\$"/);
+  assert.match(config, /grant:\s*\["GM_registerMenuCommand"\]/);
+  assert.match(config, /sandbox:\s*"raw"/);
+  assert.doesNotMatch(config, /\b(?:connect|require):|unsafeWindow|GM_(?:getValue|setValue|xmlhttpRequest)/);
+});

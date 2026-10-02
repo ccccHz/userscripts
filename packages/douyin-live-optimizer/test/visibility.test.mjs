@@ -105,3 +105,13 @@ test("late recognition attributes trigger scanning while script-owned markers ar
   f.controller.update({ commerceAds: true }); f.controller.refresh();
   assert.equal(f.commerce.getAttribute(HIDDEN_ATTRIBUTE), null);
 });
+
+test("all hide rules release a container if the site later places its video inside it", () => {
+  const f = fixture(); f.matches.set("#EcmoCardLayout", [f.bottom]);
+  f.controller.update({ bottomLayout: true, commerceAds: true });
+  assert.ok(f.bottom.getAttribute(HIDDEN_ATTRIBUTE));
+  f.bottom.childNodes = [{ tagName: "VIDEO", childNodes: [] }];
+  f.controller.refresh();
+  assert.equal(f.bottom.getAttribute(HIDDEN_ATTRIBUTE), null);
+  f.controller.destroy();
+});

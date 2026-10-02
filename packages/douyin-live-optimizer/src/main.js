@@ -1,3 +1,4 @@
+import { GM_registerMenuCommand } from "$";
 import { ensurePlayerAudioOnOpen } from "./audio.js";
 import { ensureDanmakuFiltersDisabled } from "./danmaku-settings.js";
 import { ensureGiftEffectsBlocked } from "./gift-effects.js";
@@ -9,8 +10,8 @@ import { createSettingsStore } from "./settings.js";
 import { sleep, throwIfAborted } from "./task.js";
 import { createVisibilityController } from "./visibility.js";
 
-// With grant:none this executes in the page realm. Do not change metadata without
-// verifying that native player expandos and history wrappers stay in that realm.
+// @sandbox raw requests the page realm; native player expandos and history
+// wrappers must also be checked in the actual installed userscript.
 const INSTANCE_KEY = "__douyinLiveOptimizerRuntimeV1";
 
 export function startOptimizer({ document, window, history, registerMenuCommand } = {}) {

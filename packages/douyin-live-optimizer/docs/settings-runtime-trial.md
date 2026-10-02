@@ -1,6 +1,6 @@
 # 设置与播放器运行时首轮试探
 
-状态：隔离 worktree 实现，尚未集成或完成真实直播页验收。版本保持 2026.8.20，userscript.publish=false。
+状态：隔离 worktree 实现；真实油猴菜单已由用户确认可打开，底栏误隐藏播放器已修复并在实际直播页复验。源码尚未集成主目录，其余完整浏览器路径仍待验收。版本保持 2026.8.20，userscript.publish=false。
 
 ## 已确认范围
 
@@ -14,11 +14,11 @@
 
 ## 最小权限与页面上下文
 
-当前 metadata 仍为 grant:none；已发出一次 GM_registerMenuCommand 的权限确认，尚未收到授权。本次编辑权限与 userscript 权限是两回事。
+用户已在现有 DEV 代理中加入 GM_registerMenuCommand 并保存，确认菜单可打开弹窗。当前构建仅声明这一项 GM 权限，同时显式保持 @sandbox raw。
 
-面板及可注入的菜单注册函数已准备；boot 在 API 实际存在时注册固定 id 的“抖音直播优化 · 设置”。当前构建的 grant:none 不提供该 API，只可通过 Alt+Shift+O 做开发预览，不代表最终菜单交付完成。不存在侧边按钮。
+boot 通过 vite-plugin-monkey 的客户端导入菜单 API，注册固定 id 的“抖音直播优化 · 设置”。菜单异常不会中断屏蔽运行时，Alt+Shift+O 可作备用入口。不存在侧边按钮。
 
-若用户确认，只拟增加 GM_registerMenuCommand，并显式保持 @sandbox raw；不增加 GM 存储、unsafeWindow、GM 网络或 @connect，不增加远程 @require。设置使用当前域名 localStorage，www.douyin.com 与 live.douyin.com 的配置各自保存；这项跨域差异需用户实测后决定是否另行调整。
+未增加 GM 存储、unsafeWindow、GM 网络或 @connect，也未增加远程 @require。设置使用当前域名 localStorage，www.douyin.com 与 live.douyin.com 的配置各自保存；这项跨域差异需用户实测后决定是否另行调整。
 
 Tampermonkey 官方文档说明：grant:none 会关闭 sandbox，GM_* API 不可用；@sandbox raw 请求 MAIN_WORLD，但 CSP 等条件仍可能导致其它上下文降级。因此加入菜单后必须实测 React expando 可访问性、history wrapper 接线、首次启动及 SPA 换房。内部接口不可用时保留 DOM 降级，不能把 raw 当作跨浏览器保证。
 
@@ -36,9 +36,9 @@ Tampermonkey 官方文档说明：grant:none 会关闭 sandbox，GM_* API 不可
 
 开发/检查/构建：/Users/chz/.codex/worktrees/douyin-settings-runtime/userscripts，分支 feat/douyin-live-optimizer/settings-runtime-trial。
 
-最终集成与浏览器入口：/Users/chz/myWorkSpace/myJS/直播插件/userscripts/packages/douyin-live-optimizer/dist，沿用现有开发代理。不得把 Tampermonkey 路径改到临时 worktree。主目录仍由斗鱼任务占用，本轮未写入该目录或运行其 watcher。
+浏览器入口：/Users/chz/myWorkSpace/myJS/直播插件/userscripts/packages/douyin-live-optimizer/dist，沿用现有开发代理。主目录仍由斗鱼任务占用，本轮只同步抖音包被忽略的 user.js/meta.js 构建产物，未改其源码、分支、代理路径或 watcher。同步前的产物已备份到 /private/tmp/douyin-before-settings-h0Smsn。主目录未来重建会覆盖此预览，源码集成需另行安排。
 
-待取得主目录集成时段后：集成对应提交 → 从该目录重建最新 dist → 刷新直播页 → 执行以下路径，并记录真实观察。
+当前实际页面已使用同步后的最新 dist；待取得主目录集成时段后，集成对应提交并从该目录重建，再补齐以下路径。菜单打开和普通页面的底栏/播放器边界已验证，其余不得推断通过。
 
 - 油猴菜单打开设置；普通、网页全屏和播放器全屏下可操作，不遮挡关闭后的播放器或发送区。原生 video 全屏需在用户打开设置时退出全屏再显示弹窗。
 - 首次进入 live 域、关注页站内进入直播、SPA 连续换房、刷新、前进/后退；退出直播回普通视频后无直播操作。
@@ -60,7 +60,7 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 
 本轮独立实现，未整段复制上游代码或导入其库；源码概念不能证明发布 dist 同步或实机可靠。若后续复制源码，另行记录 GPL-3.0 来源及相应许可处理。
 
-## 2026-10-02 本轮检查证据
+## 2026-10-02 首轮历史检查证据（菜单授权前）
 
 - worktree 写权限：当前会话有效 writable roots 明确包含上述 worktree，编辑仅发生在此目录。
 - `pnpm validate`、`pnpm test`、`pnpm type-check`、`pnpm build` 均通过；最终新增节点复用清理后重跑全部测试（261/261）、抖音类型检查和构建通过。抖音包共 85 项测试。
@@ -68,10 +68,19 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 - 本地浏览器使用该产物，模拟 `GM_registerMenuCommand` 注册：确认弹窗可打开、默认八项开启、开关修改后刷新保留、Escape 关闭后焦点回到入口、Shift+Tab/Tab 在首尾循环、快捷键打开。最后重建后重新刷新页面并打开确认；该模拟不证明 Tampermonkey 真实权限或抖音页面功能可用。
 - 没有安装或发布脚本，没有操作真实账号，没有改动主项目 watcher 或代理路径。真实直播页、真实菜单注册、全屏手感及跨域保存仍未验收，详见 TODO。
 
-## 2026-10-02 后续可靠性修复
+## 2026-10-02 后续可靠性修复（菜单授权前）
 
 - tooltip/广告节点保持连接但已变为普通内容时，旧隐藏标记随匹配结果清理。后补 id、class、data-e2e、iframe 容器和产品占位属性会触发合并扫描；隐藏标记与 style 属性不在观察范围。卸载后公开 refresh/update 也不会重新添加标记。
 - 播放器重建时，空的旧容器不能成为新 video 的作用域；由 video 实际所在根容器识别实例。播放器识别属性后补也可触发生命周期检查，不重复启动同一作用域的自动操作。
 - 本地构建复现过菜单注册抛错中断 startOptimizer：现在仅记录异常类型并显示入口状态，运行时及清理函数仍建立。本地模拟正常/异常注册下重复运行构建，均确认新运行时建立、面板数量为 1，异常后快捷键仍可操作设置。未启用或扩大实际 GM 权限。
 - 全部 264 项测试、仓库校验、类型检查、构建通过；抖音包为 88 项。最新 dist 为 52.49 kB，gzip 14.39 kB，SHA-256 `1caccba1ddcf4eb197917cb28ad7dce3bf8eb8a34b74d13e32b9285f5f2a0ca0`。
 - 本地容器可进入浏览器全屏，但后续输入检查中发生全屏退出，未确定是输入工具行为还是页面行为；因此不把这条路径记为通过。抖音实际全屏、原生 video 全屏和用户手感仍须在最终集成产物上验收。
+
+## 2026-10-02 菜单接线与播放器误隐藏修复
+
+- 用户保存现有 DEV 代理后，确认真实油猴菜单可以打开弹窗。
+- 用户随后报告直播黑屏、聊天区移到左侧。实页发现底栏规则将包含 video 的 LeftBackgroundLayout 标记隐藏：页面头部送礼入口与底部礼物栏分属不同区域，旧逻辑错误选择了二者的共同祖先。
+- 祖先查找现在不能跨过页面布局、播放器或聊天边界；所有隐藏规则还会拒绝包含 video、播放器、聊天输入或本脚本面板的容器。已隐藏容器后来承载 video 时会清理旧标记。补充六项针对性回归，覆盖这次实页结构、未知共同祖先及旧节点复用。
+- 最新 dist 同步到现有 @require 路径后，刷新 live.douyin.com 实际直播页，重新开启“隐藏底部礼物与游戏栏”。八项设置全部开启，隐藏标记仅位于 BottomLayout 与 EcmoCardLayout，均不含 video；播放器可见（960×558、readyState=4），关闭弹窗后截图可见直播画面与右侧聊天。
+- 最新 user.js SHA-256：5ac1c5eab9faa4735f3a7db8deabbf06426edfe26d3a48da5a6238ab29f36dbd，大小 53.84 kB，gzip 14.71 kB。截图为本机临时证据 /private/tmp/douyin-player-layout-fixed.png，不提交页面内容。
+- 全仓校验、测试 271/271、类型检查及构建全部通过；抖音包 94 项。全屏、SPA 换房、礼物实际出现时的屏蔽、跨域设置和完整原生开关反向恢复仍待实页验收。

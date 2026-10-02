@@ -1,6 +1,6 @@
 import { LIVE_COMMERCE_AD_SELECTORS } from "./commerce-ads.js";
 import { findWishPopups } from "./wish-popup.js";
-import { LIVE_BOTTOM_LAYOUT_SELECTORS, findLiveBottomLayoutRoot } from "./dom-cleanup.js";
+import { LIVE_BOTTOM_LAYOUT_SELECTORS, findLiveBottomLayoutRoot, isProtectedLayoutRoot } from "./dom-cleanup.js";
 
 export const HIDDEN_ATTRIBUTE = "data-douyin-live-optimizer-hidden";
 
@@ -21,7 +21,7 @@ export function createVisibilityController({ document, MutationObserver = global
     marked.delete(key);
   }
   function hide(key, nodes) {
-    const current = new Set(nodes.filter((node) => node && node.isConnected !== false));
+    const current = new Set(nodes.filter((node) => node && node.isConnected !== false && !isProtectedLayoutRoot(node)));
     for (const old of marked.get(key) || []) if (!current.has(old)) release(old, key);
     for (const node of current) {
       const tokens = (node.getAttribute(HIDDEN_ATTRIBUTE) || "").split(" ").filter(Boolean);
