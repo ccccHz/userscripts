@@ -77,6 +77,18 @@ test("player scope reads native instance identity and ignores query-only URL cha
   assert.equal(first.video, video);
 });
 
+test("an empty old player root cannot own a fallback video's new native instance", () => {
+  const oldInstance = {}; const newInstance = {};
+  const oldPlayer = { _player: { proxy: oldInstance }, querySelector: () => null };
+  const newPlayer = { _player: { proxy: newInstance } };
+  const video = { parentElement: newPlayer, closest: () => newPlayer };
+  const document = { querySelector: (selector) => selector.includes("#PlayerLayout video") ? video : oldPlayer };
+  const scope = getPlayerScope(document, new URL("https://live.douyin.com/123"));
+  assert.equal(scope.player, newPlayer);
+  assert.equal(scope.video, video);
+  assert.equal(scope.instance, newInstance);
+});
+
 test("rapid gift toggles cancel the previous task and apply the latest desired state", async () => {
   const f = fixture(); f.runtime.refresh(); await flush();
   const old = f.calls.find((call) => call.key === "giftEffects");
@@ -116,13 +128,15 @@ test("lifecycle observers coalesce mutations and restore only their own history 
   const document = { body: {}, addEventListener: window.addEventListener, removeEventListener: window.removeEventListener };
   const rawPush = function () { return "result"; }; const rawReplace = function () {};
   const history = { pushState: rawPush, replaceState: rawReplace };
-  let callback; let disconnected = false; let refreshes = 0;
+  let callback; let disconnected = false; let refreshes = 0; let options;
   const cleanup = registerLifecycleEvents({ document, window, history, refresh: () => refreshes++, MutationObserver: class {
-    constructor(fn) { callback = fn; } observe() {} disconnect() { disconnected = true; }
+    constructor(fn) { callback = fn; } observe(target, next) { options = next; } disconnect() { disconnected = true; }
   } });
   assert.equal(history.pushState(), "result");
   callback(); callback();
   assert.equal(timers.size, 1);
+  assert.equal(options.attributes, true);
+  assert.deepEqual(options.attributeFilter, ["id", "class", "data-e2e"]);
   const externalWrapper = function () {};
   history.pushState = externalWrapper;
   cleanup();

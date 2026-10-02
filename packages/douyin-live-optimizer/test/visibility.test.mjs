@@ -13,14 +13,15 @@ function fixture() {
   const bottom = node("BottomLayout"); const commerce = node("EcmoCardLayout");
   const wish = node(); wish.className = "dylive-tooltip"; wish.textContent = "帮主播完成心愿吧";
   const matches = new Map([["#BottomLayout", [bottom]], ["#EcmoCardLayout", [commerce]]]);
-  let callback; let disconnected = false; let removedStyle = false;
+  let callback; let disconnected = false; let removedStyle = false; let observerOptions;
   const document = { body: { childNodes: [wish] }, head: { append() {} },
     createElement: () => ({ remove() { removedStyle = true; } }),
     querySelectorAll: (selector) => matches.get(selector) || [] };
   const controller = createVisibilityController({ document, MutationObserver: class {
-    constructor(fn) { callback = fn; } observe() {} disconnect() { disconnected = true; }
+    constructor(fn) { callback = fn; } observe(target, options) { observerOptions = options; } disconnect() { disconnected = true; }
   } });
-  return { controller, bottom, commerce, wish, matches, notify: () => callback(), disconnected: () => disconnected, removedStyle: () => removedStyle };
+  return { controller, bottom, commerce, wish, matches, notify: () => callback(), disconnected: () => disconnected,
+    removedStyle: () => removedStyle, observerOptions: () => observerOptions };
 }
 
 test("layout hiding is reversible and never deletes the site's nodes", () => {
@@ -71,4 +72,36 @@ test("detached nodes lose stale hide markers before being reused after disable",
   f.controller.refresh();
   assert.equal(f.commerce.getAttribute(HIDDEN_ATTRIBUTE), null);
   f.controller.destroy();
+});
+
+test("a reused tooltip is restored when its text no longer matches a blocked wish", () => {
+  const f = fixture(); f.controller.update({ wishPopups: true });
+  assert.equal(f.wish.getAttribute(HIDDEN_ATTRIBUTE), "wishPopups");
+  f.wish.textContent = "音量已恢复";
+  f.controller.refresh();
+  assert.equal(f.wish.getAttribute(HIDDEN_ATTRIBUTE), null);
+  f.wish.textContent = "点亮展馆帮主播集星";
+  f.controller.refresh();
+  assert.equal(f.wish.getAttribute(HIDDEN_ATTRIBUTE), "wishPopups");
+  f.controller.destroy();
+});
+
+test("late recognition attributes trigger scanning while script-owned markers are excluded", async () => {
+  const f = fixture(); f.matches.set("#EcmoCardLayout", []);
+  f.controller.update({ commerceAds: true });
+  const options = f.observerOptions();
+  assert.equal(options.attributes, true);
+  for (const attribute of ["id", "class", "data-e2e", "data-container-id", "data-douyin-live-product-entry"]) {
+    assert.ok(options.attributeFilter.includes(attribute));
+  }
+  assert.ok(!options.attributeFilter.includes(HIDDEN_ATTRIBUTE));
+  f.matches.set("#EcmoCardLayout", [f.commerce]); f.notify();
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(f.commerce.getAttribute(HIDDEN_ATTRIBUTE), "commerceAds");
+  f.matches.set("#EcmoCardLayout", []); f.controller.refresh();
+  assert.equal(f.commerce.getAttribute(HIDDEN_ATTRIBUTE), null);
+  f.controller.destroy();
+  f.matches.set("#EcmoCardLayout", [f.commerce]);
+  f.controller.update({ commerceAds: true }); f.controller.refresh();
+  assert.equal(f.commerce.getAttribute(HIDDEN_ATTRIBUTE), null);
 });

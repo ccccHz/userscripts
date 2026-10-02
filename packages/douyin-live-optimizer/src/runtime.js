@@ -5,14 +5,16 @@ export function isLiveLocation(location) {
   );
 }
 
+const PLAYER_SELECTOR = '#PlayerLayout .douyin-player, [id^="living_player_container"] .douyin-player, .basicPlayer[data-e2e="basicPlayer"]';
+
 export function getPlayerScope(document, location) {
   if (!isLiveLocation(location)) return null;
-  const player = document.querySelector(
-    '#PlayerLayout .douyin-player, [id^="living_player_container"] .douyin-player, .basicPlayer[data-e2e="basicPlayer"]',
-  );
-  const video = player?.querySelector("video") || document.querySelector('#PlayerLayout video, [data-e2e="living-container"] video');
+  const player = document.querySelector(PLAYER_SELECTOR);
+  const playerVideo = player?.querySelector("video");
+  const video = playerVideo || document.querySelector('#PlayerLayout video, [data-e2e="living-container"] video');
   if (!video) return null;
-  const root = player || video.parentElement;
+  // An empty old container must not own a different video's tasks during a rebuild.
+  const root = playerVideo ? player : video.closest?.(PLAYER_SELECTOR) || video.parentElement;
   return {
     url: `${location.origin}${location.pathname.replace(/\/$/, "")}`,
     player: root, video, instance: getPlayerInstance(root),
@@ -134,7 +136,10 @@ export function registerLifecycleEvents({ document, window, history, refresh, re
   window.addEventListener("pageshow", navigation);
   document.addEventListener("fullscreenchange", refreshLayout);
   const observer = MutationObserver ? new MutationObserver(schedule) : null;
-  observer?.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  observer?.observe(document.body || document.documentElement, {
+    childList: true, subtree: true, attributes: true,
+    attributeFilter: ["id", "class", "data-e2e"],
+  });
   refresh();
   return () => {
     if (timer !== undefined) window.clearTimeout(timer);

@@ -100,9 +100,20 @@ export function createSettingsPanel({ document, window, settingsStore, retry, re
   window.addEventListener("keydown", keyboard, true);
   document.addEventListener("fullscreenchange", mount);
   const unsubscribe = settingsStore.subscribe(render);
-  if (registerMenuCommand) registerMenuCommand("抖音直播优化 · 设置", open, { id: "douyin-live-optimizer:settings" });
-  shadow.querySelector(".entry").textContent = registerMenuCommand
-    ? "可从油猴菜单打开；快捷键 Alt + Shift + O。" : "开发预览：Alt + Shift + O 打开。油猴菜单入口待权限确认。";
+  let menuRegistered = false;
+  if (registerMenuCommand) {
+    try {
+      registerMenuCommand("抖音直播优化 · 设置", open, { id: "douyin-live-optimizer:settings" });
+      menuRegistered = true;
+    } catch (error) {
+      // A menu API failure must not interrupt player automation or its teardown.
+      console.warn("userscript: douyin settings menu unavailable", error?.name || "Error");
+    }
+  }
+  shadow.querySelector(".entry").textContent = menuRegistered
+    ? "可从油猴菜单打开；快捷键 Alt + Shift + O。"
+    : registerMenuCommand ? "油猴菜单注册失败；可用 Alt + Shift + O 打开设置。"
+      : "开发预览：Alt + Shift + O 打开。油猴菜单入口待权限确认。";
   render();
   return {
     open,
