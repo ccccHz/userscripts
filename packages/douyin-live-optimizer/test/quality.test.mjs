@@ -7,7 +7,17 @@ import {
   ensureHighestQuality,
   findBestQuality,
   findQualityHandler,
+  ensureQuality,
 } from "../src/quality.js";
+
+test("new hook-based quality options can switch directly without opening the menu", async () => {
+  let menuClicks = 0;
+  const menu = { textContent: "原画", click() { menuClicks++; } };
+  const option = { textContent: "高清", __reactProps$test: { onClick() { menu.textContent = "高清"; } } };
+  const document = { querySelectorAll: () => [], querySelector: (selector) => selector.includes("quality-selector") ? { children: [option] } : menu };
+  const result = await ensureQuality({ document, requested: "sd", sleepFn: async () => {} });
+  assert.equal(result.method, "react-option"); assert.equal(result.applied, true); assert.equal(menuClicks, 0);
+});
 
 test("selects the first quality option below automatic mode", () => {
   const automatic = { textContent: "自动" };

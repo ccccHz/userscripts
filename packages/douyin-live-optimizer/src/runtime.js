@@ -1,5 +1,5 @@
 export function isLiveLocation(location) {
-  return location.hostname === "live.douyin.com" || (
+  return (location.hostname === "live.douyin.com" && /^\/\d+(?:\/|$)/.test(location.pathname)) || (
     ["www.douyin.com", "douyin.com"].includes(location.hostname) &&
     /^\/(?:follow|root)\/live(?:\/|$)/.test(location.pathname)
   );
@@ -40,7 +40,7 @@ export function samePlayerScope(left, right) {
 const FEATURES = ["giftEffects", "danmakuFilters", "audio", "quality"];
 const RESTORABLE = new Set(["giftEffects", "danmakuFilters"]);
 
-export function createRuntimeController({ getScope, settingsStore, runFeature, onScope = () => {}, onSettings = () => {}, onStatus = () => {} }) {
+export function createRuntimeController({ getScope, settingsStore, runFeature, features = FEATURES, shouldRun, onScope = () => {}, onSettings = () => {}, onStatus = () => {} }) {
   let scope = null;
   let generation = 0;
   let destroyed = false;
@@ -53,7 +53,7 @@ export function createRuntimeController({ getScope, settingsStore, runFeature, o
   }
   function run(key) {
     cancel(key);
-    if (destroyed || !scope || (!values[key] && !RESTORABLE.has(key))) return;
+    if (destroyed || !scope || (shouldRun ? !shouldRun(key) : (!values[key] && !RESTORABLE.has(key)))) return;
     const controller = new AbortController();
     tasks.set(key, controller);
     const currentGeneration = generation;
@@ -83,7 +83,7 @@ export function createRuntimeController({ getScope, settingsStore, runFeature, o
     generation += 1;
     onScope(scope);
     onSettings(values, scope);
-    for (const key of FEATURES) {
+    for (const key of features) {
       onStatus(key, !scope || !values[key] ? "idle" : "waiting");
       run(key);
     }
@@ -92,13 +92,15 @@ export function createRuntimeController({ getScope, settingsStore, runFeature, o
     values = next;
     onSettings(values, scope);
     for (const key of changed) {
-      if (!FEATURES.includes(key)) continue;
+      if (!features.includes(key)) continue;
       onStatus(key, "idle");
       run(key);
     }
   });
   return {
     refresh,
+    cancelKeys(keys) { for (const key of keys) if (features.includes(key)) { cancel(key); onStatus(key, "idle"); } },
+    runKeys(keys) { for (const key of keys) if (features.includes(key)) { onStatus(key, "idle"); run(key); } },
     retry() {
       refresh();
       for (const key of ["giftEffects", "danmakuFilters", "quality"]) run(key);

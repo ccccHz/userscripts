@@ -4,6 +4,7 @@ import {
   leaveGiftSetting,
 } from "./gift-effects.js";
 import { sleep as cancellableSleep, throwIfAborted, waitFor } from "./task.js";
+import { activateControl, reactProps, findControlProps } from "./native-controls.js";
 
 const DANMAKU_SETTING_TRIGGER_SELECTOR =
   '[data-e2e="danmaku-setting-icon"]';
@@ -14,6 +15,7 @@ export async function ensureDanmakuFiltersDisabled({
   sleep = cancellableSleep,
   signal,
   disabled = true,
+  states,
 } = {}) {
   const trigger = await waitForElement(
     () => document?.querySelector?.(DANMAKU_SETTING_TRIGGER_SELECTOR),
@@ -37,18 +39,59 @@ export async function ensureDanmakuFiltersDisabled({
     DISABLED_FILTER_LABELS.forEach((label, index) => {
       const switchTarget = switches[index];
       throwIfAborted(signal);
-      if (isDanmakuSwitchEnabled(switchTarget) === !disabled) return;
-      switchTarget.click();
+      const desired = states ? (index === 0 ? states.gift : states.lucky) : !disabled;
+      if (isDanmakuSwitchEnabled(switchTarget) === desired) return;
+      setNativeSwitch(switchTarget, desired);
       clickedLabels.push(label);
     });
-    const verified = Boolean(await waitFor(() => DISABLED_FILTER_LABELS.every((label) => {
+    const verified = Boolean(await waitFor(() => DISABLED_FILTER_LABELS.every((label, index) => {
       const current = findDanmakuFilterSwitch(document, label);
-      return isVisibleSwitch(current) && isDanmakuSwitchEnabled(current) === !disabled;
+      const desired = states ? (index === 0 ? states.gift : states.lucky) : !disabled;
+      return isVisibleSwitch(current) && isDanmakuSwitchEnabled(current) === desired;
     }), { signal, attempts: 10, sleepFn: sleep }));
     return { ...danmakuResult(true, [...DISABLED_FILTER_LABELS], clickedLabels), verified };
   } finally {
     closeDanmakuSettingsPanel(trigger, hoverTarget);
   }
+}
+
+export function readDanmakuFilters(document) {
+  const gift = isDanmakuSwitchEnabled(findDanmakuFilterSwitch(document, "送礼信息"));
+  const lucky = isDanmakuSwitchEnabled(findDanmakuFilterSwitch(document, "福袋口令"));
+  return typeof gift === "boolean" && typeof lucky === "boolean" ? { gift, lucky } : null;
+}
+
+export function readDanmakuEnabled(document) {
+  const target = findMainSwitch(document);
+  return isDanmakuSwitchEnabled(target);
+}
+
+function findMainSwitch(document) {
+  return document.querySelector?.('[data-e2e="danmaku-switch"] > div') ||
+    findDanmakuFilterSwitch(document, "开启弹幕") || findDanmakuFilterSwitch(document, "弹幕开关");
+}
+function setNativeSwitch(target, desired) {
+  const props = findControlProps(target, (props) => typeof props.checked === "boolean" && typeof props.onChange === "function");
+  if (props) { props.onChange(desired); return "react"; }
+  return activateControl(target);
+}
+
+export async function ensureDanmakuEnabled({ document, enabled, signal, sleepFn } = {}) {
+  const trigger = await waitFor(() => document.querySelector(DANMAKU_SETTING_TRIGGER_SELECTOR), { signal, attempts: 30, sleepFn });
+  if (!trigger) return { applied: false };
+  const targetRoot = trigger.parentElement || trigger;
+  const props = reactProps(trigger);
+  if (typeof props?.onMouseEnter === "function") props.onMouseEnter();
+  else { hoverGiftSetting(targetRoot); hoverGiftSetting(trigger); }
+  try {
+    const target = await waitFor(() => findMainSwitch(document), { signal, attempts: 15, sleepFn });
+    if (!target || isDanmakuSwitchEnabled(target) === null) return { applied: false };
+    throwIfAborted(signal);
+    if (enabled === undefined) return { applied: true, state: isDanmakuSwitchEnabled(target), method: "remembered" };
+    let method = "unchanged";
+    if (isDanmakuSwitchEnabled(target) !== enabled) method = setNativeSwitch(target, enabled);
+    return { applied: Boolean(await waitFor(() => readDanmakuEnabled(document) === enabled, { signal, attempts: 10, sleepFn })), method };
+  } finally { closeDanmakuSettingsPanel(trigger, targetRoot); }
 }
 
 export function findDanmakuFilterSwitch(root, labelText) {
@@ -77,6 +120,8 @@ function closeDanmakuSettingsPanel(trigger, hoverTarget) {
 }
 
 function isDanmakuSwitchEnabled(target) {
+  const props = findControlProps(target, (props) => typeof props.checked === "boolean");
+  if (props) return props.checked;
   const trackRect = target?.getBoundingClientRect?.();
   const knobRect = target?.firstElementChild?.getBoundingClientRect?.();
 

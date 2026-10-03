@@ -1,4 +1,5 @@
 import { throwIfAborted, waitFor } from "./task.js";
+import { activateControl, reactProps } from "./native-controls.js";
 
 const QUALITY_RANKS = { auto: 0, ld: 1, sd: 2, hd: 3, uhd: 4, origin: 5 };
 const QUALITY_LABELS = { origin: "原画", uhd: "蓝光", hd: "超清", sd: "高清", ld: "标清", auto: "自动" };
@@ -65,7 +66,15 @@ export function findQualityHandler(root) {
   return null;
 }
 
-export async function ensureHighestQuality({ document, signal, sleepFn } = {}) {
+export function readQuality(document) {
+  const text = getQualityText(document?.querySelector?.('[data-e2e="quality"]'));
+  if (text.startsWith("自动")) return "auto";
+  return Object.keys(QUALITY_LABELS).find((key) => key !== "auto" && text.includes(QUALITY_LABELS[key])) || null;
+}
+
+export async function ensureHighestQuality(options = {}) { return ensureQuality(options); }
+
+export async function ensureQuality({ document, signal, sleepFn, requested, withMenu = (action) => action() } = {}) {
   const menu = await waitFor(() => document?.querySelector?.('[data-e2e="quality"]'), { signal, sleepFn });
   if (!menu) return { applied: false, method: "unavailable" };
   throwIfAborted(signal);
@@ -73,7 +82,7 @@ export async function ensureHighestQuality({ document, signal, sleepFn } = {}) {
     const internal = findQualityHandler(document);
     if (internal) {
       const { handler, qualities } = internal;
-      const quality = findBestQuality(qualities);
+      const quality = qualities.includes(requested) ? requested : findBestQuality(qualities);
       if (handler.getCurrentQuality?.() !== quality) handler.setCurrentQuality(quality);
       const verified = await waitFor(() => {
         throwIfAborted(signal);
@@ -87,16 +96,42 @@ export async function ensureHighestQuality({ document, signal, sleepFn } = {}) {
     // Internal paths are optional; continue through the existing menu.
   }
   throwIfAborted(signal);
+  // Current live pages use a hook-based quality component instead of exposing
+  // qualityHandler. Its mounted options still expose React onClick callbacks,
+  // so they can be activated without opening or positioning the dropdown.
+  const mountedList = document.querySelector('[data-e2e="quality-selector"]');
+  const mountedTarget = requested
+    ? [...(mountedList?.children || [])].find((node) => getQualityText(node).startsWith(QUALITY_LABELS[requested])) || findBestQualityOption(mountedList)
+    : findBestQualityOption(mountedList);
+  if (typeof reactProps(mountedTarget)?.onClick === "function") {
+    const label = getQualityText(mountedTarget);
+    const desired = requested === "auto" && label.startsWith("自动") ? "auto"
+      : Object.keys(QUALITY_LABELS).find((key) => key !== "auto" && label.includes(QUALITY_LABELS[key]));
+    if (desired) {
+      if (readQuality(document) !== desired) activateControl(mountedTarget);
+      const applied = Boolean(await waitFor(() => readQuality(document) === desired, { signal, attempts: 10, sleepFn }));
+      if (applied) return { applied, method: "react-option", quality: desired, fallback: Boolean(requested && requested !== desired) };
+    }
+  }
+  throwIfAborted(signal);
+  return withMenu(() => applyQualityMenu({ document, signal, sleepFn, requested, menu }));
+}
+
+async function applyQualityMenu({ document, signal, sleepFn, requested, menu }) {
+  throwIfAborted(signal);
   menu.click();
   let optionList;
   try {
     optionList = await waitFor(() => document.querySelector('[data-e2e="quality-selector"]'), { signal, sleepFn });
-    const target = findBestQualityOption(optionList);
+    const target = requested
+      ? [...(optionList?.children || [])].find((node) => getQualityText(node).startsWith(QUALITY_LABELS[requested])) || findBestQualityOption(optionList)
+      : findBestQualityOption(optionList);
     if (!target) return { applied: false, method: "menu" };
     throwIfAborted(signal);
     const quality = getQualityText(target);
     if (!hasQualityLabel(menu, quality)) target.click();
-    const applied = Boolean(await waitFor(() => hasQualityLabel(menu, quality), {
+    const applied = Boolean(await waitFor(() => requested === "auto" && quality.startsWith("自动")
+      ? getQualityText(menu).startsWith("自动") : hasQualityLabel(menu, quality), {
       signal, attempts: 10, sleepFn,
     }));
     return { applied, method: "menu", quality };

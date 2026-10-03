@@ -1,4 +1,5 @@
 import { sleep as cancellableSleep, throwIfAborted, waitFor } from "./task.js";
+import { setGiftBlocked } from "./native-controls.js";
 
 const GIFT_EFFECT_LABEL = "屏蔽礼物特效";
 const GIFT_EFFECT_SWITCH_SELECTOR = '[data-e2e="effect-switch"]';
@@ -10,7 +11,17 @@ export async function ensureGiftEffectsBlocked({
   signal,
   blocked = true,
   maxRetries = 3,
+  withMenu = (action) => action(),
 } = {}) {
+  try {
+    await waitFor(() => document.querySelector?.('[data-e2e="gift-setting"]'), { signal, attempts: 30, sleepFn: sleep });
+    const direct = await setGiftBlocked({ document, blocked, signal, sleepFn: sleep });
+    if (direct?.verified) return direct;
+  } catch (error) { if (signal?.aborted) throw error; }
+  return withMenu(() => applyGiftEffectMenu({ document, sleep, signal, blocked, maxRetries }));
+}
+
+async function applyGiftEffectMenu({ document, sleep, signal, blocked, maxRetries }) {
   const result = { triggerFound: false, switchFound: false, clicked: false, verified: false };
   for (let retry = 0; retry < maxRetries; retry += 1) {
     const trigger = await waitFor(() => findGiftSettingTrigger(document), {

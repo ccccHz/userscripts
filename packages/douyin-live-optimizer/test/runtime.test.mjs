@@ -116,7 +116,7 @@ test("live routing includes station-internal follow/root rooms without running o
   for (const url of ["https://live.douyin.com/1", "https://www.douyin.com/follow/live/1", "https://www.douyin.com/root/live/1"]) {
     assert.equal(isLiveLocation(new URL(url)), true);
   }
-  for (const url of ["https://www.douyin.com/follow", "https://www.douyin.com/video/1", "https://example.com/root/live/1"]) {
+  for (const url of ["https://live.douyin.com/", "https://www.douyin.com/follow", "https://www.douyin.com/video/1", "https://example.com/root/live/1"]) {
     assert.equal(isLiveLocation(new URL(url)), false);
   }
 });

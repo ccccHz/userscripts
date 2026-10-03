@@ -1,10 +1,8 @@
 import { GM_registerMenuCommand } from "$";
-import { ensurePlayerAudioOnOpen } from "./audio.js";
-import { ensureDanmakuFiltersDisabled } from "./danmaku-settings.js";
-import { ensureGiftEffectsBlocked } from "./gift-effects.js";
 import { createSettingsPanel } from "./panel.js";
 import { registerPlaybackResumeEvents } from "./playback-resume.js";
-import { ensureHighestQuality } from "./quality.js";
+import { createPlayerMemory } from "./player-memory.js";
+import { createPlayerPreferenceStore, PLAYER_PREFERENCES } from "./player-preferences.js";
 import { createRuntimeController, getPlayerScope, registerLifecycleEvents, isLiveLocation, samePlayerScope } from "./runtime.js";
 import { createSettingsStore } from "./settings.js";
 import { sleep, throwIfAborted } from "./task.js";
@@ -18,11 +16,12 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
   let storage;
   try { storage = window.localStorage; } catch { /* Settings still work in memory. */ }
   const settingsStore = createSettingsStore({ storage, eventTarget: window });
+  const preferences = createPlayerPreferenceStore({ storage, eventTarget: window, legacy: settingsStore.get() });
   let visibility;
   let currentScope;
   let menuBusy = false;
   let menuQueue = Promise.resolve();
-  const checkedAudioVideos = new WeakSet();
+  let memory;
   let panel;
   let resume;
 
@@ -53,9 +52,12 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
   const runtime = createRuntimeController({
     getScope: () => getPlayerScope(document, window.location),
     settingsStore,
+    features: Object.keys(PLAYER_PREFERENCES),
+    shouldRun: (key) => preferences.get(key).mode !== "unmanaged",
     onScope(scope) {
       resume?.cancel();
       currentScope = scope;
+      memory?.begin(scope);
       visibility?.destroy();
       visibility = scope ? createVisibilityController({ document, MutationObserver: window.MutationObserver }) : null;
     },
@@ -70,28 +72,23 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
         addEventListener: taskSignal.addEventListener.bind(taskSignal),
         removeEventListener: taskSignal.removeEventListener.bind(taskSignal),
       };
-      if (key === "giftEffects") return withPlayerMenu(signal, () =>
-        ensureGiftEffectsBlocked({ document, signal, blocked: value }),
-      );
-      if (key === "danmakuFilters") return withPlayerMenu(signal, () =>
-        ensureDanmakuFiltersDisabled({ document, signal, disabled: value }),
-      );
-      if (key === "quality") return withPlayerMenu(signal, () => ensureHighestQuality({ document, signal }));
-      if (key === "audio") {
-        if (checkedAudioVideos.has(scope.video)) return { buttonFound: true, clicked: false };
-        const playerDocument = {
-          querySelector(selector) {
-            return selector === "video" ? scope.video : scope.player?.querySelector(selector);
-          },
-        };
-        return ensurePlayerAudioOnOpen({ document: playerDocument, signal }).then((result) => {
-          if (result.buttonFound) checkedAudioVideos.add(scope.video);
-          return result;
-        });
-      }
+      return memory.apply(key, { signal });
     },
   });
-  panel = createSettingsPanel({ document, window, settingsStore, retry: runtime.retry, registerMenuCommand });
+  memory = createPlayerMemory({ document, window, preferences, reapply: runtime.runKeys, cancelKeys: runtime.cancelKeys,
+    withMenu: withPlayerMenu,
+    onResult: (key, result) => {
+      panel?.setMethod(key, result?.method);
+      if (key === "webFullscreen" && result?.applied && preferences.get("chatCollapsed").mode !== "unmanaged")
+        runtime.runKeys(["chatCollapsed"]);
+    },
+  });
+  const stopPreferences = preferences.subscribe((key, policy, origin) => {
+    if (origin !== "capture") runtime.runKeys([key]);
+  });
+  panel = createSettingsPanel({ document, window, settingsStore, preferences,
+    retry: () => runtime.runKeys(Object.keys(PLAYER_PREFERENCES)), registerMenuCommand,
+  });
   const stopLifecycle = registerLifecycleEvents({
     document, window, history, refresh: runtime.refresh,
     refreshLayout: () => { runtime.refresh(); visibility?.refresh(); },
@@ -105,9 +102,12 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
     destroy() {
       stopLifecycle();
       runtime.destroy();
+      stopPreferences();
+      memory.destroy();
       resume.destroy();
       panel.destroy();
       settingsStore.destroy();
+      preferences.destroy();
     },
   };
 }
