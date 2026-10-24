@@ -1,5 +1,13 @@
 # Douyu Web Enhancer 验证记录
 
+## 2026-10-24：主目录 main 收敛与构建复验
+
+- 保留全部原未提交源码与产物后，将本地开发约定、Socket 归档工具和当前互相依赖的过滤/关注/提醒 runtime 分别提交；原 user-blocking 分支及这批提交已进入 main。没有推送、升版、发布或清理旧工作区。`.codex` 两个原配置改动保持未提交。
+- 从集成源码重建，user.js SHA-256 为 `768b40c3acd941292d2e615e48c2937f72973658d5df91185a3e66c84977603e`，与整理前在用产物逐字节一致。抖音源码也集成后，全仓 validate、test（387/387）、type-check、build 全部通过。
+- 内置 Browser 房间 52 的实际执行源码包含完整当前 dist；执行源码元数据中的 DEV @require 指向主目录 `packages/douyu-web-enhancer/dist/douyu-web-enhancer.user.js`。外层已有 `msg.douyu.com`，另保留旧 `www.doseeing.com`；本轮未修改代理、权限或安装副本。
+- 最新产物刷新页面后，控制中心可打开，顶部“记录/待看”进入提醒中心，弹幕分区“弹幕快捷操作”保持开启；只读查看并关闭面板，未发送、改账号或改变自动化开关。截图 `/private/tmp/userscripts-main-douyu-20261024.png`。已有自然场景和真实输入缺口继续沿用原记录，不因源码集成标为通过。
+- 历史 `wip/douyu-web-enhancer/overlap-recovery` 的方向键回看/删除“同步时间”按钮决定与当前 main 契约冲突，尚待用户选择；保留该分支，不整条合并、不删除，也不把历史分支计为已完全收敛。
+
 ## 2026-10-14：活动 Socket 过滤与人数悬浮（verifying）
 
 - 后续修正人数触发区到约 69 × 28 px，使用实心双人图标；悬浮提示允许鼠标进入阅读，页面布局变化时若鼠标仍在提示中不会自行关闭。最新 dist 刷新内置 Browser 直播房 `1126960`，从人数触发区移入提示后持续 20 秒，期间在线/贵宾/钻粉数据继续更新；移出后约 160 ms 关闭。截图 `/tmp/dwe-online-hover-final-20261014.png`。这证明交互，不证明 `oun` 等于移动端“真实人数”。
