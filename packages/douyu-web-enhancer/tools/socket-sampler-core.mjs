@@ -63,8 +63,8 @@ function nestedFieldNames(value) {
 }
 
 export function classifyMessage(text) {
-  const fields = {};
-  const nestedFields = {};
+  const fields = Object.create(null);
+  const nestedFields = Object.create(null);
   let type = "(missing)";
   for (const part of text.split("/")) {
     const separator = part.indexOf("@=");
@@ -88,7 +88,7 @@ export function classifyMessage(text) {
 }
 
 export function createSummary() {
-  return { frames: 0, messages: 0, skippedFrames: 0, unparsedFrames: 0, unparsedReasons: {}, types: {} };
+  return { frames: 0, messages: 0, skippedFrames: 0, unparsedFrames: 0, unparsedReasons: Object.create(null), types: Object.create(null) };
 }
 
 export function anonymousControlMessages(room) {
@@ -109,17 +109,17 @@ export function addFrameToSummary(summary, frame, stream = createPacketStream())
   for (const message of messages) {
     summary.messages += 1;
     const { type, fields, nestedFields } = classifyMessage(message.text);
-    const item = summary.types[type] ??= { count: 0, packetTypes: {}, fields: {}, nestedFields: {} };
+    const item = summary.types[type] ??= { count: 0, packetTypes: Object.create(null), fields: Object.create(null), nestedFields: Object.create(null) };
     item.count += 1;
     item.packetTypes[message.packetType] = (item.packetTypes[message.packetType] ?? 0) + 1;
     for (const [key, shapes] of Object.entries(fields)) {
-      item.fields[key] ??= {};
+      item.fields[key] ??= Object.create(null);
       for (const [shape, count] of Object.entries(shapes)) {
         item.fields[key][shape] = (item.fields[key][shape] ?? 0) + count;
       }
     }
     for (const [key, names] of Object.entries(nestedFields)) {
-      item.nestedFields[key] ??= {};
+      item.nestedFields[key] ??= Object.create(null);
       for (const name of names) item.nestedFields[key][name] = (item.nestedFields[key][name] ?? 0) + 1;
     }
   }
