@@ -102,7 +102,7 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 - 四个原提交通过 `7e74aa6` 合并到主目录 main，package 源码与原 worktree 一致；后续在主目录开发和构建，不再以复制 worktree dist 维持日常版本。原 worktree 保留，尚未清理。
 - 主目录重建 user.js SHA-256 为 `0179a81128d83643756fcce6df5cee11360ff7ba438102b6f23b65fff99aa164`，与 10-03 记忆功能验收产物一致；整理前的产物、未提交源码差异及检查日志保存在忽略目录 `artifacts/convergence-before-20261024/`。
 - 集成后全仓 validate、test（387/387）、type-check、build 通过；其余未改动 package 的重建产物逐字节不变。
-- 内置浏览器在 live 首页未发现本脚本执行来源，未安装 DEV，不以页面加载冒充脚本验收。已生成主目录 `dist/douyin-live-optimizer.dev.user.js` 供安装前审阅，尚未安装。
+- 初次检查时内置浏览器未安装 DEV；之后用户完成已授权安装，来源核对与核心验收已通过，详见下方续验结果。主目录代理为 `dist/douyin-live-optimizer.dev.user.js`。
 - 日常 Chrome 兼容性检查：实际直播页通过 Alt+Shift+O 打开新设置面板，七项状态策略可见，关闭后面板消失；video 为 1280×645、readyState=4、持续播放。未改变偏好、发送或操作账号。Chrome 的 CDP 来源检查受页面响应暂停状态阻断，因此本轮未重新证明其外层 @require/权限；固定主目录入口沿用既有记录。
 - 本轮未补齐 SPA 连续换房、原生全屏焦点、实际礼物出现及跨域统一；已有自然验证缺口继续保留，不因源码集成而标记通过。
 
@@ -110,4 +110,11 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 
 - 用户已明确授权安装主目录 DEV 代理，权限仅 `GM_registerMenuCommand`、`sandbox raw`，没有新增账号或网络权限。
 - 本地 `http://127.0.0.1:54190/douyin-live-optimizer.dev.user.js` 返回 200 和正确元数据；内置浏览器打开后为 `net::ERR_ABORTED`，标签仍为空白，未显示安装确认。工具另明确拒绝操作 Codex 原生界面，原因是安全限制。没有绕过限制或改装 Chrome 副本，也未将尝试记为成功。
-- 安装地址已通过 open_in_codex 加入当前聊天的浏览器面板（返回 queued）；待用户手动完成安装后继续核对执行源码、刷新和核心操作，无需再次申请相同安装授权。当前安装与内置实页验收仍未完成。
+- 安装地址已通过 open_in_codex 加入当前聊天的浏览器面板（返回 queued）；该阻塞随后由用户手动安装解除，无需再次申请相同安装授权，结果见下。
+
+### 用户安装后核心验收通过
+
+- 2026-10-24 用户确认安装完成。内置 Browser 的实际执行源码包含主目录完整 user.js，外层 DEV @require 指向主目录 dist，权限仅 GM_registerMenuCommand、sandbox raw；刷新后的执行源码再次逐字匹配同一产物，SHA-256 仍为 `0179a81128d83643756fcce6df5cee11360ff7ba438102b6f23b65fff99aa164`。
+- 原样本房间已下播，改从当前直播列表选取房间 93974108982。Alt+Shift+O 打开面板，七项策略可见；Tab 从关闭按钮进入礼物模式，Escape 关闭面板。仅验证快捷键入口，未把它冒充油猴菜单点击证据。
+- “隐藏底部礼物与游戏栏”原为开启；关闭并刷新后保持关闭，再恢复开启并刷新后保持开启。最终恢复原设置。实际播放器 960×720、readyState=4、paused=false，未被隐藏。截图 `/private/tmp/userscripts-douyin-iab-20261024.png`。没有登录、发言、关注、送礼或改账号。
+- 本轮仅安装与实页验证并更新记录，未修改功能源码，无需重复已通过的全仓 387 项检查；git diff --check 通过。SPA 连续换房、原生全屏焦点、实际礼物特效及跨域统一仍保留原待办。
