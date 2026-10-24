@@ -1,6 +1,6 @@
 # 设置与播放器运行时首轮试探
 
-状态：隔离 worktree 实现；真实油猴菜单已由用户确认可打开，播放器误隐藏已修复。播放器记忆、固定模式及当前实页证据见文末最新记录。源码尚未集成主目录；版本保持 2026.8.20，userscript.publish=false。
+状态：2026-10-24 已将隔离 worktree 的四个提交集成到主目录 main，并从集成源码重建；版本保持 2026.8.20，userscript.publish=false。下文 10 月初的“仅同步 dist / 尚未集成”是历史现场，当前以文末收敛记录为准。
 
 ## 当前体验契约
 
@@ -96,3 +96,12 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 - 全仓 validate、test（291/291）、type-check、build 通过；抖音包 114 项。新增策略存储、跨标签事件、可信输入捕获、取消恢复、原生布尔语义、高清选项回调回归。
 - user.js SHA-256：0179a81128d83643756fcce6df5cee11360ff7ba438102b6f23b65fff99aa164。同步前备份 /private/tmp/douyin-before-settings-jUXsoj。截图 /private/tmp/douyin-player-memory-settings.png（本机临时证据，不提交页面内容）。
 - 主目录仍有其他任务未提交改动，只导出忽略的抖音 dist，不集成源码或更换其分支；未来主目录重新构建会覆盖该预览。
+
+## 2026-10-24 源码与构建入口收敛
+
+- 四个原提交通过 `7e74aa6` 合并到主目录 main，package 源码与原 worktree 一致；后续在主目录开发和构建，不再以复制 worktree dist 维持日常版本。原 worktree 保留，尚未清理。
+- 主目录重建 user.js SHA-256 为 `0179a81128d83643756fcce6df5cee11360ff7ba438102b6f23b65fff99aa164`，与 10-03 记忆功能验收产物一致；整理前的产物、未提交源码差异及检查日志保存在忽略目录 `artifacts/convergence-before-20261024/`。
+- 集成后全仓 validate、test（387/387）、type-check、build 通过；其余未改动 package 的重建产物逐字节不变。
+- 内置浏览器在 live 首页未发现本脚本执行来源，未安装 DEV，不以页面加载冒充脚本验收。已生成主目录 `dist/douyin-live-optimizer.dev.user.js` 供安装前审阅，尚未安装。
+- 日常 Chrome 兼容性检查：实际直播页通过 Alt+Shift+O 打开新设置面板，七项状态策略可见，关闭后面板消失；video 为 1280×645、readyState=4、持续播放。未改变偏好、发送或操作账号。Chrome 的 CDP 来源检查受页面响应暂停状态阻断，因此本轮未重新证明其外层 @require/权限；固定主目录入口沿用既有记录。
+- 本轮未补齐 SPA 连续换房、原生全屏焦点、实际礼物出现及跨域统一；已有自然验证缺口继续保留，不因源码集成而标记通过。
