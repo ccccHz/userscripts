@@ -29,7 +29,7 @@ test("requires every userscript package to have its standard files", async () =>
   }
 });
 
-test("live optimizer packages use the shared local mscststs helper", async () => {
+test("live optimizer packages use local runtime helpers without remote require", async () => {
   for (const pkg of ["douyin-live-optimizer", "kuaishou-live-optimizer"]) {
     const packageRoot = join(workspaceRoot, "packages", pkg);
     const entry = await readFile(join(packageRoot, "src/main.js"), "utf8");
@@ -37,8 +37,8 @@ test("live optimizer packages use the shared local mscststs helper", async () =>
 
     assert.match(
       entry,
-      /from "\.\.\/\.\.\/\.\.\/shared\/mscststs\.js"/,
-      `${pkg} should import the local shared helper`,
+      pkg === "douyin-live-optimizer" ? /from "\.\/task\.js"/ : /from "\.\.\/\.\.\/\.\.\/shared\/mscststs\.js"/,
+      `${pkg} should import a local runtime helper`,
     );
     assert.doesNotMatch(
       viteConfig,
@@ -109,4 +109,14 @@ test("auto-fans-continue imports granted userscript APIs through the plugin clie
   );
   assert.doesNotMatch(entry, /globalThis\s*\[\s*["'](?:GM_|unsafeWindow)/);
   assert.doesNotMatch(entry, /getGlobalValue\s*\(\s*["'](?:GM_|unsafeWindow)/);
+});
+
+test("Douyin settings grant only the menu API and request the native player page realm", async () => {
+  const root = join(workspaceRoot, "packages", "douyin-live-optimizer");
+  const entry = await readFile(join(root, "src/main.js"), "utf8");
+  const config = await readFile(join(root, "vite.config.ts"), "utf8");
+  assert.match(entry, /import\s*\{\s*GM_registerMenuCommand\s*\}\s*from\s*"\$"/);
+  assert.match(config, /grant:\s*\["GM_registerMenuCommand"\]/);
+  assert.match(config, /sandbox:\s*"raw"/);
+  assert.doesNotMatch(config, /\b(?:connect|require):|unsafeWindow|GM_(?:getValue|setValue|xmlhttpRequest)/);
 });

@@ -8,5 +8,8 @@
     "dev": "node ../../scripts/dev.mjs douyin-live-optimizer",
     "dev:hmr": "vite",
     "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "userscript": {
+    "publish": false
   }
 }

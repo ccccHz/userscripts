@@ -99,6 +99,18 @@ test("does not keep checking after the initial settled state", async () => {
   assert.equal(volumeButton.clickCount, 0);
 });
 
+test("cancels during initial audio settling without undoing a later user mute", async () => {
+  const controller = new AbortController();
+  const volumeButton = fakeVolumeButton({ mutedClass: true });
+  const video = { muted: true, volume: 0 };
+  await assert.rejects(ensurePlayerAudioOnOpen({
+    document: fakeDocument({ volumeButton, video }), signal: controller.signal,
+    sleep: async () => controller.abort(),
+  }), { name: "AbortError" });
+  assert.equal(volumeButton.clickCount, 0);
+  assert.equal(video.muted, true);
+});
+
 function fakeDocument({ volumeButton = null, video = null } = {}) {
   return {
     body: {},

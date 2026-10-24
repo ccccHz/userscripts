@@ -102,6 +102,50 @@ test("keeps the old gitBarOptimizeEnabled ancestor fallback", () => {
   assert.equal(findLiveBottomLayoutRoot(oldMarker), outer.childNodes[0]);
 });
 
+test("a gift entry outside BottomLayout cannot hide LeftBackgroundLayout containing the player", () => {
+  const entry = el({ id: "giftPanelEntrance", attributes: { "data-e2e": "gifts-switch" } });
+  const gifts = el({ attributes: { "data-e2e": "gifts-container" } });
+  const bottom = el({ id: "BottomLayout" }, [gifts]);
+  const player = el({ id: "PlayerLayout" }, [el({ tagName: "VIDEO" })]);
+  const left = el({ id: "LeftBackgroundLayout" }, [el({ id: "HeaderLayout" }, [entry]), player, bottom]);
+  assert.equal(findLiveBottomLayoutRoot(entry), entry);
+  assert.equal(findLiveBottomLayoutRoot(gifts), bottom);
+  removeLiveBottomLayout(entry);
+  assert.equal(left.removed, false);
+  assert.equal(player.removed, false);
+});
+
+test("unknown shared gift ancestors containing video or chat are never layout targets", () => {
+  for (const content of [el({ tagName: "VIDEO" }), el({ id: "chatInput" })]) {
+    const entry = el({ id: "giftPanelEntrance" });
+    const wrapper = el({}, [el({ attributes: { "data-e2e": "gifts-container" } }), entry, content]);
+    assert.equal(findLiveBottomLayoutRoot(entry), entry);
+    assert.equal(findLiveBottomLayoutRoot(wrapper), null);
+    assert.equal(wrapper.removed, false);
+  }
+});
+
+test("a recognized BottomLayout containing a player is rejected instead of trusting its id", () => {
+  const bottom = el({ id: "BottomLayout" }, [el({ tagName: "VIDEO" })]);
+  assert.equal(removeLiveBottomLayout(bottom), null);
+  assert.equal(bottom.removed, false);
+});
+
+test("legacy ancestor climbing stops before a player with one child", () => {
+  const marker = el({ className: "gitBarOptimizeEnabled" });
+  const bar = el({}, [marker]);
+  const player = el({ className: "douyin-player" }, [bar]);
+  assert.equal(findLiveBottomLayoutRoot(marker), bar);
+  assert.equal(player.removed, false);
+});
+
+test("a game iframe inside the player cannot select the whole player as its game layout", () => {
+  const iframe = el({ tagName: "IFRAME", attributes: { "data-container-id": "@annie/web_service" } });
+  const player = el({ className: "douyin-player", textContent: "游戏" }, [el({}, [iframe]), el({ tagName: "VIDEO" })]);
+  assert.equal(removeLiveBottomLayout(iframe), null);
+  assert.equal(player.removed, false);
+});
+
 function el(options = {}, children = []) {
   const node = {
     tagName: options.tagName || "DIV",

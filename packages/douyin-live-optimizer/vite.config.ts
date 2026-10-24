@@ -11,6 +11,8 @@ export default createUserscriptConfig(
     author: "You",
     match: ["https://*.douyin.com/**"],
     icon: "https://www.google.com/s2/favicons?sz=64&domain=douyin.com",
-    grant: "none",
+    // Keep native player expandos/history in the page realm while exposing the menu API.
+    sandbox: "raw",
+    grant: ["GM_registerMenuCommand"],
   },
 );

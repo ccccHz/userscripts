@@ -1,3 +1,5 @@
+import { sleep as cancellableSleep, throwIfAborted } from "./task.js";
+
 const VOLUME_BUTTON_SELECTOR =
   ".douyin-player-icon.douyin-player-volume";
 const MUTED_SLIDER_SELECTOR =
@@ -29,21 +31,24 @@ export function ensurePlayerUnmuted(root = globalThis.document) {
 
 export async function ensurePlayerAudioOnOpen({
   document = globalThis.document,
-  sleep = defaultSleep,
+  sleep = cancellableSleep,
+  signal,
   interval = 100,
   maxAttempts = 600,
   settleDelay = 500,
 } = {}) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    throwIfAborted(signal);
     const volumeButton = document?.querySelector?.(VOLUME_BUTTON_SELECTOR);
     const video = document?.querySelector?.("video");
 
     if (volumeButton && video) {
-      await sleep(settleDelay);
+      await sleep(settleDelay, signal);
+      throwIfAborted(signal);
       return ensurePlayerUnmuted(document);
     }
 
-    await sleep(interval);
+    await sleep(interval, signal);
   }
 
   return { buttonFound: false, clicked: false };
@@ -57,10 +62,4 @@ function getPreviousVolume(volumeButton) {
 
   if (!Number.isFinite(percentage) || percentage <= 0) return 0;
   return Math.min(percentage / 100, 1);
-}
-
-function defaultSleep(milliseconds) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, milliseconds);
-  });
 }

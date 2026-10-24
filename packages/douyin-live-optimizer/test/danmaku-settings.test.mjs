@@ -31,6 +31,7 @@ test("turns off gift messages and lucky bag phrases on open", async () => {
     triggerFound: true,
     switchLabels: ["送礼信息", "福袋口令"],
     clickedLabels: ["送礼信息", "福袋口令"],
+    verified: true,
   });
   assert.equal(fixture.giftSwitch.clickCount, 1);
   assert.equal(fixture.luckyBagSwitch.clickCount, 1);
@@ -51,6 +52,21 @@ test("leaves danmaku filters alone when they are already off", async () => {
   assert.deepEqual(result.clickedLabels, []);
   assert.equal(fixture.giftSwitch.clickCount, 0);
   assert.equal(fixture.luckyBagSwitch.clickCount, 0);
+});
+
+test("restores both native message switches when the optimizer setting is disabled", async () => {
+  const fixture = createFixture({ giftEnabled: false, luckyBagEnabled: false });
+  const result = await ensureDanmakuFiltersDisabled({ document: fixture.document, disabled: false, sleep: async () => {} });
+  assert.equal(result.verified, true);
+  assert.equal(fixture.giftSwitch.clickCount, 1);
+  assert.equal(fixture.luckyBagSwitch.clickCount, 1);
+});
+
+test("reports an ignored native switch click as unverified", async () => {
+  const fixture = createFixture({ giftEnabled: true, luckyBagEnabled: true });
+  fixture.giftSwitch.click = () => {};
+  const result = await ensureDanmakuFiltersDisabled({ document: fixture.document, sleep: async () => {} });
+  assert.equal(result.verified, false);
 });
 
 function createFixture({ giftEnabled, luckyBagEnabled }) {
@@ -95,6 +111,10 @@ function switchNode(enabled) {
   knob.getBoundingClientRect = () => knobRect;
   const target = clickableNode([knob]);
   target.getBoundingClientRect = () => trackRect;
+  target.click = () => {
+    target.clickCount += 1;
+    knobRect.x = knobRect.x === 16 ? 2 : 16;
+  };
   return target;
 }
 

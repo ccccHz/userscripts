@@ -1,163 +1,124 @@
-import mscststs from "../../../shared/mscststs.js";
-import { ensurePlayerAudioOnOpen } from "./audio.js";
-import { observeAndRemoveCommerceAds } from "./commerce-ads.js";
-import { ensureDanmakuFiltersDisabled } from "./danmaku-settings.js";
-import {
-  LIVE_BOTTOM_LAYOUT_SELECTORS,
-  removeLiveBottomLayout,
-} from "./dom-cleanup.js";
-import { ensureGiftEffectsBlocked } from "./gift-effects.js";
-import { findBestQualityOption, getQualityText } from "./quality.js";
+import { GM_registerMenuCommand } from "$";
+import { createSettingsPanel } from "./panel.js";
 import { registerPlaybackResumeEvents } from "./playback-resume.js";
-import { registerRuntimeEvents } from "./runtime-events.js";
-import { observeAndRemoveWishPopups } from "./wish-popup.js";
+import { createPlayerMemory } from "./player-memory.js";
+import { createPlayerPreferenceStore, PLAYER_PREFERENCES } from "./player-preferences.js";
+import { createRuntimeController, getPlayerScope, registerLifecycleEvents, isLiveLocation, samePlayerScope } from "./runtime.js";
+import { createSettingsStore } from "./settings.js";
+import { sleep, throwIfAborted } from "./task.js";
+import { createVisibilityController } from "./visibility.js";
 
-let wishPopupObserver = null;
-let commerceAdObserver = null;
-let playerAudioCheckedOnOpen = false;
-let danmakuFiltersCheckedOnOpen = false;
-let giftEffectBlockerTask = null;
+// @sandbox raw requests the page realm; native player expandos and history
+// wrappers must also be checked in the actual installed userscript.
+const INSTANCE_KEY = "__douyinLiveOptimizerRuntimeV1";
 
-const GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE =
-  "data-douyin-live-gift-effect-blocker";
+export function startOptimizer({ document, window, history, registerMenuCommand } = {}) {
+  let storage;
+  try { storage = window.localStorage; } catch { /* Settings still work in memory. */ }
+  const settingsStore = createSettingsStore({ storage, eventTarget: window });
+  const preferences = createPlayerPreferenceStore({ storage, eventTarget: window, legacy: settingsStore.get() });
+  let visibility;
+  let currentScope;
+  let menuBusy = false;
+  let menuQueue = Promise.resolve();
+  let memory;
+  let panel;
+  let resume;
 
-const QUALITY_RULES = [
-  {
-    name: "最高直播清晰度",
-    menuSelector: '[data-e2e="quality"]',
-    optionListSelector: '[data-e2e="quality-selector"]',
-  },
-];
-
-(function () {
-  "use strict";
-  runMain();
-
-  registerRuntimeEvents({
-    history,
-    window,
-    runMain,
-    removeLiveBottomLayouts,
-  });
-
-  registerPlaybackResumeEvents({ document, window });
-})();
-
-async function getTarget(str, needContent = true) {
-  const target = await mscststs.wait(str, needContent, 50);
-  return target;
-}
-
-function runMain() {
-  console.log("userscript: douyin optim");
-  const giftEffectTask = enableGiftEffectBlocker();
-  ensurePlayerAudioEnabled();
-  disableDanmakuFiltersOnOpen(giftEffectTask);
-  removeWishPopupWhenShown();
-  removeCommerceAdsWhenShown();
-  selectQualityOptions();
-  removeLiveBottomLayouts();
-}
-
-function disableDanmakuFiltersOnOpen(previousTask) {
-  if (danmakuFiltersCheckedOnOpen) return;
-
-  danmakuFiltersCheckedOnOpen = true;
-  Promise.resolve(previousTask)
-    .then(() => ensureDanmakuFiltersDisabled({ document }))
-    .then((result) => {
-      console.debug(
-        "userscript: douyin danmaku filters",
-        JSON.stringify(result),
-      );
+  function updateVisibility() {
+    if (!settingsStore.get().playbackResume) resume?.cancel();
+    if (!visibility) return;
+    const values = settingsStore.get();
+    // Temporarily restore a hidden toolbar while operating its native settings.
+    visibility.update({ ...values, bottomLayout: values.bottomLayout && !menuBusy });
+  }
+  function withPlayerMenu(signal, action) {
+    const result = menuQueue.catch(() => {}).then(async () => {
+      throwIfAborted(signal);
+      menuBusy = true;
+      updateVisibility();
+      try {
+        await sleep(250, signal);
+        return await action();
+      } finally {
+        menuBusy = false;
+        updateVisibility();
+      }
     });
-}
-
-function ensurePlayerAudioEnabled() {
-  if (playerAudioCheckedOnOpen) return;
-
-  playerAudioCheckedOnOpen = true;
-  ensurePlayerAudioOnOpen({ document }).then((result) => {
-    console.debug(
-      "userscript: douyin initial audio check",
-      JSON.stringify(result),
-    );
-  });
-}
-
-function removeLiveBottomLayouts() {
-  LIVE_BOTTOM_LAYOUT_SELECTORS.forEach((selector) => {
-    getTarget(selector, false).then((target) => {
-      removeLiveBottomLayout(target);
-    });
-  });
-}
-
-function enableGiftEffectBlocker() {
-  const root = document.documentElement;
-  const blockerState = root?.getAttribute(GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE);
-
-  if (giftEffectBlockerTask || blockerState === "running" || blockerState === "done") {
-    console.debug("userscript: douyin gift effect blocker skipped", blockerState);
-    return giftEffectBlockerTask;
+    menuQueue = result;
+    return result;
   }
 
-  root?.setAttribute(GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE, "running");
-
-  giftEffectBlockerTask = ensureGiftEffectsBlocked({
-    document,
-    sleep: (milliseconds) => mscststs.sleep(milliseconds),
-  })
-    .then(async (result) => {
-      if (result.switchFound) {
-        await mscststs.sleep(400);
-        root?.setAttribute(GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE, "done");
-      } else {
-        root?.removeAttribute(GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE);
-      }
-
-      console.debug("userscript: douyin gift effect blocker", result);
-      return result;
-    })
-    .catch((error) => {
-      root?.removeAttribute(GIFT_EFFECT_BLOCKER_STATE_ATTRIBUTE);
-      console.warn("userscript: douyin gift effect blocker failed", error);
-    })
-    .finally(() => {
-      giftEffectBlockerTask = null;
-    });
-
-  return giftEffectBlockerTask;
-}
-
-function removeWishPopupWhenShown() {
-  if (wishPopupObserver) return;
-
-  wishPopupObserver = observeAndRemoveWishPopups({ document });
-}
-
-function removeCommerceAdsWhenShown() {
-  if (commerceAdObserver) return;
-
-  commerceAdObserver = observeAndRemoveCommerceAds({ document });
-}
-
-function selectQualityOptions() {
-  QUALITY_RULES.forEach((rule) => {
-    getTarget(rule.menuSelector).then((menu) => {
-      if (!menu) return;
-
-      const currentQuality = getQualityText(menu);
-      menu.click();
-      getTarget(rule.optionListSelector).then((optionList) => {
-        const target = findBestQualityOption(optionList);
-        if (!target) return;
-
-        const bestQuality = getQualityText(target);
-        if (!bestQuality.includes(currentQuality)) {
-          target.click();
-        }
-      });
-    });
+  const runtime = createRuntimeController({
+    getScope: () => getPlayerScope(document, window.location),
+    settingsStore,
+    features: Object.keys(PLAYER_PREFERENCES),
+    shouldRun: (key) => preferences.get(key).mode !== "unmanaged",
+    onScope(scope) {
+      resume?.cancel();
+      currentScope = scope;
+      memory?.begin(scope);
+      visibility?.destroy();
+      visibility = scope ? createVisibilityController({ document, MutationObserver: window.MutationObserver }) : null;
+    },
+    onSettings: updateVisibility,
+    onStatus: (key, status) => panel?.setStatus(key, status),
+    runFeature(key, { scope, value, signal: taskSignal }) {
+      const signal = {
+        get aborted() {
+          const current = getPlayerScope(document, window.location);
+          return taskSignal.aborted || !samePlayerScope(current, scope);
+        },
+        addEventListener: taskSignal.addEventListener.bind(taskSignal),
+        removeEventListener: taskSignal.removeEventListener.bind(taskSignal),
+      };
+      return memory.apply(key, { signal });
+    },
   });
+  memory = createPlayerMemory({ document, window, preferences, reapply: runtime.runKeys, cancelKeys: runtime.cancelKeys,
+    withMenu: withPlayerMenu,
+    onResult: (key, result) => {
+      panel?.setMethod(key, result?.method);
+      if (key === "webFullscreen" && result?.applied && preferences.get("chatCollapsed").mode !== "unmanaged")
+        runtime.runKeys(["chatCollapsed"]);
+    },
+  });
+  const stopPreferences = preferences.subscribe((key, policy, origin) => {
+    if (origin !== "capture") runtime.runKeys([key]);
+  });
+  panel = createSettingsPanel({ document, window, settingsStore, preferences,
+    retry: () => runtime.runKeys(Object.keys(PLAYER_PREFERENCES)), registerMenuCommand,
+  });
+  const stopLifecycle = registerLifecycleEvents({
+    document, window, history, refresh: runtime.refresh,
+    refreshLayout: () => { runtime.refresh(); visibility?.refresh(); },
+  });
+  resume = registerPlaybackResumeEvents({
+    document, window,
+    isEnabled: () => Boolean(currentScope) && isLiveLocation(window.location) && settingsStore.get().playbackResume,
+  });
+  return {
+    openSettings: panel.open,
+    destroy() {
+      stopLifecycle();
+      runtime.destroy();
+      stopPreferences();
+      memory.destroy();
+      resume.destroy();
+      panel.destroy();
+      settingsStore.destroy();
+      preferences.destroy();
+    },
+  };
+}
+
+function boot() {
+  window[INSTANCE_KEY]?.destroy();
+  window[INSTANCE_KEY] = startOptimizer({ document, window, history,
+    registerMenuCommand: typeof GM_registerMenuCommand === "function" ? GM_registerMenuCommand : undefined,
+  });
+}
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  if (document.body) boot();
+  else document.addEventListener("DOMContentLoaded", boot, { once: true });
 }

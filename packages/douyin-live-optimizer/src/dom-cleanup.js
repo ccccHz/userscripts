@@ -7,6 +7,25 @@ export const LIVE_BOTTOM_LAYOUT_SELECTORS = [
   'iframe[data-container-id^="@annie/web_"]',
 ];
 
+const PROTECTED_IDS = new Set([
+  "root", "ContainerBackgroundLayout", "LeftBackgroundLayout", "HeaderLayout", "PlayerLayout", "chatInput",
+]);
+const PROTECTED_DESCENDANTS = 'video, #PlayerLayout, .douyin-player, [data-e2e="basicPlayer"], [id^="living_player_container"], #chatInput, [data-douyin-live-optimizer-panel]';
+
+export function isProtectedLayoutRoot(node) {
+  if (!node) return false;
+  if (isProtectedNode(node)) return true;
+  if (node.querySelector) return Boolean(node.querySelector(PROTECTED_DESCENDANTS));
+  return hasDescendantOrSelf(node, isProtectedNode);
+}
+
+function isProtectedNode(node) {
+  return ["HTML", "BODY", "VIDEO"].includes(String(node.tagName || "").toUpperCase()) ||
+    PROTECTED_IDS.has(node.id) || String(node.id || "").startsWith("living_player_container") ||
+    hasClass(node, "douyin-player") || node.getAttribute?.("data-e2e") === "basicPlayer" ||
+    node.getAttribute?.("data-douyin-live-optimizer-panel") != null;
+}
+
 export function removeLiveBottomLayout(target) {
   const root = findLiveBottomLayoutRoot(target);
   if (root) root.remove();
@@ -14,7 +33,7 @@ export function removeLiveBottomLayout(target) {
 }
 
 export function findLiveBottomLayoutRoot(target) {
-  if (!target) return null;
+  if (!target || isProtectedLayoutRoot(target)) return null;
 
   const bottomLayout = closestBy(target, (node) => node.id === "BottomLayout");
   if (bottomLayout) return bottomLayout;
@@ -42,6 +61,7 @@ function findFullscreenGameRoot(target) {
   let depth = 0;
 
   while (current && depth <= 3) {
+    if (isProtectedLayoutRoot(current)) return null;
     if (isFullscreenGameRoot(current)) return current;
     current = current.parentElement || current.parentNode || null;
     depth += 1;
@@ -53,7 +73,7 @@ function findFullscreenGameRoot(target) {
 function findLegacyGiftBarRoot(target) {
   let current = target;
 
-  while (current?.parentNode && current.parentNode.childNodes.length <= 2) {
+  while (current?.parentNode && current.parentNode.childNodes.length <= 2 && !isProtectedLayoutRoot(current.parentNode)) {
     current = current.parentNode;
   }
 
@@ -93,6 +113,7 @@ function closestBy(target, predicate) {
   let current = target;
 
   while (current) {
+    if (isProtectedLayoutRoot(current)) return null;
     if (predicate(current)) return current;
     current = current.parentElement || current.parentNode || null;
   }
