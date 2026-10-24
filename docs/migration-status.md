@@ -20,7 +20,7 @@
 
 上述六个发布版沿用现有 `https://ccccHz.github.io/userscripts/<package>.meta.js` / `<package>.user.js` 更新方式；虎牙入口由用户确认，其余五包通过执行源码元数据核对。没有把发布版误标为主目录 @require。曾为评估准备的代理仅位于忽略目录 `artifacts/local-entry-convergence/`，未安装，不作为运行入口。
 
-旧抖音 worktree 已无独有未集成源码，保留不删除、不再作为持续开发入口；除历史 `wip/douyu-web-enhancer/overlap-recovery` 外，本地 package 分支均已被 main 包含。该 WIP 的删除同步按钮方案已被用户明确放弃，不整条合并，仍保留供追溯。两处原有 `.codex` 配置改动保留未提交。整理前源码差异、产物及检查日志位于忽略目录 `artifacts/convergence-before-20261024/`。
+用户随后授权清理分支：9 条已合并旧分支和历史 WIP 均已删除，本地仅保留 main，未修改远端分支。删除前建立并通过 verify 的完整 Git bundle：`artifacts/branches-before-cleanup-20261024.bundle`；其中保留 WIP 提交 e073369，用户已放弃其删除同步按钮的方案，不整条合并。旧抖音 worktree 保留目录与文件，仅在原 c9f235d 提交切为 detached HEAD，不再占用分支或作为持续开发入口。两处原有 `.codex` 配置改动保留未提交。整理前源码差异、产物及检查日志位于忽略目录 `artifacts/convergence-before-20261024/`。
 
 ## 状态说明
 
