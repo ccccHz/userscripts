@@ -6,7 +6,7 @@
 - 从集成源码重建，user.js SHA-256 为 `768b40c3acd941292d2e615e48c2937f72973658d5df91185a3e66c84977603e`，与整理前在用产物逐字节一致。抖音源码也集成后，全仓 validate、test（387/387）、type-check、build 全部通过。
 - 内置 Browser 房间 52 的实际执行源码包含完整当前 dist；执行源码元数据中的 DEV @require 指向主目录 `packages/douyu-web-enhancer/dist/douyu-web-enhancer.user.js`。外层已有 `msg.douyu.com`，另保留旧 `www.doseeing.com`；本轮未修改代理、权限或安装副本。
 - 最新产物刷新页面后，控制中心可打开，顶部“记录/待看”进入提醒中心，弹幕分区“弹幕快捷操作”保持开启；只读查看并关闭面板，未发送、改账号或改变自动化开关。截图 `/private/tmp/userscripts-main-douyu-20261024.png`。已有自然场景和真实输入缺口继续沿用原记录，不因源码集成标为通过。
-- 历史 `wip/douyu-web-enhancer/overlap-recovery` 的方向键回看/删除“同步时间”按钮决定与当前 main 契约冲突，尚待用户选择；保留该分支，不整条合并、不删除，也不把历史分支计为已完全收敛。
+- 历史 `wip/douyu-web-enhancer/overlap-recovery` 的删除“同步时间”按钮决定与当前 main 契约冲突。2026-10-24 用户明确选择保留当前 main 的按钮，沿用现有源码和契约；该分支保留供追溯，不整条合并、不删除，见 decisions.md 的 DWE007。
 
 ## 2026-10-14：活动 Socket 过滤与人数悬浮（verifying）
 
