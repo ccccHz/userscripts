@@ -1,77 +1,44 @@
-# Git 分支、worktree 与发布约定
+# Git、worktree 与版本约定
 
-本仓库是多个 userscript package 共用的 monorepo。分支按交付物划分，不为每个 package
-维护长期分支。
+本仓库是多个 userscript 共用的 monorepo。用户主要由 agent 完成开发，每个 package 通常只有一条持续开发线；不按 package 维护长期分支。用户需求、agent 责任与本地自用规则见 [agent-development.md](agent-development.md)。
 
-## 主目录与主线
+## 一条主线，按 package 推进
 
-- `/Users/chz/myWorkSpace/myJS/直播插件/userscripts` 是唯一长期主项目目录，也是日常构建、
-  Tampermonkey 开发代理和最终集成的权威来源。
-- `main` 是唯一长期主线，只接收已经完成检查、可以继续集成的提交。
-- 功能开发不能直接在 `main` 上进行；一个交付物使用一个短期分支。
-- `archive/` 只保存历史样本，不作为开发分支或运行入口。
+- `main` 是唯一长期源码主线。日常允许直接在 main 上做范围明确的小步修改与提交，不再要求每个功能自动创建分支。
+- 各 package 独立推进，日常自用跟随各自本地构建；不要求同时升版、构建或发布。某个 package 没变化时不用随其他 package 重发。
+- 主项目目录 `/Users/chz/myWorkSpace/myJS/直播插件/userscripts` 是最终源码集成位置。分支影响整个 checkout，不存在同一 checkout 内不同 package 各自处于不同 Git 分支。
+- 任务开始先看当前分支、未提交改动与目标 package 负责人。当前不在 main 时，不自动切换、重置或搬运现有工作来满足新约定；先保留现场，明确后续收敛路径。
+- `archive/` 是只读历史样本，不作为开发或运行入口。
 
-## 分支命名
+## 提交与多人（agent）协调
 
-统一使用 `<type>/<package>/<slug>`：
+- 提交尽量只包含一个 package、一个可说明的改动；共享代码跨 package 修改须说明受影响范围。
+- 完整的小步修改及时提交，不把整段持续开发积累成无法区分来源的大工作区。尚未完成的目标明确记录，可运行的阶段进展不必等到公开发布才提交。
+- 每次提交前逐文件核对 diff，明确暂存路径；禁止用 git add . 把其他任务的工作顺带提交。发现同文件有他人改动时先协调，不能按目录归属直接认领。
+- 不同 package 可以并行编辑约定的独立文件；同一 checkout 的 switch、暂存、提交、集成、共享文件/依赖修改和会覆盖其他 package dist 的构建由单一负责人串行执行。不能靠“一般不会冲突”代替协调。
+- 日常优先执行受影响 package 的检查与构建；仓库级交付执行 validate、test、type-check、build。全仓构建前确认各 package 源码都是当前有效版本及产物覆盖范围，避免旧源码覆盖日常使用构建；特别保留的备份/基线不在普通构建输出目录内。
 
-```text
-feat/douyu-web-enhancer/danmaku-availability
-fix/douyu-web-enhancer/remove-sync-button
-docs/userscripts/git-workflow
-chore/userscripts/dependency-update
-refactor/douyu-web-enhancer/settings-store
-test/douyu-web-enhancer/danmaku-availability
-```
+## 临时分支与 worktree
 
-- `feat`：新增用户能力。
-- `fix`：修复既有行为。
-- `docs`、`test`、`refactor`、`chore`：分别用于文档、测试、纯重构和维护。
-- `wip/<package>/<slug>` 只用于无损保存混合或待拆分改动，不合并进 `main`。
-- 不再使用 package 无关或来源不明的长期 `codex/*` 开发分支。
+- 只有确需同时隔离工作区、进行不稳定试验或独立审查时才创建；它们不是每个 package 的长期 main。
+- 默认分支前缀 `codex/`，例如 `codex/douyin-player-memory`；现有 feat/fix 分支不为统一命名而重建。
+- 创建或接手时记录：负责人、基线提交、范围、构建目录、测试代理路径、集成目标和退出条件。
+- 测试代理可以临时读取 worktree dist，但必须标注临时性质；既有 @require 修改与脚本安装仍遵循授权边界。
+- 完成后由原负责人集成到 main，从集成源码重建并完成必要浏览器复验，更新有变化的入口与 package 状态；不能只复制 dist 后留下长期未集成源码。
+- 清理 worktree/分支前检查提交、未跟踪文件、唯一产物和所有已知 @require/watchers 引用。不得删除仍有实际运行引用的工作区；清理遵循数据删除授权。
 
-## 单 checkout 的 feature branch 开发
+## 本地更新、提交与推送
 
-本仓库按单人、本地、顺序开发设计。`main` 是稳定历史主线，不要求主项目目录始终 checkout 在
-`main`；开发期间该目录正常切换到当前 feature/fix 分支。
-
-1. 在主项目目录中从最新 `main` 创建并切换到任务分支。
-2. 任务使用该项目的 local 环境，直接在
-   `/Users/chz/myWorkSpace/myJS/直播插件/userscripts` 编辑、测试、构建和验收。
-3. Tampermonkey 开发代理固定 `@require` 该目录的 `dist`。切换分支后必须重新构建或重启 dev
-   watcher，避免继续加载上一个分支留下的产物；绝对路径本身不随分支变化。
-4. 功能完成后提交任务分支，切回 `main` 合并，并在 `main` 上重新构建和执行必要的冒烟验证。
-5. 同一功能的补充、修正和复验继续使用原任务及原分支；不同功能避免混入同一次提交。
-
-默认不并行运行两个会写同一 checkout 的任务。这是避免文件互相覆盖的简单协调约定，不是禁止并行
-开发：确有同时维护两个独立工作区的需要时可以使用 worktree，但必须显式选择当前浏览器验证所使用的
-构建入口，不能让 Tampermonkey 无意绑定到临时 worktree 路径。
-
-## 集成与提交
-
-- 提交尽量保持 package 单一、目的单一；跨 package 的共享基础设施变更必须在提交信息中说明。
-- 功能分支合并到 `main` 时保留分支边界；不通过重写远端 `main` 来整理历史。
-- 合并前至少执行受影响 package 的测试和类型检查。仓库级交付执行：
-
-```bash
-pnpm validate && pnpm test && pnpm type-check && pnpm build
-```
-
-- 推送、发布和删除远端分支仍需用户明确授权。
-- 本地 `switch`、`add`、`commit`、`merge`、`cherry-pick`、`rebase` 和 annotated tag 属于
-  常规开发操作。会丢失未提交数据或改写远端状态的 `reset --hard`、`clean`、普通 `restore`、
-  强制删除分支和 push/force-push 仍需明确授权。
+- 本地构建更新日常自用文件；提交记录源码；推送用于远端备份；公开发布向外分发。日常不设单独“自用提升”步骤，不因未公开发布而停止提交。
+- 不推送不会阻止 file:// @require 使用本机代码，但未推送提交没有远端备份。需要汇报或交接时明确已提交/已推送/已集成状态，不把本地存在说成备份完成。
+- 没有明确授权时不推送、发布或安装脚本。没有远端授权不妨碍本地开发、检查、提交和形成可审阅结果；在适当交付点集中说明待备份内容，避免每个小提交重复询问。
+- 常规本地 switch、add、commit、merge、cherry-pick、rebase、annotated tag 不额外要求确认；仍须满足所有权与工作区安全。reset/clean/丢弃改动、强制删除和改写远端须明确授权。
 
 ## 版本与 tag
 
-- 开发和验证期间保持 package 当前版本，`userscript.publish=false`；版本号不是每个试验提交的计数器。
-- 最新 `dist` 完成约定浏览器验收、且用户确认发布后，单独创建 release 提交提高版本。
-- 每个 package 独立遵循语义化版本：修复用 patch，向后兼容的新能力用 minor，不兼容调整用 major。
-- release 使用 annotated tag：`<package>/v<version>`，例如
-  `douyu-web-enhancer/v0.10.11`。
-- 非发布但需要长期定位的重要快照使用
-  `<package>/baseline-YYYY-MM-DD`，不得冒充 release tag。
-- tag 必须指向已经进入 `main` 的提交；同一个 package/version 不重复打 tag，也不移动已发布 tag。
-
-当前确认的 DouyuEx 迁移基线是提交 `fa69430`，标记为
-`douyu-web-enhancer/baseline-2026-09-21`；基线 package 版本为 `0.10.10`。
+- 每个 package 独立版本，不强制 monorepo 全部同步升版。既有日期版/语义化版本沿用当前契约，不借流程整理顺便转换。
+- 开发验证保留当前正式版本和 userscript.publish=false。用源码提交、dirty 标记与产物 SHA-256 区分测试构建，不能凭相同 @version 认定同一产物。
+- 日常本地构建完成相称检查后按任务授权更新使用，不必每次等待用户确认或升正式版本。公开 release 和正式升版仍按已有验收与授权规则执行。特别保留的基线记录提交与产物来源，不冒充正式 release。
+- 公开 release 使用 annotated tag `<package>/v<version>`；认可的非公开基线可使用 `<package>/baseline-YYYY-MM-DD`，同日多份增加可区分后缀。
+- release/baseline tag 指向已集成 main 的提交；不移动已有发布 tag。未集成的临时构建直接记录来源，不为补 tag 强行宣称已集成。日常更新不强制打 tag。
+- 已有 DouyuEx 迁移基线：fa69430，tag 为 douyu-web-enhancer/baseline-2026-09-21，package 版本 0.10.10；这是历史基线，不自动视为当前自用版。
