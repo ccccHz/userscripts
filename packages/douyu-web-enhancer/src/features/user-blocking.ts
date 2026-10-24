@@ -11,12 +11,14 @@ export interface UserBlockRule {
 export interface UserBlockingState {
   schemaVersion: 1;
   enabled: boolean;
+  entriesEnabled: boolean;
   rules: UserBlockRule[];
 }
 
 export const DEFAULT_USER_BLOCKING_STATE: UserBlockingState = {
   schemaVersion: 1,
   enabled: false,
+  entriesEnabled: false,
   rules: [],
 };
 
@@ -45,7 +47,7 @@ export function normalizeUserBlockingState(value: unknown): UserBlockingState {
     seen.add(key);
     rules.push({ uid: item.uid, roomId: item.roomId });
   }
-  return { schemaVersion: 1, enabled: source.enabled, rules };
+  return { schemaVersion: 1, enabled: source.enabled, entriesEnabled: source.entriesEnabled === true, rules };
 }
 
 export function addUserBlockRule(state: UserBlockingState, uid: string, roomId: string | null): UserBlockingState {
@@ -61,7 +63,16 @@ export function removeUserBlockRule(state: UserBlockingState, uid: string, roomI
   return { ...state, rules: state.rules.filter((rule) => rule.uid !== uid || rule.roomId !== roomId) };
 }
 
+export function changeUserBlockRuleFromShortcut(state: UserBlockingState, uid: string, roomId: string | null, add: boolean): UserBlockingState {
+  if (!add) return removeUserBlockRule(state, uid, roomId);
+  return { ...addUserBlockRule(state, uid, roomId), enabled: true };
+}
+
 export function shouldBlockUser(state: UserBlockingState, currentRoomId: string | null, uid: string, messageRoomId: string): boolean {
   return state.enabled && currentRoomId !== null && messageRoomId === currentRoomId
     && state.rules.some((rule) => rule.uid === uid && (rule.roomId === null || rule.roomId === currentRoomId));
+}
+
+export function shouldBlockUserEntry(state: UserBlockingState, currentRoomId: string | null, uid: string, messageRoomId: string): boolean {
+  return shouldBlockUser({ ...state, enabled: state.entriesEnabled }, currentRoomId, uid, messageRoomId);
 }

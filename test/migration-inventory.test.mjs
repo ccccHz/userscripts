@@ -15,8 +15,12 @@ test("DouyuEx migration inventory is valid and contains the agreed scope", async
     "compact-player",
     "chat-layout",
     "chat-decoration-cleanup",
+    "activity-link-cleanup",
+    "floating-head-cleanup",
     "transient-guidance-cleanup",
+    "room-events",
     "room-metrics",
+    "danmaku-tail",
     "chat-memory",
     "message-context-action-fallback",
     "danmaku-send-check",
@@ -29,6 +33,8 @@ test("DouyuEx migration inventory is valid and contains the agreed scope", async
     "danmaku-availability",
     "page-socket-hook",
     "user-blocking",
+    "user-following",
+    "chat-speed",
     "bag-info",
     "daily-sign-in",
   ]);
@@ -44,6 +50,7 @@ test("DouyuEx migration inventory is valid and contains the agreed scope", async
   assert.deepEqual(inventory.experienceProfiles[1].featureIds, [
     "chat-memory",
     "danmaku-send-check",
+    "danmaku-tail",
   ]);
   assert.equal(inventory.experienceProfiles[2].id, "player-arrival-fullscreen");
   assert.deepEqual(inventory.experienceProfiles[2].featureIds, [

@@ -8,6 +8,8 @@ import {
   writeChatInput,
 } from "../core/chat-input.ts";
 import { createChatSubmissionListener } from "../core/chat-send-tracker.ts";
+import { readOutgoingChatContent } from "../core/outgoing-chat-tail.ts";
+import type { PageSocketHook } from "../core/page-socket-hook.ts";
 
 export const CHAT_MEMORY_ID = "chat-memory";
 export const CHAT_MEMORY_KEY = "douyu-web-enhancer:chat-memory";
@@ -63,6 +65,7 @@ export class ChatMemoryStore {
   readonly #write: ValueWriter;
   readonly #memory: StoredChatMemory;
   #writeQueue: Promise<void> = Promise.resolve();
+  #recentUi: Array<{ roomId: string; message: string; at: number }> = [];
 
   constructor(value: unknown, write: ValueWriter) {
     this.#memory = parseChatMemory(value);
@@ -87,6 +90,22 @@ export class ChatMemoryStore {
       .catch(() => undefined)
       .then(() => this.#write(CHAT_MEMORY_KEY, snapshot));
     await this.#writeQueue;
+  }
+
+  addFromUi(roomId: string, message: string, at = Date.now()): Promise<void> {
+    this.#recentUi = this.#recentUi.filter(item => at - item.at <= 2_000).slice(-19);
+    this.#recentUi.push({ roomId, message: message.trim(), at });
+    return this.add(roomId, message, at);
+  }
+
+  addFromSocket(roomId: string, message: string, at = Date.now()): Promise<void> {
+    this.#recentUi = this.#recentUi.filter(item => at - item.at <= 2_000);
+    const index = this.#recentUi.findIndex(item => item.roomId === roomId && item.message === message.trim());
+    if (index >= 0) {
+      this.#recentUi.splice(index, 1);
+      return Promise.resolve();
+    }
+    return this.add(roomId, message, at);
   }
 }
 
@@ -134,7 +153,7 @@ export function shouldTakeOverHistoryNavigation(options: {
     (options.isBrowsing || options.caretAtDirectionalBoundary);
 }
 
-export function createChatMemoryFeature(store: ChatMemoryStore): FeatureDefinition {
+export function createChatMemoryFeature(store: ChatMemoryStore, hook?: Pick<PageSocketHook, "observeOutgoingChat">): FeatureDefinition {
   return {
     id: CHAT_MEMORY_ID,
     start({ diagnostics, document, observerHub, selectors }) {
@@ -215,12 +234,20 @@ export function createChatMemoryFeature(store: ChatMemoryStore): FeatureDefiniti
         getScope: roomId,
         onSubmitted: (submission) => {
           if (!submission.scope) return;
-          void store.add(submission.scope, submission.message).catch((error: unknown) => {
+          void store.addFromUi(submission.scope, submission.message).catch((error: unknown) => {
             diagnostics.update(CHAT_MEMORY_ID, "error", {
               detail: error instanceof Error ? error.message : String(error),
             });
           });
         },
+      });
+      const stopOutgoing = hook?.observeOutgoingChat(data => {
+        const message = readOutgoingChatContent(data);
+        const currentRoomId = roomId();
+        if (!message || !currentRoomId) return;
+        void store.addFromSocket(currentRoomId, message).catch((error: unknown) => {
+          diagnostics.update(CHAT_MEMORY_ID, "error", { detail: error instanceof Error ? error.message : String(error) });
+        });
       });
 
       document.addEventListener("keydown", onKeyDown, true);
@@ -239,6 +266,7 @@ export function createChatMemoryFeature(store: ChatMemoryStore): FeatureDefiniti
 
       return () => {
         stopListening();
+        stopOutgoing?.();
         stopWatching();
         document.removeEventListener("keydown", onKeyDown, true);
         document.removeEventListener("input", onInput, true);

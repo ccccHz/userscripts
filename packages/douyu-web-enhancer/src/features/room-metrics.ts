@@ -1,3 +1,4 @@
+import type { RoomAudience } from "../core/room-messages.ts";
 import type { FeatureDefinition } from "../core/feature.ts";
 
 export const ROOM_METRICS_ID = "room-metrics";
@@ -22,13 +23,39 @@ export const ROOM_METRICS_CSS = `
   line-height: 18px;
 }
 
-.dwe-room-metrics [data-dwe-metric="money"] {
-  cursor: pointer;
-}
-
 .dwe-room-metrics [data-dwe-metric="watch-time"] {
   cursor: help;
   outline: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 6px;
+  box-sizing: border-box;
+}
+
+.dwe-room-metrics [data-dwe-metric="online"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 2px 10px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  margin-right: 0;
+  cursor: help;
+  outline: none;
+}
+
+.dwe-room-metrics [data-dwe-metric="online"]:hover,
+.dwe-room-metrics [data-dwe-metric="online"]:focus-visible,
+.dwe-room-metrics [data-dwe-metric="watch-time"]:hover,
+.dwe-room-metrics [data-dwe-metric="watch-time"]:focus-visible {
+  background: rgba(125, 175, 255, 0.12);
+}
+
+.dwe-room-metrics [data-dwe-metric="online"] svg {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
 }
 
 .dwe-room-metrics__tooltip {
@@ -45,7 +72,7 @@ export const ROOM_METRICS_CSS = `
   color: #ddd;
   font-size: 12px;
   line-height: 18px;
-  pointer-events: none;
+  pointer-events: auto;
   white-space: pre-line;
 }
 
@@ -221,20 +248,15 @@ export function formatDuration(seconds: number): string {
 export function metricsMarkup(): string {
   return `
     <span class="dwe-room-metrics__values">
-      <span class="dwe-room-metrics__item" data-dwe-metric="money" title="礼物收入加载中">
-        <svg viewBox="0 0 1024 1024" aria-hidden="true"><path fill="#F54330" d="M136.96 67.413h181.76L512 452.693l193.28-385.28h181.76l-245.76 445.44h163.84v84.48h-211.2l-1.28 1.28v106.24h212.48v84.48H592.64v192H431.36v-192h-211.2v-84.48h211.2v-106.24l-1.28-1.28H220.16v-84.48h162.56z"/></svg>
-        <span>****</span>
-      </span>
-      <span class="dwe-room-metrics__item" data-dwe-metric="nobles" title="贵宾人数来自当前排行榜">
-        <svg viewBox="0 0 1170 1024" aria-hidden="true"><path fill="#CCB88F" d="M270.579175 30.138897S391.031549-36.125391 427.208548 36.176998c36.125391 18.062695 114.46588 463.798407 132.528575 548.176999 18.062695 90.365084 60.226187 120.452374 84.326983 84.326983s114.46588-126.490475 174.692068-265.057152-18.062695-156.629372-42.163492-150.591271c-24.100796 6.038101-150.591271 12.024594-108.427779-42.163491 48.201593-54.188086 156.629372-150.591271 186.716661-162.615866 54.188086-36.125391 138.566677-84.326983 210.817458-6.038101 42.163492 30.138897 144.55317 150.591271 48.201593 319.245238-96.403185 174.692067-475.874609 614.389678-475.87461 614.389678s-138.566677 90.365084-192.754762 0c-54.188086-84.326983-240.956355-554.163492-246.994456-614.389678 0-60.226187-18.062695-72.302389-48.201593-60.226187-30.138897 18.062695-90.365084 102.389678-96.403185 78.288882-5.986493-24.100796-60.174579-60.277795-24.049189-114.465881 30.138897-48.201593 216.855559-216.855559 240.956355-234.918254z"/></svg>
-        <span>****</span>
+      <span class="dwe-room-metrics__item" data-dwe-metric="online" tabindex="0" aria-label="在线用户：等待消息">
+        <svg viewBox="0 0 24 24" aria-hidden="true" fill="#7dafff"><circle cx="9" cy="7" r="3"/><path d="M3 19.5v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2H3Z"/><circle cx="17" cy="7.5" r="2.5"/><path d="M17.5 12.5a4.5 4.5 0 0 1 4.5 4.5v2.5h-5v-2a7 7 0 0 0-1.8-4.7c.7-.2 1.5-.3 2.3-.3Z"/></svg><span>—</span>
       </span>
     </span>
     <span data-dwe-metric="watch-time" style="white-space:nowrap" tabindex="0" aria-label="已观看时长；悬停查看本场已播信息">已观看:****</span>`;
 }
 
 export function createRoomMetricsFeature(
-  crossOriginRequest: CrossOriginJsonRequest,
+  getAudience: () => ReturnType<RoomAudience["snapshot"]> = () => ({}),
 ): FeatureDefinition {
   return {
     id: ROOM_METRICS_ID,
@@ -257,12 +279,25 @@ export function createRoomMetricsFeature(
       let watchText = "已观看:****";
       let watchSeconds: number | null = null;
       let watchSampledAt = 0;
-      let moneyText = "****";
-      let moneyTitle = "礼物收入加载中";
       let broadcastShowTime: number | null = null;
       let broadcastIsLive = false;
 
       const tooltipText = (): string => `${broadcastText}\n${broadcastTitle}`;
+      let activeTooltipText = tooltipText;
+      let activeAnchor: HTMLElement | null = null;
+      let positionFrame = 0;
+      let hideTimer: number | undefined;
+      const audienceText = (): string => {
+        const counts = getAudience();
+        const native = selectors.find<HTMLElement>("nativeRank")?.element.textContent?.match(/贵宾\s*\(\s*([\d.万]+)\s*\)/)?.[1];
+        return `在线用户 ${counts.online ?? "未知（等待消息或已过期）"}\n贵宾 ${counts.nobles ?? native ?? "未知"}\n钻粉 ${counts.diamonds ?? "未知"}\n在线榜统计，尚未与移动端人数核对`;
+      };
+      const renderAudience = (): void => {
+        const counts=getAudience();
+        const online=element?.querySelector<HTMLElement>('[data-dwe-metric="online"]');
+        setText(online?.querySelector("span") ?? null, counts.online === undefined ? "—" : String(counts.online));
+        setAttribute(online ?? null,"aria-label",audienceText());
+      };
 
       const renderTimes = (): void => {
         const now = Date.now();
@@ -280,26 +315,48 @@ export function createRoomMetricsFeature(
         ) ?? null;
         setText(watch, watchText);
         setAttribute(watch, "aria-label", `${watchText}；${tooltipText()}`);
-        if (tooltip?.dataset.open === "true") setText(tooltip, tooltipText());
+        renderAudience();
+        if (tooltip?.dataset.open === "true") { setText(tooltip, activeTooltipText()); scheduleTooltipPosition(); }
       };
 
       const hideTooltip = (): void => {
+        if (hideTimer !== undefined) document.defaultView?.clearTimeout(hideTimer);
+        hideTimer = undefined;
+        activeAnchor = null;
         if (!tooltip) return;
         tooltip.style.display = "none";
         tooltip.dataset.open = "false";
       };
 
-      const showTooltip = (watch: HTMLElement): void => {
+      const showTooltip = (watch: HTMLElement, content = tooltipText): void => {
+        if (hideTimer !== undefined) document.defaultView?.clearTimeout(hideTimer);
+        hideTimer = undefined;
+        activeAnchor = watch;
+        activeTooltipText = content;
         if (!tooltip) {
           tooltip = document.createElement("div");
           tooltip.className = "dwe-room-metrics__tooltip";
           tooltip.setAttribute("role", "tooltip");
+          tooltip.addEventListener("mouseenter", () => {
+            if (hideTimer !== undefined) document.defaultView?.clearTimeout(hideTimer);
+            hideTimer = undefined;
+          });
+          tooltip.addEventListener("mouseleave", () => scheduleHideTooltip());
           document.body.append(tooltip);
         }
-        setText(tooltip, tooltipText());
+        setText(tooltip, content());
         tooltip.style.display = "block";
         tooltip.dataset.open = "true";
-        const rect = watch.getBoundingClientRect();
+        positionTooltip();
+      };
+
+      const positionTooltip = (): void => {
+        if (!activeAnchor || !activeAnchor.isConnected || !element?.contains(activeAnchor)) { hideTooltip(); return; }
+        if (!tooltip || tooltip.dataset.open !== "true") return;
+        // Reading the tooltip should not move it out from under the pointer when
+        // Douyu reflows the player header or the page scrolls.
+        if (tooltip.matches(":hover")) return;
+        const rect = activeAnchor.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
         const viewportWidth = document.documentElement.clientWidth;
         const left = Math.max(6, Math.min(rect.right - tooltipRect.width, viewportWidth - tooltipRect.width - 6));
@@ -307,25 +364,27 @@ export function createRoomMetricsFeature(
         tooltip.style.top = `${rect.bottom + 4}px`;
       };
 
+      const scheduleTooltipPosition = (): void => {
+        if (!activeAnchor || positionFrame) return;
+        positionFrame = document.defaultView?.requestAnimationFrame(() => { positionFrame = 0; positionTooltip(); }) ?? 0;
+      };
+
+      const scheduleHideTooltip = (): void => {
+        if (hideTimer !== undefined) document.defaultView?.clearTimeout(hideTimer);
+        hideTimer = document.defaultView?.setTimeout(() => {
+          hideTimer = undefined;
+          if (activeAnchor?.matches(":hover") || activeAnchor === document.activeElement || tooltip?.matches(":hover")) return;
+          hideTooltip();
+        }, 160);
+      };
+
       const bindWatchTooltip = (watch: HTMLElement): void => {
         if (watch.dataset.dweTooltipBound === "true") return;
         watch.dataset.dweTooltipBound = "true";
         watch.addEventListener("mouseenter", () => showTooltip(watch));
-        watch.addEventListener("mouseleave", hideTooltip);
+        watch.addEventListener("mouseleave", scheduleHideTooltip);
         watch.addEventListener("focus", () => showTooltip(watch));
-        watch.addEventListener("blur", hideTooltip);
-      };
-
-      const updateNobles = (): void => {
-        if (!element) return;
-        const text = selectors.find<HTMLElement>("nativeRank")?.element.textContent ?? "";
-        const value = text.match(/贵宾\s*\(\s*([\d.万]+)\s*\)/)?.[1];
-        if (value) {
-          setText(
-            element.querySelector('[data-dwe-metric="nobles"] span'),
-            value,
-          );
-        }
+        watch.addEventListener("blur", scheduleHideTooltip);
       };
 
       const mount = (): void => {
@@ -337,26 +396,23 @@ export function createRoomMetricsFeature(
           return;
         }
         element = host.querySelector<HTMLDivElement>(".dwe-room-metrics");
+        if (activeAnchor && (!element || !element.contains(activeAnchor))) hideTooltip();
         if (!element) {
           element = document.createElement("div");
           element.className = "dwe-room-metrics";
           element.innerHTML = metricsMarkup();
-          element.querySelector('[data-dwe-metric="money"]')?.addEventListener("click", () => {
-            document.defaultView?.open(
-              `https://www.doseeing.com/room/${roomId}`,
-              "_blank",
-              "noopener,noreferrer",
-            );
-          });
           host.insertBefore(element, host.firstChild);
         }
         const watch = element.querySelector<HTMLElement>('[data-dwe-metric="watch-time"]');
         renderTimes();
         if (watch) bindWatchTooltip(watch);
-        const money = element.querySelector<HTMLElement>('[data-dwe-metric="money"]');
-        setText(money?.querySelector("span") ?? null, moneyText);
-        if (money) money.title = moneyTitle;
-        updateNobles();
+        const online=element.querySelector<HTMLElement>('[data-dwe-metric="online"]');
+        if (online && online.dataset.dweTooltipBound !== "true") {
+          online.dataset.dweTooltipBound="true";
+          online.addEventListener("mouseenter",()=>showTooltip(online,audienceText));
+          online.addEventListener("focus",()=>showTooltip(online,audienceText));
+          online.addEventListener("mouseleave",scheduleHideTooltip); online.addEventListener("blur",scheduleHideTooltip);
+        }
       };
 
       const refresh = async (): Promise<void> => {
@@ -398,37 +454,14 @@ export function createRoomMetricsFeature(
         };
 
         void refreshTimes();
-        try {
-          const metrics = await requestAggregate(roomId, crossOriginRequest);
-          if (disposed) return;
-          moneyText = metrics.paidGiftValue;
-          moneyTitle = `总礼物价值:${metrics.totalGiftValue} 鱼翅礼物:${metrics.paidGiftValue}`;
-          const money = element?.querySelector<HTMLElement>('[data-dwe-metric="money"]') ?? null;
-          setText(money?.querySelector("span") ?? null, moneyText);
-          if (money) money.title = moneyTitle;
-          updateNobles();
-          diagnostics.update(ROOM_METRICS_ID, "active", {
-            detail: "礼物收入与贵宾人数摘要已更新",
-            selector: ".dwe-room-metrics",
-          });
-        } catch (error) {
-          if (disposed) return;
-          moneyText = "****";
-          moneyTitle = "礼物收入暂不可用，将自动重试";
-          const money = element?.querySelector<HTMLElement>('[data-dwe-metric="money"]') ?? null;
-          setText(money?.querySelector("span") ?? null, moneyText);
-          if (money) money.title = moneyTitle;
-          updateNobles();
-          diagnostics.update(ROOM_METRICS_ID, "waiting", {
-            detail: `礼物收入暂不可用；贵宾人数继续使用页面数据：${error instanceof Error ? error.message : String(error)}`,
-            selector: ".dwe-room-metrics",
-          });
-        }
+        diagnostics.update(ROOM_METRICS_ID, "active", {
+          detail: "在线人数与观看时长摘要已挂载；今日礼物来源已归档",
+          selector: ".dwe-room-metrics",
+        });
       };
 
       const stopWatching = observerHub.subscribe(() => {
         mount();
-        updateNobles();
       });
       mount();
       void refresh();
@@ -436,17 +469,23 @@ export function createRoomMetricsFeature(
       const displayTimer = document.defaultView?.setInterval(() => {
         if (document.visibilityState !== "hidden") renderTimes();
       }, 1_000);
-      const hideTooltipOnViewportChange = (): void => hideTooltip();
-      document.defaultView?.addEventListener("resize", hideTooltipOnViewportChange);
-      document.addEventListener("scroll", hideTooltipOnViewportChange, true);
+      const repositionTooltip = (event: Event): void => {
+        if (!activeAnchor) return;
+        const target = event.target;
+        if (target === document || target === document.defaultView || target instanceof Element && target.contains(activeAnchor)) scheduleTooltipPosition();
+      };
+      document.defaultView?.addEventListener("resize", repositionTooltip);
+      document.addEventListener("scroll", repositionTooltip, true);
 
       return () => {
         disposed = true;
         stopWatching();
         if (refreshTimer !== undefined) document.defaultView?.clearInterval(refreshTimer);
         if (displayTimer !== undefined) document.defaultView?.clearInterval(displayTimer);
-        document.defaultView?.removeEventListener("resize", hideTooltipOnViewportChange);
-        document.removeEventListener("scroll", hideTooltipOnViewportChange, true);
+        document.defaultView?.removeEventListener("resize", repositionTooltip);
+        document.removeEventListener("scroll", repositionTooltip, true);
+        if (positionFrame) document.defaultView?.cancelAnimationFrame(positionFrame);
+        hideTooltip();
         tooltip?.remove();
         element?.remove();
         removeStyle();

@@ -1,11 +1,14 @@
 export const SETTINGS_KEY = "douyu-web-enhancer:settings";
 export const SETTINGS_SCHEMA_VERSION = 6;
+export type ControlCenterEdgeSide = "left" | "right";
 
 export interface Settings {
   schemaVersion: 6;
   features: {
     chatMemory: boolean;
     chatDecorationCleanup: boolean;
+    activityLinkCleanup: boolean;
+    floatingHeadCleanup: boolean;
     chatLayout: boolean;
     transientGuidanceCleanup: boolean;
     bagInfo: boolean;
@@ -22,6 +25,9 @@ export interface Settings {
   preferences: {
     /** The user's last Douyu web-fullscreen choice. This replaces the v5 GM key. */
     autoWebFullscreen: boolean;
+    /** The side of the viewport where the control-center trigger is exposed. */
+    controlCenterEdgeSide: ControlCenterEdgeSide;
+    controlCenterEdgeY: number;
   };
   automation: {
     /** null means keep auto-fans-continue's established default room. */
@@ -36,6 +42,8 @@ export const DEFAULT_SETTINGS: Settings = {
   features: {
     chatMemory: true,
     chatDecorationCleanup: true,
+    activityLinkCleanup: false,
+    floatingHeadCleanup: false,
     chatLayout: true,
     transientGuidanceCleanup: true,
     bagInfo: true,
@@ -49,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
     messageContextActionFallback: true,
     disableOfflineJump: true,
   },
-  preferences: { autoWebFullscreen: true },
+  preferences: { autoWebFullscreen: true, controlCenterEdgeSide: "right", controlCenterEdgeY: 0.5 },
   automation: { autoFansRestRoomId: null, autoFansContinue: true },
 };
 
@@ -64,10 +72,10 @@ export interface SettingsDifference {
 }
 
 const featureKeys = [
-  "chatMemory", "chatDecorationCleanup", "chatLayout", "transientGuidanceCleanup", "bagInfo", "compactPlayer",
+  "chatMemory", "chatDecorationCleanup", "activityLinkCleanup", "floatingHeadCleanup", "chatLayout", "transientGuidanceCleanup", "bagInfo", "compactPlayer",
   "danmakuSendCheck", "roomMetrics", "volumeWheel", "liveTimeshiftControls", "dailyAutomation", "highestVideoQuality", "messageContextActionFallback", "disableOfflineJump",
 ] as const;
-const preferenceKeys = ["autoWebFullscreen"] as const;
+const preferenceKeys = ["autoWebFullscreen", "controlCenterEdgeSide", "controlCenterEdgeY"] as const;
 const automationKeys = ["autoFansRestRoomId", "autoFansContinue"] as const;
 
 function record(value: unknown, label: string): Record<string, unknown> {
@@ -99,15 +107,17 @@ export function parseSettingsImport(value: unknown): Settings {
   const features = record(root.features, "features");
   const preferences = record(root.preferences, "preferences");
   const automation = record(root.automation, "automation");
-  // Settings v6 exports predating these visual-only toggles may omit them;
-  // keep all other fields strict and default the missing toggles on.
-  const legacyOptionalFeatureKeys = ["transientGuidanceCleanup", "bagInfo"] as const;
+  // Older v6 exports may omit added visual toggles; use each toggle's own default.
+  // The activity cleanup remains off until the user chooses it.
+  const legacyOptionalFeatureKeys = ["transientGuidanceCleanup", "bagInfo", "activityLinkCleanup", "floatingHeadCleanup"] as const;
   const importFeatureKeys = featureKeys.filter((key) => {
     const optionalKey = key as (typeof legacyOptionalFeatureKeys)[number];
     return !legacyOptionalFeatureKeys.includes(optionalKey) || Object.prototype.hasOwnProperty.call(features, key);
   });
   exactKeys(features, importFeatureKeys, "features");
-  exactKeys(preferences, preferenceKeys, "preferences");
+  const legacyOptionalPreferenceKeys = ["controlCenterEdgeSide", "controlCenterEdgeY"] as const;
+  const importPreferenceKeys = preferenceKeys.filter((key) => !legacyOptionalPreferenceKeys.includes(key as (typeof legacyOptionalPreferenceKeys)[number]) || Object.prototype.hasOwnProperty.call(preferences, key));
+  exactKeys(preferences, importPreferenceKeys, "preferences");
   exactKeys(automation, automationKeys, "automation");
   const importedRoomId = automation.autoFansRestRoomId;
   if (importedRoomId !== null && roomId(importedRoomId) === null) {
@@ -123,6 +133,15 @@ export function parseSettingsImport(value: unknown): Settings {
     ])) as Settings["features"],
     preferences: {
       autoWebFullscreen: booleanSetting(preferences.autoWebFullscreen, "preferences.autoWebFullscreen"),
+      controlCenterEdgeY: !("controlCenterEdgeY" in preferences) ? 0.5
+        : typeof preferences.controlCenterEdgeY === "number" && Number.isFinite(preferences.controlCenterEdgeY)
+          && preferences.controlCenterEdgeY >= 0 && preferences.controlCenterEdgeY <= 1 ? preferences.controlCenterEdgeY
+        : (() => { throw new Error("preferences.controlCenterEdgeY 必须是 0 到 1 的数字"); })(),
+      controlCenterEdgeSide: !Object.prototype.hasOwnProperty.call(preferences, "controlCenterEdgeSide")
+        ? DEFAULT_SETTINGS.preferences.controlCenterEdgeSide
+        : preferences.controlCenterEdgeSide === "left" || preferences.controlCenterEdgeSide === "right"
+        ? preferences.controlCenterEdgeSide
+        : (() => { throw new Error("preferences.controlCenterEdgeSide 必须是 left 或 right"); })(),
     },
     automation: {
       autoFansRestRoomId: importedRoomId as string | null,
@@ -134,6 +153,8 @@ export function parseSettingsImport(value: unknown): Settings {
 const labels: Record<string, string> = {
   "features.chatMemory": "弹幕历史",
   "features.chatDecorationCleanup": "隐藏弹幕前缀",
+  "features.activityLinkCleanup": "屏蔽活动弹幕",
+  "features.floatingHeadCleanup": "隐藏飘屏头部图像",
   "features.chatLayout": "拉高弹幕区",
   "features.transientGuidanceCleanup": "隐藏瞬态引导",
   "features.bagInfo": "背包只读信息",
@@ -147,6 +168,8 @@ const labels: Record<string, string> = {
   "features.messageContextActionFallback": "弹幕右键补全",
   "features.disableOfflineJump": "下播后停留当前页",
   "preferences.autoWebFullscreen": "记住网页全屏",
+  "preferences.controlCenterEdgeSide": "控制中心入口位置",
+  "preferences.controlCenterEdgeY": "控制中心入口高度",
   "automation.autoFansRestRoomId": "剩余荧光棒赠送房间",
   "automation.autoFansContinue": "自动续荧光棒",
 };
@@ -201,6 +224,14 @@ function parseSettings(value: unknown): Settings {
         typeof features.chatDecorationCleanup === "boolean"
           ? features.chatDecorationCleanup
           : DEFAULT_SETTINGS.features.chatDecorationCleanup,
+      activityLinkCleanup:
+        typeof features.activityLinkCleanup === "boolean"
+          ? features.activityLinkCleanup
+          : DEFAULT_SETTINGS.features.activityLinkCleanup,
+      floatingHeadCleanup:
+        typeof features.floatingHeadCleanup === "boolean"
+          ? features.floatingHeadCleanup
+          : DEFAULT_SETTINGS.features.floatingHeadCleanup,
       chatLayout:
         typeof features.chatLayout === "boolean"
           ? features.chatLayout
@@ -255,6 +286,12 @@ function parseSettings(value: unknown): Settings {
         typeof preferences.autoWebFullscreen === "boolean"
           ? preferences.autoWebFullscreen
           : DEFAULT_SETTINGS.preferences.autoWebFullscreen,
+      controlCenterEdgeY: typeof preferences.controlCenterEdgeY === "number" && Number.isFinite(preferences.controlCenterEdgeY)
+        ? Math.max(0, Math.min(1, preferences.controlCenterEdgeY)) : 0.5,
+      controlCenterEdgeSide:
+        preferences.controlCenterEdgeSide === "left" || preferences.controlCenterEdgeSide === "right"
+          ? preferences.controlCenterEdgeSide
+          : DEFAULT_SETTINGS.preferences.controlCenterEdgeSide,
     },
     automation: {
       autoFansRestRoomId: roomId(automation.autoFansRestRoomId),

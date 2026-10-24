@@ -95,6 +95,7 @@ interface InputSelectionSnapshot {
   start: number | null;
   end: number | null;
   direction: "forward" | "backward" | "none" | null;
+  editableSelection?: { anchor: number; focus: number };
 }
 
 function visible(element: Element | null): element is HTMLElement {
@@ -192,6 +193,25 @@ export function hasOfficialAction(panel: HTMLElement, label: MessageContextActio
   );
 }
 
+/** Capture only the native +1 action; nested icon/label clicks must not reach its cooldown handler. */
+export function interceptOfficialPlusOne(event: Event, panel: HTMLElement, send: () => void): boolean {
+  if (event.type !== "click" && event.type !== "keydown") return false;
+  const keyboard = event as KeyboardEvent;
+  if (event.type === "keydown" && keyboard.key !== "Enter" && keyboard.key !== " ") return false;
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return false;
+  const action = actionElements(panel).find(element =>
+    !element.hasAttribute("data-dwe-message-action")
+      && element.contains(target)
+      && isOfficialActionText("+1", element.innerText || element.textContent || ""),
+  );
+  if (!action) return false;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  if (!(event.type === "keydown" && keyboard.repeat)) send();
+  return true;
+}
+
 function panelIsStable(panel: HTMLElement): boolean {
   // Douyu keeps this portal root at 0x0 while positioning the actual card above it.
   return panel.isConnected && actionElements(panel).length > 0;
@@ -237,7 +257,18 @@ function getInputSelection(input: HTMLElement): InputSelectionSnapshot {
       direction: input.selectionDirection,
     };
   }
-  return { value: readChatInput(input), start: null, end: null, direction: null };
+  const selection = input.ownerDocument.getSelection();
+  let editableSelection: InputSelectionSnapshot["editableSelection"];
+  if (selection?.anchorNode && selection.focusNode && input.contains(selection.anchorNode) && input.contains(selection.focusNode)) {
+    const offset = (node: Node, end: number): number => {
+      const range = input.ownerDocument.createRange();
+      range.selectNodeContents(input);
+      range.setEnd(node, end);
+      return range.toString().length;
+    };
+    editableSelection = { anchor: offset(selection.anchorNode, selection.anchorOffset), focus: offset(selection.focusNode, selection.focusOffset) };
+  }
+  return { value: readChatInput(input), start: null, end: null, direction: null, editableSelection };
 }
 
 function restoreInputSelection(input: HTMLElement, snapshot: InputSelectionSnapshot): void {
@@ -246,6 +277,12 @@ function restoreInputSelection(input: HTMLElement, snapshot: InputSelectionSnaps
     const start = snapshot.start ?? snapshot.value.length;
     const end = snapshot.end ?? start;
     input.setSelectionRange(start, end, snapshot.direction ?? "none");
+  } else if (snapshot.editableSelection) {
+    const selection = input.ownerDocument.getSelection();
+    const node = input.firstChild ?? input;
+    const length = node === input ? 0 : node.textContent?.length ?? 0;
+    const clamp = (value: number): number => Math.max(0, Math.min(length, value));
+    selection?.setBaseAndExtent(node, clamp(snapshot.editableSelection.anchor), node, clamp(snapshot.editableSelection.focus));
   }
 }
 
@@ -261,17 +298,20 @@ function setReplyInput(document: Document, value: string): boolean {
   return true;
 }
 
-function sendOnceAndRestoreDraft(document: Document, text: string): "sent" | "failed" {
+function sendOnceAndRestoreDraft(document: Document, text: string, draft?: { input: HTMLElement; selection: InputSelectionSnapshot } | null): "sent" | "failed" {
   const input = document.querySelector<HTMLElement>(chatInputSelectors.chatInput.join(","));
   const sendButton = document.querySelector<HTMLElement>(chatInputSelectors.chatSendButton.join(","));
   if (!input || !sendButton || sendButton.getAttribute("aria-disabled") === "true" || ("disabled" in sendButton && (sendButton as HTMLButtonElement).disabled)) return "failed";
-  const snapshot = getInputSelection(input);
+  const snapshot = draft?.input === input && draft.selection.value === readChatInput(input)
+    ? draft.selection : getInputSelection(input);
   writeChatInput(input, text);
-  sendButton.click();
   const restore = () => restoreInputSelection(input, snapshot);
   const view = document.defaultView;
-  if (view) view.setTimeout(restore, 0);
-  else restore();
+  try { sendButton.click(); }
+  finally {
+    if (view) view.setTimeout(restore, 0);
+    else restore();
+  }
   return "sent";
 }
 
@@ -292,7 +332,7 @@ function customButton(panel: HTMLElement, label: MessageContextAction, onClick: 
   button.onkeydown = (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onClick();
+      if (!event.repeat) onClick();
     }
   };
 
@@ -368,11 +408,37 @@ export const messageContextActionFallbackFeature: FeatureDefinition = {
     let roomPath: string | null = null;
     let identity: string | null = identityKey(document);
     let lastPanel: HTMLElement | null = null;
+    let submittingPlusOne = false;
+    let pendingDraft: { input: HTMLElement; selection: InputSelectionSnapshot } | null = null;
 
     const clearTarget = (): void => {
       snapshot = null;
       lastPanel = null;
+      pendingDraft = null;
       removeCustomButtons(document);
+    };
+
+    const sendPlusOne = (): void => {
+      if (submittingPlusOne) return;
+      const path = currentRoomPath(document);
+      const account = identityKey(document);
+      const current = snapshot && path && isSameTarget(snapshot, snapshot.item, path, account)
+        ? readMessageSnapshot(snapshot.item, path, account) : null;
+      if (!snapshot || !current || current.text !== snapshot.text) {
+        diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "degraded", { detail: "加一未发送：目标弹幕已失效，请重新打开卡片" });
+        return;
+      }
+      submittingPlusOne = true;
+      try {
+        if (sendOnceAndRestoreDraft(document, current.text, pendingDraft) === "failed") {
+          diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "degraded", { detail: "加一未发送：输入框或发送按钮不可用" });
+        }
+      } catch {
+        diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "degraded", { detail: "加一发送未确认，已恢复草稿；不会自动重试" });
+      } finally {
+        submittingPlusOne = false;
+        pendingDraft = null;
+      }
     };
 
     const scan = (): void => {
@@ -417,11 +483,11 @@ export const messageContextActionFallbackFeature: FeatureDefinition = {
         if (!shouldInjectAction(false, capability[label])) continue;
         const action = label === "回复"
           ? () => { if (!setReplyInput(document, replyText(snapshot?.author ?? "", snapshot?.text ?? ""))) diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "degraded", { detail: "回复失败：弹幕输入框不可用" }); }
-          : () => { if (sendOnceAndRestoreDraft(document, snapshot?.text ?? "") === "failed") diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "degraded", { detail: "+1 未发送：输入框或发送按钮不可用" }); };
+          : sendPlusOne;
         customButton(panel, label, action);
       }
       diagnostics.update(MESSAGE_CONTEXT_ACTION_FALLBACK_ID, "active", {
-        detail: `官方缺失补全：${["回复", "+1"].filter((label) => capability[label as MessageContextAction] === "missing" && !hasOfficialAction(panel, label as MessageContextAction)).join("、") || "无"}`,
+        detail: `加一统一使用普通发送；${hasOfficialAction(panel, "回复") ? "保留官方回复" : "补齐缺失回复"}`,
         selector: messageContextActionSelectors.actionPanel[0],
       });
     };
@@ -452,16 +518,41 @@ export const messageContextActionFallbackFeature: FeatureDefinition = {
     };
 
     const onClick = (event: Event): void => {
+      // Our nested normal-send click must not clear the still-open +1 target.
+      if (submittingPlusOne) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest(messageContextActionSelectors.actionPanel.join(","))) return;
+      const panel = target?.closest<HTMLElement>(messageContextActionSelectors.actionPanel.join(","));
+      if (panel) {
+        if (snapshot && currentRoomPath(document)) interceptOfficialPlusOne(event, panel, sendPlusOne);
+        return;
+      }
       if (target?.closest(messageContextActionSelectors.messageItem.join(","))) return;
       clearTarget();
+    };
+
+    const rememberDraft = (event: Event): void => {
+      if (!snapshot || !currentRoomPath(document)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const panel = target?.closest<HTMLElement>(messageContextActionSelectors.actionPanel.join(","));
+      if (!target || !panel || !actionElements(panel).some(action => action.contains(target) && isOfficialActionText("+1", action.innerText || action.textContent || ""))) return;
+      const input = document.querySelector<HTMLElement>(chatInputSelectors.chatInput.join(","));
+      if (input) pendingDraft = { input, selection: getInputSelection(input) };
+    };
+
+    const onKeydown = (event: Event): void => {
+      if ((event as KeyboardEvent).key === "Enter" || (event as KeyboardEvent).key === " ") rememberDraft(event);
+      const target = event.target instanceof Element ? event.target : null;
+      const panel = target?.closest<HTMLElement>(messageContextActionSelectors.actionPanel.join(","));
+      if (panel && snapshot && currentRoomPath(document)) interceptOfficialPlusOne(event, panel, sendPlusOne);
     };
 
     roomPath = currentRoomPath(document);
     document.addEventListener("contextmenu", onContextMenu, true);
     document.addEventListener("mouseover", onMessageHover, true);
     document.addEventListener("click", onClick, true);
+    document.addEventListener("keydown", onKeydown, true);
+    // Preserve the editable selection before the browser moves it onto the clicked label.
+    document.addEventListener("mousedown", rememberDraft, true);
     const stopWatching = observerHub.subscribe(scan);
     scan();
 
@@ -470,6 +561,8 @@ export const messageContextActionFallbackFeature: FeatureDefinition = {
       document.removeEventListener("contextmenu", onContextMenu, true);
       document.removeEventListener("mouseover", onMessageHover, true);
       document.removeEventListener("click", onClick, true);
+      document.removeEventListener("keydown", onKeydown, true);
+      document.removeEventListener("mousedown", rememberDraft, true);
       clearTarget();
       removeStyle();
     };

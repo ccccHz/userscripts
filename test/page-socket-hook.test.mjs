@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { encodeDouyuPacket } from "../packages/douyu-web-enhancer/src/core/anonymous-danmaku.ts";
+import { encodeDouyuPacket, decodeDouyuPackets } from "../packages/douyu-web-enhancer/src/core/anonymous-danmaku.ts";
+import { rewriteOutgoingChatTail } from "../packages/douyu-web-enhancer/src/core/outgoing-chat-tail.ts";
+import { UserBlockHistory } from "../packages/douyu-web-enhancer/src/features/user-block-history.ts";
+import { confirmedActivityRoom } from "../packages/douyu-web-enhancer/src/features/activity-link-cleanup.ts";
+import { changeUserBlockRuleFromShortcut, DEFAULT_USER_BLOCKING_STATE, shouldBlockUser } from "../packages/douyu-web-enhancer/src/features/user-blocking.ts";
 import {
   installPageSocketHook,
   nativePageWebSocketConstructor,
@@ -53,6 +57,18 @@ function target() {
   return { WebSocket: FakeWebSocket, location: { href: "https://www.douyu.com/52" } };
 }
 
+test("room observers receive only allowed complete packets without changing delivery", () => {
+  const page=target();const hook=installPageSocketHook(page);
+  let observed=[];hook.observeRoomMessages(packets=>{observed.push(...packets);throw new Error("consumer");});
+  const socket=new page.WebSocket("wss://danmuproxy.douyu.com:8502");let delivered=[];
+  socket.onmessage=e=>delivered.push(e.data);socket.open();
+  const frame=encodeDouyuPacket("type@=oun/rid@=52/un@=0/");socket.receive(frame);
+  socket.receive(encodeDouyuPacket("type@=chatmsg/uid@=123/rid@=52/txt@=not retained/"));
+  socket.receive(frame.slice(0,-1));
+  assert.equal(observed.length,1);assert.match(observed[0],/un@=0/);assert.equal(delivered.length,3);assert.equal(delivered[0],frame);
+  hook.dispose();
+});
+
 test("page socket hook observes Douyu frames without changing native socket behavior", async () => {
   const page = target();
   const original = page.WebSocket;
@@ -89,6 +105,31 @@ test("page socket hook observes Douyu frames without changing native socket beha
   assert.equal(hook.snapshot().closedConnections, 1);
   hook.dispose();
   assert.equal(page.WebSocket, original);
+});
+
+test("outgoing transform is opt-in, scoped to page-owned Douyu sockets and restores native send", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const socket = new page.WebSocket("wss://danmuproxy.douyu.com:8502");
+  const unrelated = new page.WebSocket("wss://example.com/");
+  const packet = encodeDouyuPacket("type@=chatmessage/content@=hello/");
+  const observed = [];
+  hook.observeOutgoingChat(data => { observed.push(data); throw new Error("observer is isolated"); });
+  socket.send(packet);
+  assert.equal(socket.sent[0], packet);
+  hook.setOutgoingChatTransform(data => rewriteOutgoingChatTail(data, {enabled:true,text:"尾",position:"suffix"}));
+  socket.send(packet);
+  unrelated.send(packet);
+  assert.deepEqual(decodeDouyuPackets(socket.sent[1]), ["type@=chatmessage/content@=hello尾/"]);
+  assert.equal(unrelated.sent[0], packet);
+  assert.equal(hook.snapshot().outgoingTransformedFrames, 1);
+  assert.deepEqual(observed, [packet, packet]);
+  hook.setOutgoingChatTransform(null);
+  socket.send(packet);
+  assert.equal(socket.sent[2], packet);
+  assert.deepEqual(observed, [packet, packet, packet]);
+  hook.dispose();
+  assert.equal(Object.hasOwn(socket, "send"), false);
 });
 
 test("page-driven reconnect is observed; prior instances and unrelated sockets are untouched", () => {
@@ -209,6 +250,29 @@ test("active filtering fails open for Blob and incomplete frames", () => {
   hook.dispose();
 });
 
+test("activity filtering keeps read-only observers before delivery and composes with UID and entry rules", () => {
+  const page=target(), hook=installPageSocketHook(page);
+  const socket=new page.WebSocket("wss://wsproxy.douyu.com/");
+  const observed=[], delivered=[], counted=[];
+  hook.observeUserMessages(messages=>observed.push(...messages));
+  socket.onmessage=e=>delivered.push(e.data);
+  hook.setActivityFilter(message=>confirmedActivityRoom(message,"52"), rooms=>counted.push(...rooms));
+  const event="type@=chatmsg/rid@=52/uid@=123/gadid@=29/txt@=event/";
+  const plain="type@=chatmsg/rid@=52/uid@=456/txt@=normal/";
+  socket.receive(encodeDouyuPacket(event));
+  assert.equal(observed.length,1); assert.equal(delivered.length,0); assert.deepEqual(counted,["52"]);
+  hook.setIncomingChatFilter((uid)=>uid==="456",undefined,(uid)=>uid==="456");
+  socket.receive(encodeDouyuPacket(event));
+  socket.receive(encodeDouyuPacket(plain));
+  socket.receive(encodeDouyuPacket("type@=uenter/rid@=52/uid@=456/"));
+  assert.equal(delivered.length,0); assert.deepEqual(counted,["52","52"]);
+  assert.equal(hook.snapshot().filteredActivityMessages,2);
+  hook.setActivityFilter(null);
+  socket.receive(encodeDouyuPacket(event));
+  assert.equal(delivered.length,1);
+  hook.dispose();
+});
+
 test("page-driven reconnect inherits the current filter and disabling restores new delivery", () => {
   const page = target();
   const hook = installPageSocketHook(page);
@@ -228,5 +292,121 @@ test("page-driven reconnect inherits the current filter and disabling restores n
   replacement.receive(blocked);
   assert.deepEqual(delivered, [blocked]);
   assert.equal(hook.snapshot().capturedConnections, 2);
+  hook.dispose();
+});
+
+test("history counts actual blocked chats once, keeps last ten, and excludes fail-open frames", async () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  let state = changeUserBlockRuleFromShortcut(DEFAULT_USER_BLOCKING_STATE, "123", "52", true);
+  state = changeUserBlockRuleFromShortcut(state, "123", null, true);
+  const session = new UserBlockHistory();
+  await session.setRules(state.rules);
+  hook.setIncomingChatFilter((uid, rid) => shouldBlockUser(state, "52", uid, rid), (messages) => session.record(messages, 1234));
+  const delivered = [];
+  socket.onmessage = (event) => delivered.push(event.data);
+  socket.addEventListener("message", (event) => delivered.push(event.data));
+  const blocked = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/nn@=name@SA/txt@=hello@S@Aworld/");
+  // A matching packet followed by invalid data must pass entirely and create no sample.
+  const invalid = new Uint8Array(blocked.byteLength + 13);
+  invalid.set(new Uint8Array(blocked));
+  socket.receive(invalid.buffer);
+  assert.equal(session.snapshot()[0].count, 0);
+  assert.equal(delivered.length, 2);
+  for (let index = 0; index < 12; index++) socket.receive(encodeDouyuPacket(`type@=chatmsg/rid@=52/uid@=123/nn@=viewer/txt@=${index}/`));
+  socket.receive(blocked);
+  const entry = session.snapshot()[0];
+  assert.equal(entry.count, 13);
+  assert.equal(entry.recent.length, 10);
+  assert.equal(entry.recent[0].text, "hello/@world");
+  assert.equal(entry.nickname, "name/A");
+  assert.equal(entry.recent.at(-1).text, "3");
+  assert.equal(entry.recent[0].at, 1234);
+  assert.equal(hook.snapshot().filteredMessages, 13);
+  assert.equal(delivered.length, 2);
+  assert.doesNotMatch(JSON.stringify(hook.snapshot()), /viewer|hello|world/);
+  hook.setIncomingChatFilter(null);
+  socket.receive(blocked);
+  assert.equal(session.snapshot()[0].count, 13);
+  assert.equal(delivered.length, 4);
+  const copy = session.snapshot();
+  copy[0].recent[0].text = "mutated";
+  assert.equal(session.snapshot()[0].recent[0].text, "hello/@world");
+  await session.setRules([]);
+  assert.deepEqual(session.snapshot(), []);
+  assert.deepEqual(new UserBlockHistory().snapshot(), []);
+  hook.dispose();
+});
+
+test("blocked-chat observer failure cannot suppress retained gifts", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const received = [];
+  socket.onmessage = (event) => received.push(event.data);
+  hook.setIncomingChatFilter(() => true, () => { throw new Error("observer failure"); });
+  const chat = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/txt@=hidden/");
+  const gift = encodeDouyuPacket("type@=dgb/rid@=52/uid@=123/gfid@=1/");
+  const mixed = new Uint8Array(chat.byteLength + gift.byteLength);
+  mixed.set(new Uint8Array(chat));
+  mixed.set(new Uint8Array(gift), chat.byteLength);
+  socket.receive(mixed.buffer);
+  assert.deepEqual(received, [gift]);
+  hook.dispose();
+});
+
+test("entry-only filtering covers native listeners, reconnect, and disabling without chat history", () => {
+  const page = target();
+  const hook = installPageSocketHook(page);
+  const entry = encodeDouyuPacket("type@=uenter/rid@=52/uid@=123/nn@=example/");
+  const samples = [];
+  hook.setIncomingChatFilter(null, messages => samples.push(...messages), (uid, rid) => uid === "123" && rid === "52");
+  assert.equal(hook.snapshot().filterEnabled, true);
+  for (let index = 0; index < 2; index++) {
+    const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+    const delivered = [];
+    socket.onmessage = event => delivered.push(event.data);
+    socket.addEventListener("message", event => delivered.push(event.data));
+    socket.receive(entry);
+    assert.deepEqual(delivered, []);
+    const gift = encodeDouyuPacket("type@=dgb/rid@=52/uid@=123/gfid@=1/");
+    socket.receive(gift);
+    assert.deepEqual(delivered, [gift, gift]);
+    socket.close();
+  }
+  assert.equal(hook.snapshot().filteredEntryMessages, 2);
+  assert.equal(hook.snapshot().filteredMessages, 2);
+  assert.deepEqual(samples, []);
+  hook.setIncomingChatFilter(null);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const delivered = [];
+  socket.onmessage = event => delivered.push(event.data);
+  socket.receive(entry);
+  assert.deepEqual(delivered, [entry]);
+  hook.dispose();
+});
+
+test("read-only observers see blocked chat and entry once before native filtering and cannot break delivery", () => {
+  const page = target(); const hook = installPageSocketHook(page);
+  const observed = [];
+  const stop = hook.observeUserMessages(messages => observed.push(...messages));
+  const stopThrow = hook.observeUserMessages(() => { throw new Error("observer failed"); });
+  hook.setIncomingChatFilter(() => true);
+  const socket = new page.WebSocket("wss://wsproxy.douyu.com/");
+  const delivered = []; socket.onmessage = event => delivered.push(event.data);
+  const chat = encodeDouyuPacket("type@=chatmsg/rid@=52/uid@=123/txt@=hello/");
+  const enter = encodeDouyuPacket("type@=uenter/rid@=52/uid@=123/nn@=viewer/");
+  const mixed = new Uint8Array(chat.byteLength + enter.byteLength);
+  mixed.set(new Uint8Array(chat)); mixed.set(new Uint8Array(enter), chat.byteLength);
+  socket.receive(mixed.buffer);
+  assert.deepEqual(observed.map(item => item.kind), ["chatmsg", "uenter"]);
+  assert.deepEqual(delivered, [enter]);
+  const invalid = new Uint8Array(mixed.length + 1); invalid.set(mixed);
+  socket.receive(invalid.buffer);
+  assert.equal(observed.length, 2);
+  assert.equal(delivered.length, 2);
+  stop(); stopThrow(); socket.receive(enter);
+  assert.equal(observed.length, 2);
   hook.dispose();
 });

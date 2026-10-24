@@ -305,6 +305,8 @@ test("settings use safe defaults and retain supported values", async () => {
   assert.equal(settings.features.chatMemory, true);
   assert.equal(settings.features.danmakuSendCheck, true);
   assert.equal(settings.features.chatDecorationCleanup, true);
+  assert.equal(settings.features.activityLinkCleanup, false);
+  assert.equal(settings.features.floatingHeadCleanup, false);
   assert.equal(settings.features.chatLayout, true);
   assert.equal(settings.features.transientGuidanceCleanup, true);
   assert.equal(settings.features.bagInfo, true);
@@ -317,6 +319,7 @@ test("settings use safe defaults and retain supported values", async () => {
   assert.equal(settings.features.messageContextActionFallback, true);
   assert.equal(settings.features.disableOfflineJump, true);
   assert.equal(settings.preferences.autoWebFullscreen, true);
+  assert.equal(settings.preferences.controlCenterEdgeSide, "right");
   assert.equal(settings.automation.autoFansRestRoomId, null);
   await configured.save(settings);
   assert.equal(writes.at(-1)[0], SETTINGS_KEY);
@@ -335,6 +338,8 @@ test("Settings JSON import is exact, strict, and reports every supported change"
     features: {
       chatMemory: false,
       chatDecorationCleanup: false,
+      activityLinkCleanup: true,
+      floatingHeadCleanup: true,
       chatLayout: false,
       transientGuidanceCleanup: false,
       bagInfo: false,
@@ -348,7 +353,7 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       messageContextActionFallback: true,
       disableOfflineJump: false,
     },
-    preferences: { autoWebFullscreen: false },
+    preferences: { autoWebFullscreen: false, controlCenterEdgeSide: "left", controlCenterEdgeY: 0.5 },
     automation: { autoFansRestRoomId: "52", autoFansContinue: false },
   });
   assert.deepEqual(imported, {
@@ -356,6 +361,8 @@ test("Settings JSON import is exact, strict, and reports every supported change"
     features: {
       chatMemory: false,
       chatDecorationCleanup: false,
+      activityLinkCleanup: true,
+      floatingHeadCleanup: true,
       chatLayout: false,
       transientGuidanceCleanup: false,
       bagInfo: false,
@@ -369,16 +376,29 @@ test("Settings JSON import is exact, strict, and reports every supported change"
       messageContextActionFallback: true,
       disableOfflineJump: false,
     },
-    preferences: { autoWebFullscreen: false },
+    preferences: { autoWebFullscreen: false, controlCenterEdgeSide: "left", controlCenterEdgeY: 0.5 },
     automation: { autoFansRestRoomId: "52", autoFansContinue: false },
   });
-  assert.equal(diffSettings(current, imported).length, 16, "all supported fields participate in preview");
+  assert.equal(diffSettings(current, imported).length, 19, "all supported fields participate in preview");
   assert.deepEqual(diffSettings(imported, structuredClone(imported)), [], "an idempotent import has no write-worthy change");
   const legacyImport = structuredClone(imported);
   delete legacyImport.features.transientGuidanceCleanup;
   delete legacyImport.features.bagInfo;
+  delete legacyImport.features.activityLinkCleanup;
+  delete legacyImport.features.floatingHeadCleanup;
+  delete legacyImport.preferences.controlCenterEdgeSide;
   assert.equal(parseSettingsImport(legacyImport).features.transientGuidanceCleanup, true, "older Settings v6 exports default the visual cleanup on");
   assert.equal(parseSettingsImport(legacyImport).features.bagInfo, true, "older Settings v6 exports default bag info on");
+  assert.equal(parseSettingsImport(legacyImport).features.activityLinkCleanup, false, "older exports never enable activity cleanup implicitly");
+  assert.equal(parseSettingsImport(legacyImport).features.floatingHeadCleanup, false, "older exports leave floating head cleanup off");
+  assert.throws(() => parseSettingsImport({ ...legacyImport, features: { ...legacyImport.features, floatingHeadCleanup: "true" } }), /floatingHeadCleanup/);
+  assert.throws(() => parseSettingsImport({ ...legacyImport, features: { ...legacyImport.features, activityLinkCleanup: "true" } }), /activityLinkCleanup/);
+  assert.equal(parseSettingsImport(legacyImport).preferences.controlCenterEdgeSide, "right", "older Settings v6 exports keep the trigger on the right");
+  delete legacyImport.preferences.controlCenterEdgeY;
+  assert.equal(parseSettingsImport(legacyImport).preferences.controlCenterEdgeY, 0.5);
+  assert.equal(parseSettingsImport({ ...legacyImport, preferences: { ...legacyImport.preferences, controlCenterEdgeY: 0.25 } }).preferences.controlCenterEdgeY, 0.25);
+  for (const controlCenterEdgeY of [-1, 2, NaN, "0.5"]) assert.throws(() => parseSettingsImport({ ...legacyImport,
+    preferences: { ...legacyImport.preferences, controlCenterEdgeY } }), /controlCenterEdgeY/);
   assert.throws(
     () => parseSettingsImport({ ...imported, unexpected: true }),
     /未知字段：unexpected/,
@@ -868,6 +888,11 @@ test("control center keeps its navigation outside the scrolling flex region", as
   assert.match(source, /header \{ flex:0 0 auto;/);
   assert.match(source, /nav \{ flex:0 0 44px;/);
   assert.match(source, /main \{ flex:1 1 auto; min-height:0; overflow:auto;/);
+  assert.match(source, /edge-left/);
+  assert.match(source, /edge-right/);
+  assert.match(source, /入口移到左侧/);
+  assert.match(source, /入口移到右侧/);
+  assert.match(source, /controlCenterEdgeSide/);
 });
 
 test("danmaku availability is automatic and exposes a concise outcome state", async () => {
@@ -1712,6 +1737,16 @@ test("chat history is bounded, room-scoped, persistent, and restores drafts", as
   assert.equal(navigator.move("newer", "b", ["a", "b"]), "draft");
 });
 
+test("chat history records native Socket sends, while a matching input submission stays single", async () => {
+  const store = new ChatMemoryStore(null, async () => {});
+  await store.addFromUi("52", "manual", 100);
+  await store.addFromSocket("52", "manual", 101);
+  await store.addFromSocket("52", "native +1", 102);
+  await store.addFromSocket("52", "native +1", 103);
+  assert.deepEqual(store.messages("52"), ["manual", "native +1", "native +1"]);
+  assert.deepEqual(store.messages("12306"), []);
+});
+
 test("chat history takes over every arrow only while browsing", () => {
   const navigator = new ChatHistoryNavigator();
   const shouldHandle = (caretAtDirectionalBoundary, caretCollapsed = true) =>
@@ -2153,7 +2188,7 @@ test("chat history records submissions independently from DOM echo detection", a
   assert.doesNotMatch(sendCheckSource, /onObservedOwn|danmaku-blocked/);
 });
 
-test("room metrics keeps gift revenue, nobles, and the archived time semantics", async () => {
+test("room metrics keeps online and time while the old gift parser remains archived", async () => {
   assert.equal(extractRoomId("/60937"), "60937");
   assert.equal(extractRoomId("/60937/"), "60937");
   assert.equal(extractRoomId("/directory/all"), null);
@@ -2186,8 +2221,9 @@ test("room metrics keeps gift revenue, nobles, and the archived time semantics",
     ),
     { paidGiftValue: "172.50", totalGiftValue: "5287.30" },
   );
-  assert.match(metricsMarkup(), /data-dwe-metric="money"/);
-  assert.match(metricsMarkup(), /data-dwe-metric="nobles"/);
+  assert.doesNotMatch(metricsMarkup(), /data-dwe-metric="money"/);
+  assert.match(metricsMarkup(), /data-dwe-metric="online"[^>]*tabindex="0"/);
+  assert.doesNotMatch(metricsMarkup(), /data-dwe-metric="nobles"/);
   assert.match(metricsMarkup(), /data-dwe-metric="watch-time"/);
   assert.doesNotMatch(metricsMarkup(), /data-dwe-metric="broadcast-time"/);
   assert.match(metricsMarkup(), /data-dwe-metric="watch-time"[^>]*tabindex="0"/);
@@ -2228,7 +2264,7 @@ test("room metrics keeps gift revenue, nobles, and the archived time semantics",
   assert.doesNotMatch(source, /anonymous: true/);
   assert.match(source, /responseType: "text"/);
   assert.match(source, /responseText \?\? response/);
-  assert.match(source, /querySelector\('\[data-dwe-metric="money"\]'\)\?\.addEventListener/);
+  assert.doesNotMatch(source, /querySelector\('\[data-dwe-metric="money"\]'\)\?\.addEventListener/);
   assert.doesNotMatch(source, /element\.addEventListener\("click"/);
   assert.match(source, /fetch\(`https:\/\/www\.douyu\.com\/swf_api\/h5room/);
   assert.doesNotMatch(source, /document\.defaultView\?\.fetch/);
@@ -2238,11 +2274,7 @@ test("room metrics keeps gift revenue, nobles, and the archived time semantics",
   assert.match(source, /element\.getAttribute\(name\) !== value/);
   assert.match(source, /setInterval\(\(\) => \{[\s\S]*renderTimes\(\);[\s\S]*\}, 1_000\)/);
   assert.doesNotMatch(source, /mount\(\);\s*if \(!element\) return;/);
-  assert.match(source, /let moneyText = "\*\*\*\*"/);
-  assert.match(
-    source,
-    /catch \(error\)[\s\S]*moneyTitle = "礼物收入暂不可用，将自动重试";[\s\S]*updateNobles\(\)/,
-  );
+  assert.doesNotMatch(source.slice(source.indexOf("export function createRoomMetricsFeature")), /requestAggregate\(/);
 
   const aggregate = await requestAggregate("60937", (details) => {
     assert.equal(details.responseType, "text");
@@ -2727,7 +2759,6 @@ test("preview package has narrow userscript permissions", async () => {
   assert.match(viteConfig, /"GM_xmlhttpRequest"/);
   assert.match(viteConfig, /"GM\.xmlHttpRequest"/);
   for (const host of [
-    "www.doseeing.com",
     "apiv2.douyucdn.cn",
     "mapi-yuba.douyu.com",
     "yuba.douyu.com",

@@ -1,9 +1,17 @@
 export type ChatMessageFilter = (uid: string, roomId: string) => boolean;
+export type ActivityMessageFilter = (message: string) => string | null;
+
+export interface BlockedChatMessage {
+  uid: string;
+  roomId: string;
+  nickname: string;
+  text: string;
+}
 
 export type FilteredDouyuFrame =
   | { kind: "pass"; reason: "unmatched" | "incomplete" | "invalid" }
-  | { kind: "drop"; removedMessages: number }
-  | { kind: "replace"; data: ArrayBuffer; removedMessages: number };
+  | { kind: "drop"; removedMessages: number; blockedChats: BlockedChatMessage[]; activityRooms: string[] }
+  | { kind: "replace"; data: ArrayBuffer; removedMessages: number; blockedChats: BlockedChatMessage[]; activityRooms: string[] };
 
 const MAX_PACKETS_PER_FRAME = 4096;
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -40,10 +48,12 @@ function encodePacket(original: Uint8Array, parts: Uint8Array[]): Uint8Array {
 }
 
 /** Filter only complete, valid frames. On uncertainty leave every original byte untouched. */
-export function filterDouyuFrame(data: ArrayBuffer, shouldBlock: ChatMessageFilter): FilteredDouyuFrame {
+export function filterDouyuFrame(data: ArrayBuffer, shouldBlock: ChatMessageFilter, shouldBlockEntry: ChatMessageFilter | null = null, shouldBlockActivity: ActivityMessageFilter | null = null): FilteredDouyuFrame {
   const bytes = new Uint8Array(data);
   const retained: Uint8Array[] = [];
   let removedMessages = 0;
+  const blockedChats: BlockedChatMessage[] = [];
+  const activityRooms: string[] = [];
   let offset = 0;
   let packets = 0;
   try {
@@ -64,10 +74,20 @@ export function filterDouyuFrame(data: ArrayBuffer, shouldBlock: ChatMessageFilt
         if (part.length === 0) { kept.push(part); continue; }
         const message = decoder.decode(part);
         const type = field(message, "type");
-        const uid = type === "chatmsg" ? field(message, "uid") : null;
-        const roomId = uid ? field(message, "rid") : null;
-        if (uid && roomId && /^\d+$/.test(uid) && /^\d+$/.test(roomId) && shouldBlock(uid, roomId)) {
+        const activityRoom = type === "chatmsg" ? shouldBlockActivity?.(message) : null;
+        if (activityRoom && /^[1-9]\d{0,11}$/.test(activityRoom)) {
           removedMessages += 1;
+          activityRooms.push(activityRoom);
+          continue;
+        }
+        const predicate = type === "chatmsg" ? shouldBlock : type === "uenter" ? shouldBlockEntry : null;
+        const uid = predicate ? field(message, "uid") : null;
+        const roomId = uid ? field(message, "rid") : null;
+        if (uid && roomId && /^\d+$/.test(uid) && /^\d+$/.test(roomId) && predicate!(uid, roomId)) {
+          removedMessages += 1;
+          const decodeField = (name: string, limit: number): string => (field(message, name) ?? "")
+            .replace(/@S/g, "/").replace(/@A/g, "@").slice(0, limit);
+          if (type === "chatmsg") blockedChats.push({ uid, roomId, nickname: decodeField("nn", 128), text: decodeField("txt", 2048) });
         } else {
           kept.push(part);
         }
@@ -80,7 +100,7 @@ export function filterDouyuFrame(data: ArrayBuffer, shouldBlock: ChatMessageFilt
     return { kind: "pass", reason: "invalid" };
   }
   if (removedMessages === 0) return { kind: "pass", reason: "unmatched" };
-  if (retained.length === 0) return { kind: "drop", removedMessages };
+  if (retained.length === 0) return { kind: "drop", removedMessages, blockedChats, activityRooms };
   const totalLength = retained.reduce((sum, packet) => sum + packet.length, 0);
   const output = new Uint8Array(totalLength);
   let position = 0;
@@ -88,5 +108,5 @@ export function filterDouyuFrame(data: ArrayBuffer, shouldBlock: ChatMessageFilt
     output.set(packet, position);
     position += packet.length;
   }
-  return { kind: "replace", data: output.buffer, removedMessages };
+  return { kind: "replace", data: output.buffer, removedMessages, blockedChats, activityRooms };
 }

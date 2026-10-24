@@ -107,7 +107,7 @@
 
 | ID / 用户价值 | 归档源码与入口 | 默认 / 持久化 | 接口、依赖与当前失效点 | 建议 / 优先级 / 独立验收边界 |
 | --- | --- | --- | --- | --- |
-| `danmaku-tail`：发送前自动添加自定义前/后缀 | `DanmakuTail/`；输入区工具栏图标+面板 | 关；`ExSave_DanmakuTail` | 归档版直接拦截输入框 Enter 和发送按钮，动态重建会丢监听 | deferred；不单独迁移归档实现。后续与用户自定义的 WebSocket Hook 发送功能共同深化，届时重新冻结插入时机、发送语义与验收边界。 |
+| `danmaku-tail`：发送前自动添加自定义前/后缀 | `DanmakuTail/`；输入区工具栏图标+面板 | 关；`ExSave_DanmakuTail` | 归档版直接拦截输入框 Enter 和发送按钮，动态重建会丢监听 | verifying；按用户要求改为可选 Socket 出站改写，保留工具栏入口和前/后缀；60 字输入加 4 字尾巴已获房间回显，外部 Chrome 兼容性仍待验收。见 `danmaku-tail-contract.md`。 |
 | `chat-memory`：用上下方向键恢复最近提交的弹幕 | `ChatTools/ChatMemory/`；输入框首/尾位置按 ↑/↓ | 归档为自动、仅内存、最多 200 条；新契约为每房间本地持久化 | 归档在 Enter/点击时无条件记录，会收入空内容，丢草稿且动态重建会丢监听 | 已实现，待实机；P2；保留提交时入库，过滤空内容，委托事件覆盖重建并恢复草稿；每房间 200 条，LRU 保留 50 个房间；不依赖发送检测。 |
 | `message-plus-one`：右键弹幕后一键复读文本/图片标记 | `BarragePanel/BarragePanel_Tip.js`；原评论浮层“+1” | 自动；无 | 直接调用发送函数；图片分支依赖 `image-danmaku`，会产生账号发言 | 调研；P3；文本与图片拆分、发送前确认/频控和服务端结果。 |
 | `chat-length-extension`：把原 50 字限制增至 70 | `RemoveChatLengthLimit/ChangeDanmakuLengthLimit.js`；无入口 | 自动；无 | 改按钮 class/maxLength；服务端限制可能不同 | 调研；P2；先测当前服务端/客户端限制，超限反馈真实，不仅验证属性。 |

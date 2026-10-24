@@ -12,7 +12,7 @@ export const DEFAULT_AUTOMATION_ROOM_ID = "12306";
 export const FOLLOW_RESTORE_KEY = "douyu-web-enhancer:automation:follow-restore:3186571";
 
 type Row = Record<string, unknown>;
-interface GmResponse { status?: number; response?: unknown }
+interface GmResponse { status?: number; response?: unknown; responseHeaders?: string }
 export interface GmRequestDetails {
   method: string; url: string; data?: string; responseType: "json" | "text";
   headers?: Record<string, string>; timeout?: number;

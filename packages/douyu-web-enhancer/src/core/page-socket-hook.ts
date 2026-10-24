@@ -1,5 +1,7 @@
+import { ROOM_MESSAGE_TYPES, roomFields } from "./room-messages.ts";
 import { decodeDouyuPackets } from "./anonymous-danmaku.ts";
-import { filterDouyuFrame, type ChatMessageFilter } from "./douyu-message-filter.ts";
+import { filterDouyuFrame, type ChatMessageFilter, type ActivityMessageFilter, type BlockedChatMessage } from "./douyu-message-filter.ts";
+import { readDouyuUserMessages, isCompleteDouyuObservationFrame, type DouyuUserMessage } from "./douyu-user-messages.ts";
 
 export const PAGE_SOCKET_HOOK_ID = "page-socket-hook";
 
@@ -28,12 +30,17 @@ export interface PageSocketHookSnapshot {
   filterEnabled: boolean;
   filteredFrames: number;
   filteredMessages: number;
+  filteredEntryMessages: number;
+  filteredActivityMessages: number;
   filterSkippedFrames: number;
   filterSkippedUnsupportedFrames: number;
   filterSkippedIncompleteFrames: number;
   filterSkippedInvalidFrames: number;
   filterSkippedOversizedFrames: number;
   filterErrors: number;
+  outgoingObservedFrames: number;
+  outgoingTransformedFrames: number;
+  outgoingTransformErrors: number;
 }
 
 type SocketTarget = {
@@ -49,15 +56,26 @@ type SocketListeners = {
   close: EventListener;
 };
 
+type SocketSend = { originalDescriptor: PropertyDescriptor | undefined; wrapper: WebSocket["send"] };
+
 type HookState = {
   target: SocketTarget;
   original: typeof WebSocket;
   wrapper: typeof WebSocket;
   originalDescriptor: PropertyDescriptor | undefined;
   sockets: Map<WebSocket, SocketListeners>;
+  socketSends: Map<WebSocket, SocketSend>;
   listeners: Set<() => void>;
+  roomMessageListeners: Set<(messages: readonly string[]) => void>;
+  userMessageListeners: Set<(messages: readonly DouyuUserMessage[]) => void>;
+  outgoingChatListeners: Set<(data: unknown) => void>;
   snapshot: PageSocketHookSnapshot;
   chatFilter: ChatMessageFilter | null;
+  entryFilter: ChatMessageFilter | null;
+  activityFilter: ActivityMessageFilter | null;
+  outgoingChatTransform: ((data: unknown) => unknown) | null;
+  onFilteredActivities?: (roomIds: readonly string[], messages: readonly string[]) => void;
+  onBlockedChats?: (messages: readonly BlockedChatMessage[]) => void;
   syntheticEvents: WeakSet<Event>;
   notificationTimer: ReturnType<typeof setTimeout> | undefined;
   refs: number;
@@ -67,7 +85,12 @@ type HookState = {
 export interface PageSocketHook {
   snapshot(): PageSocketHookSnapshot;
   subscribe(listener: () => void): () => void;
-  setIncomingChatFilter(filter: ChatMessageFilter | null): void;
+  observeRoomMessages(listener: (messages: readonly string[]) => void): () => void;
+  observeUserMessages(listener: (messages: readonly DouyuUserMessage[]) => void): () => void;
+  observeOutgoingChat(listener: (data: unknown) => void): () => void;
+  setIncomingChatFilter(filter: ChatMessageFilter | null, onBlockedChats?: (messages: readonly BlockedChatMessage[]) => void, entryFilter?: ChatMessageFilter | null): void;
+  setActivityFilter(filter: ActivityMessageFilter | null, onFiltered?: (roomIds: readonly string[], messages: readonly string[]) => void): void;
+  setOutgoingChatTransform(transform: ((data: unknown) => unknown) | null): void;
   dispose(): void;
 }
 
@@ -87,12 +110,17 @@ function initialSnapshot(): PageSocketHookSnapshot {
     filterEnabled: false,
     filteredFrames: 0,
     filteredMessages: 0,
+    filteredEntryMessages: 0,
+    filteredActivityMessages: 0,
     filterSkippedFrames: 0,
     filterSkippedUnsupportedFrames: 0,
     filterSkippedIncompleteFrames: 0,
     filterSkippedInvalidFrames: 0,
     filterSkippedOversizedFrames: 0,
     filterErrors: 0,
+    outgoingObservedFrames: 0,
+    outgoingTransformedFrames: 0,
+    outgoingTransformErrors: 0,
   };
 }
 
@@ -165,6 +193,18 @@ function inspectFrame(state: HookState, data: unknown): void {
     for (const message of messages) {
       if (!recordType(state, message)) state.snapshot.unparsedFrames += 1;
     }
+    if (state.roomMessageListeners.size && isCompleteDouyuObservationFrame(data)) {
+      const observed = messages.filter(message => ROOM_MESSAGE_TYPES.has(roomFields(message).type ?? ""));
+      if (observed.length) for (const listener of state.roomMessageListeners) {
+        try { listener([...observed]); } catch { /* read-only observations must not affect delivery */ }
+      }
+    }
+    if (state.userMessageListeners.size && isCompleteDouyuObservationFrame(data)) {
+      const observed = readDouyuUserMessages(messages);
+      if (observed.length) for (const listener of state.userMessageListeners) {
+        try { listener(observed); } catch { /* observations cannot change native delivery */ }
+      }
+    }
   } catch {
     state.snapshot.hookErrors += 1;
   } finally {
@@ -184,6 +224,37 @@ function isDouyuSocket(target: SocketTarget, address: unknown): boolean {
 }
 
 function observeSocket(state: HookState, socket: WebSocket): void {
+  try {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(socket, "send");
+    const nativeSend = socket.send;
+    const wrapper = function (this: WebSocket, data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+      const transform = state.disposed ? null : state.outgoingChatTransform;
+      let outgoing: unknown = data;
+      if (transform) {
+        try {
+          outgoing = transform(data);
+          if (outgoing !== data) state.snapshot.outgoingTransformedFrames += 1;
+          state.snapshot.outgoingObservedFrames += 1;
+          scheduleNotify(state);
+        } catch {
+          outgoing = data;
+          state.snapshot.outgoingTransformErrors += 1;
+          scheduleNotify(state);
+        }
+      }
+      Reflect.apply(nativeSend, this, [outgoing]);
+      // The native send has returned successfully. Observers see the original
+      // submission, before optional tail rewriting, and cannot affect delivery.
+      for (const listener of state.outgoingChatListeners) {
+        try { listener(data); } catch { /* history observation is isolated */ }
+      }
+    } as WebSocket["send"];
+    Object.defineProperty(socket, "send", { configurable: true, writable: true, value: wrapper });
+    state.socketSends.set(socket, { originalDescriptor, wrapper });
+  } catch {
+    // A non-extensible native socket still works; only outbound transformation is unavailable.
+    state.snapshot.hookErrors += 1;
+  }
   const open: EventListener = () => {
     if (state.disposed) return;
     state.snapshot.openConnections += 1;
@@ -210,7 +281,7 @@ function observeSocket(state: HookState, socket: WebSocket): void {
       inspectFrame(state, data);
     }
     const filter = state.chatFilter;
-    if (!filter) return;
+    if (!filter && !state.entryFilter && !state.activityFilter) return;
     if (!(data instanceof ArrayBuffer) || data.byteLength > MAX_OBSERVED_FRAME_BYTES) {
       state.snapshot.filterSkippedFrames += 1;
       if (!(data instanceof ArrayBuffer)) state.snapshot.filterSkippedUnsupportedFrames += 1;
@@ -219,7 +290,13 @@ function observeSocket(state: HookState, socket: WebSocket): void {
       return;
     }
     try {
-      const result = filterDouyuFrame(data, filter);
+      const activityMessages: string[] = [];
+      const activityFilter = state.activityFilter ? (message: string): string | null => {
+        const roomId = state.activityFilter?.(message) ?? null;
+        if (roomId && /^[1-9]\d{0,11}$/.test(roomId)) activityMessages.push(message);
+        return roomId;
+      } : null;
+      const result = filterDouyuFrame(data, filter ?? (() => false), state.entryFilter, activityFilter);
       if (result.kind === "pass") {
         if (result.reason === "invalid" || result.reason === "incomplete") {
           state.snapshot.filterSkippedFrames += 1;
@@ -242,6 +319,11 @@ function observeSocket(state: HookState, socket: WebSocket): void {
       event.stopImmediatePropagation();
       state.snapshot.filteredFrames += 1;
       state.snapshot.filteredMessages += result.removedMessages;
+      state.snapshot.filteredActivityMessages += result.activityRooms.length;
+      state.snapshot.filteredEntryMessages += result.removedMessages - result.blockedChats.length - result.activityRooms.length;
+      // Observation must not break native delivery of retained messages.
+      try { state.onBlockedChats?.(result.blockedChats); } catch { /* observer failure is isolated */ }
+      try { if (result.activityRooms.length) state.onFilteredActivities?.(result.activityRooms, activityMessages); } catch { /* statistics cannot affect delivery */ }
       scheduleNotify(state);
       if (replacement) socket.dispatchEvent(replacement);
     } catch {
@@ -281,6 +363,14 @@ function observeSocket(state: HookState, socket: WebSocket): void {
 }
 
 function detachSocket(state: HookState, socket: WebSocket): void {
+  const send = state.socketSends.get(socket);
+  if (send) {
+    state.socketSends.delete(socket);
+    if (socket.send === send.wrapper) try {
+      if (send.originalDescriptor) Object.defineProperty(socket, "send", send.originalDescriptor);
+      else Reflect.deleteProperty(socket, "send");
+    } catch { state.snapshot.hookErrors += 1; }
+  }
   const listeners = state.sockets.get(socket);
   if (!listeners) return;
   state.sockets.delete(socket);
@@ -298,10 +388,39 @@ function handle(state: HookState): PageSocketHook {
       state.listeners.add(listener);
       return () => state.listeners.delete(listener);
     },
-    setIncomingChatFilter(filter) {
+    observeRoomMessages(listener) {
+      if (released || state.disposed) return () => undefined;
+      state.roomMessageListeners.add(listener);
+      return () => state.roomMessageListeners.delete(listener);
+    },
+    observeUserMessages(listener) {
+      if (released || state.disposed) return () => undefined;
+      state.userMessageListeners.add(listener);
+      return () => state.userMessageListeners.delete(listener);
+    },
+    observeOutgoingChat(listener) {
+      if (released || state.disposed) return () => undefined;
+      state.outgoingChatListeners.add(listener);
+      return () => state.outgoingChatListeners.delete(listener);
+    },
+    setIncomingChatFilter(filter, onBlockedChats, entryFilter = null) {
       if (released || state.disposed) return;
       state.chatFilter = filter;
-      state.snapshot.filterEnabled = filter !== null;
+      state.entryFilter = entryFilter;
+      state.onBlockedChats = filter ? onBlockedChats : undefined;
+      state.snapshot.filterEnabled = filter !== null || entryFilter !== null || state.activityFilter !== null;
+      notify(state);
+    },
+    setActivityFilter(filter, onFiltered) {
+      if (released || state.disposed) return;
+      state.activityFilter = filter;
+      state.onFilteredActivities = filter ? onFiltered : undefined;
+      state.snapshot.filterEnabled = state.chatFilter !== null || state.entryFilter !== null || filter !== null;
+      notify(state);
+    },
+    setOutgoingChatTransform(transform) {
+      if (released || state.disposed) return;
+      state.outgoingChatTransform = transform;
       notify(state);
     },
     dispose() {
@@ -311,9 +430,17 @@ function handle(state: HookState): PageSocketHook {
       if (state.refs > 0) return;
       state.disposed = true;
       state.chatFilter = null;
+      state.entryFilter = null;
+      state.activityFilter = null;
+      state.outgoingChatTransform = null;
+      state.onFilteredActivities = undefined;
+      state.onBlockedChats = undefined;
       if (state.notificationTimer !== undefined) clearTimeout(state.notificationTimer);
       for (const socket of state.sockets.keys()) detachSocket(state, socket);
       state.listeners.clear();
+      state.userMessageListeners.clear();
+      state.outgoingChatListeners.clear();
+      state.roomMessageListeners.clear();
       if (state.target.WebSocket === state.wrapper) {
         try {
           if (state.originalDescriptor) {
@@ -345,7 +472,7 @@ export function installPageSocketHook(target: SocketTarget = globalThis as Socke
   ))) {
     const snapshot = initialSnapshot();
     snapshot.hookErrors = 1;
-    return { snapshot: () => ({ ...snapshot, messageTypes: { ...snapshot.messageTypes } }), subscribe: () => () => undefined, setIncomingChatFilter: () => undefined, dispose: () => undefined };
+    return { snapshot: () => ({ ...snapshot, messageTypes: { ...snapshot.messageTypes } }), subscribe: () => () => undefined, observeRoomMessages: () => () => undefined, observeUserMessages: () => () => undefined, observeOutgoingChat: () => () => undefined, setIncomingChatFilter: () => undefined, setActivityFilter: () => undefined, setOutgoingChatTransform: () => undefined, dispose: () => undefined };
   }
   const state: HookState = {
     target,
@@ -353,9 +480,16 @@ export function installPageSocketHook(target: SocketTarget = globalThis as Socke
     wrapper: original,
     originalDescriptor,
     sockets: new Map(),
+    socketSends: new Map(),
     listeners: new Set(),
+    userMessageListeners: new Set(),
+    outgoingChatListeners: new Set(),
+    roomMessageListeners: new Set(),
     snapshot: initialSnapshot(),
     chatFilter: null,
+    entryFilter: null,
+    activityFilter: null,
+    outgoingChatTransform: null,
     syntheticEvents: new WeakSet(),
     notificationTimer: undefined,
     refs: 1,

@@ -50,13 +50,14 @@
         "deviations": []
       }
     },
-      {
-        "id": "chat-sending-experience",
-        "name": "弹幕发送体验",
-        "status": "verifying",
+    {
+      "id": "chat-sending-experience",
+      "name": "弹幕发送体验",
+      "status": "verifying",
       "featureIds": [
         "chat-memory",
-        "danmaku-send-check"
+        "danmaku-send-check",
+        "danmaku-tail"
       ],
       "contract": {
         "experience": "在弹幕输入框中用上/下键找回当前房间已提交的历史发言；发送后以本人 DOM 行和匿名公共弹幕流进行 2 秒联合观察，疑似未公开出现时标记对应行，并在发送区上方给出不占输入空间的提示。",
@@ -95,24 +96,24 @@
         "compact-player"
       ],
       "contract": {
-          "experience": "数字直播间到达是一次原子体验事务：等待真实播放器可操作，执行一次定位，再按全局网页全屏偏好决定是否尝试一次斗鱼网页全屏。它解决顶部推广遮住画面和网页全屏不持久化两个相连缺口；成功、明确降级或用户接管即结束，刷新或真实 SPA 换房才重新开始。compact-player 继续以同一网页全屏模式标记同步布局。",
+        "experience": "数字直播间到达是一次原子体验事务：等待真实播放器可操作，执行一次定位，再按全局网页全屏偏好决定是否尝试一次斗鱼网页全屏。它解决顶部推广遮住画面和网页全屏不持久化两个相连缺口；成功、明确降级或用户接管即结束，刷新或真实 SPA 换房才重新开始。compact-player 继续以同一网页全屏模式标记同步布局。",
         "stateOwner": "Settings v6 的 preferences.autoWebFullscreen 是网页全屏偏好的唯一规范持久状态；首次 v5 恢复时只读旧 GM 键 douyu-web-enhancer:auto-web-fullscreen 并迁入，不长期双写。本房间的定位、一次进入尝试、恢复协调和诊断均为可丢弃 runtime 状态。compact-player 保持自己的 features.compactPlayer 设置所有权。",
-          "restorationTriggers": [
-            "数字直播间初次进入",
-            "页面刷新",
-            "真实 SPA 数字房间路径变化",
-            "尚未结束的到达事务中的真实播放器或官方控件晚挂载"
+        "restorationTriggers": [
+          "数字直播间初次进入",
+          "页面刷新",
+          "真实 SPA 数字房间路径变化",
+          "尚未结束的到达事务中的真实播放器或官方控件晚挂载"
         ],
         "preserved": [
           "顶部活动内容不作为播放器定位目标",
           "浏览器原生全屏、F11 与影院模式",
           "compact-player 的独立礼物栏设置"
         ],
-          "stateMatrix": [
-            "无记录时默认 true：一次定位后一次有界恢复尝试",
-            "全局 false：一次定位后结束，不恢复网页全屏",
-            "网页全屏控件缺失：明确降级并结束，不猜测点击",
-            "用户主动接管后不再抢滚动/焦点；刷新、换房与 compact-player 启停组合"
+        "stateMatrix": [
+          "无记录时默认 true：一次定位后一次有界恢复尝试",
+          "全局 false：一次定位后结束，不恢复网页全屏",
+          "网页全屏控件缺失：明确降级并结束，不猜测点击",
+          "用户主动接管后不再抢滚动/焦点；刷新、换房与 compact-player 启停组合"
         ],
         "deviations": []
       }
@@ -132,8 +133,15 @@
         "persistence": "独立保存开关状态，刷新和切换房间后保持。",
         "stateOwner": "GM 设置 features.compactPlayer；样式注册、双入口反馈和动态全屏布局均由此派生。",
         "restorationTrigger": "脚本启动恢复静态样式；入口被重建时重新挂载并同步反馈；全屏模式变化时只同步动态布局。",
-        "affectedRegions": ["播放器礼物展示栏", "播放器画面占位", "播放器内简洁模式入口"],
-        "preservedRegions": ["鱼丸、鱼翅、充值和背包功能栏", "原生播放器控制栏"],
+        "affectedRegions": [
+          "播放器礼物展示栏",
+          "播放器画面占位",
+          "播放器内简洁模式入口"
+        ],
+        "preservedRegions": [
+          "鱼丸、鱼翅、充值和背包功能栏",
+          "原生播放器控制栏"
+        ],
         "deviations": [
           {
             "status": "rejected",
@@ -160,8 +168,16 @@
         "persistence": "独立保存开关状态，刷新和切换房间后保持。",
         "stateOwner": "GM 设置 features.chatLayout；排行榜、活动栏、弹幕区布局和按钮反馈均由此派生。",
         "restorationTrigger": "脚本启动恢复样式；弹幕工具栏被重建时只重新挂载入口并同步反馈。",
-        "affectedRegions": ["礼物榜", "活动栏", "弹幕列表顶部布局"],
-        "preservedRegions": ["房间统计摘要", "弹幕输入与发送区域", "弹幕正文"],
+        "affectedRegions": [
+          "礼物榜",
+          "活动栏",
+          "弹幕列表顶部布局"
+        ],
+        "preservedRegions": [
+          "房间统计摘要",
+          "弹幕输入与发送区域",
+          "弹幕正文"
+        ],
         "deviations": [
           {
             "status": "rejected",
@@ -197,8 +213,15 @@
         "persistence": "独立保存开关状态，刷新和切换房间后保持。",
         "stateOwner": "GM 设置 features.chatDecorationCleanup；前缀样式和按钮反馈均由此派生。",
         "restorationTrigger": "脚本启动恢复样式；新弹幕天然受静态 CSS 约束；工具栏重建时只重新挂载入口。",
-        "affectedRegions": ["弹幕粉丝牌", "贵族、等级、成就等消息前缀"],
-        "preservedRegions": ["用户名", "弹幕正文", "图片表情和系统消息正文"],
+        "affectedRegions": [
+          "弹幕粉丝牌",
+          "贵族、等级、成就等消息前缀"
+        ],
+        "preservedRegions": [
+          "用户名",
+          "弹幕正文",
+          "图片表情和系统消息正文"
+        ],
         "deviations": [
           {
             "status": "rejected",
@@ -221,11 +244,83 @@
         ]
       }
     },
-      {
-        "id": "transient-guidance-cleanup",
-        "name": "隐藏粉丝团与徽章佩戴瞬态引导",
-        "priority": "P2",
-        "status": "done",
+    {
+      "id": "activity-link-cleanup",
+      "name": "屏蔽活动弹幕",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "基于自然 chatmsg、官方模板与右栏 DOM；2026-10-13 改为在完整 Socket 帧投递前过滤 gadid=29/48。2026-10-18 加严完整唯一字段及当前房间检查，并增加最近 50 条实际过滤记录供回看。浏览器双区域自然消息闭环待验收；旧按 DOM 行计数历史保留。",
+      "contract": {
+        "behavior": "开启后完整二进制帧中的 chatmsg.gadid=29/48 在官方消息监听器前过滤；原生聊天栏和飘屏不接收新消息。既有聊天行由 CSS 临时隐藏。无效、分片、Blob 等不安全帧保守放行并计入诊断。",
+        "interaction": "弹幕页独立“屏蔽活动弹幕”开关，默认关闭；摘要显示本房间与累计屏蔽条数，房间表、最近屏蔽时间和最近 50 条实际过滤记录在折叠详情内。",
+        "persistence": "继续使用 GM Settings v6 的 activityLinkCleanup 布尔值，旧设置缺字段默认关闭；统计 IndexedDB 保存房间号、计数和最后时间；另一个本地 IndexedDB 最多保存 50 条过滤记录的时间、房间、活动类型、截短正文及原包提供的昵称/UID。旧记录缺身份时明确说明。关闭开关不清除记录。",
+        "stateOwner": "SettingsStore/FeatureRuntime 控制独立 Socket 活动过滤器及既有行的样式兜底；ActivityCleanupStats 只从成功拦截回调累计，一秒合并增量并以事务累加，避免多标签覆盖计数；ActivityFilterReview 保存有界的实际过滤记录。",
+        "restorationTrigger": "新页面 Socket 消息在过滤器开启时拦截；关闭后新消息恢复投递，移除样式恢复仍在页面中的旧行，已丢弃消息不重放；刷新按保存值恢复。",
+        "affectedRegions": [
+          "右侧聊天栏及播放器飘屏的大西瓜和保卫鱼娘新活动消息"
+        ],
+        "preservedRegions": [
+          "普通弹幕与普通正文链接",
+          "其他活动或未知模板",
+          "普通飘屏头部与背景",
+          "Socket 关注记录与速度统计"
+        ],
+        "deviations": [
+          {
+            "status": "approved",
+            "baseline": "上一阶段仅隐藏活动尾部，保留活动正文。",
+            "proposal": "开启后隐藏已确认活动的整条聊天行。",
+            "reason": "用户明确认为整条消息由活动发出，无需保留正文。",
+            "objective": "一次开关屏蔽整条活动弹幕并提供按房间的隐藏统计。",
+            "decisionRecord": "2026-10-02 用户要求直接屏蔽整条，并统计次数、房间和最近时间。",
+            "fallback": "关闭开关恢复尚在页面中的活动行。"
+          }
+        ],
+        "evidence": [
+          "docs/research/danmaku-background.md",
+          "src/features/activity-link-cleanup.ts",
+          "src/features/activity-cleanup-stats.ts",
+          "docs/verification.md"
+        ]
+      }
+    },
+    {
+      "id": "floating-head-cleanup",
+      "name": "隐藏飘屏头部图像",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "用户认可头部装饰清理；2026-10-03 在房间 1126960 确认多个自然 headpic 图片、普通正文、正文表情及渐变彩字，第一版仅覆盖普通 scroll 渲染器的独立头部图像。",
+      "contract": {
+        "behavior": "仅隐藏 #__h5player 内 danmu-* 宿主直接 data-comment-uuid 子行的直接 headpic-* img，并清除其文字层前方 6px 间距；使用 CSS，不改 Socket 或原生节点。",
+        "interaction": "控制中心弹幕页独立“隐藏飘屏头部图像”开关，默认关闭；保留文字和彩字。面板明确特殊背景皮肤暂未覆盖。",
+        "persistence": "Settings v6 独立 floatingHeadCleanup 布尔值；旧设置和旧导入缺字段默认关闭。",
+        "stateOwner": "SettingsStore/FeatureRuntime 派生命名 CSS，停用时移除；无新增 observer 或轮询。",
+        "restorationTrigger": "新飘屏节点和播放器重建自动受 CSS 约束；关闭即恢复仍在页面的头图；刷新保留设置。",
+        "affectedRegions": [
+          "普通飘屏的独立 headpic-* 头图"
+        ],
+        "preservedRegions": [
+          "正文及表情图片",
+          "渐变彩字",
+          "贵族特殊皮肤头像与背景",
+          "聊天栏",
+          "Socket 关注记录与统计"
+        ],
+        "deviations": [],
+        "evidence": [
+          "docs/research/danmaku-background.md",
+          "src/features/floating-head-cleanup.ts",
+          "docs/verification.md"
+        ]
+      }
+    },
+    {
+      "id": "transient-guidance-cleanup",
+      "name": "隐藏粉丝团与徽章佩戴瞬态引导",
+      "priority": "P2",
+      "status": "done",
       "decision": "rewrite",
       "notes": "2026-09-17 用户在房间 2016309 提供体验证据并确认纳入简化直播间；2026-09-27 已取得两类瞬态节点的真实 DOM、可见生命周期与共享宿主边界，采用 CSS-only 规则并由独立 Settings v6 扩展开关控制。",
       "contract": {
@@ -263,34 +358,61 @@
           "播放器控制、聊天输入、正常粉丝牌展示和礼物功能保持正常",
           "验收过程没有任何佩戴、领取或其他账号写操作"
         ],
-          "deviations": [
-            {
-              "status": "approved",
-              "baseline": "归档通过页面就近提示及宿主自身生命周期处理两类瞬态引导。",
-              "proposal": "采用 CSS :has() 的窄结构选择器，不新增采集 Observer；BUFF 仅在共享内容宿主没有其他直接子内容时收缩空壳与关闭图标。",
-              "reason": "两类引导都由斗鱼 DOM 自然出现/移除，CSS 规则即可稳定覆盖，避免新的观察器和运行时状态。",
-              "objective": "只隐藏已确认的瞬态提示，同时保留正常粉丝牌入口、播放器控制、其他共享宿主内容和账号状态。",
-              "decisionRecord": "2026-09-27 用户确认以独立简洁模式开关继续完成这两类瞬态引导迁移。",
-              "fallback": "若斗鱼 DOM 结构变化导致窄选择器失效，先更新证据和迁移记录，不扩大到全局宿主隐藏或新增 Observer。"
-            }
-          ]
+        "deviations": [
+          {
+            "status": "approved",
+            "baseline": "归档通过页面就近提示及宿主自身生命周期处理两类瞬态引导。",
+            "proposal": "采用 CSS :has() 的窄结构选择器，不新增采集 Observer；BUFF 仅在共享内容宿主没有其他直接子内容时收缩空壳与关闭图标。",
+            "reason": "两类引导都由斗鱼 DOM 自然出现/移除，CSS 规则即可稳定覆盖，避免新的观察器和运行时状态。",
+            "objective": "只隐藏已确认的瞬态提示，同时保留正常粉丝牌入口、播放器控制、其他共享宿主内容和账号状态。",
+            "decisionRecord": "2026-09-27 用户确认以独立简洁模式开关继续完成这两类瞬态引导迁移。",
+            "fallback": "若斗鱼 DOM 结构变化导致窄选择器失效，先更新证据和迁移记录，不扩大到全局宿主隐藏或新增 Observer。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "room-events",
+      "name": "房间管理事件提醒与记录",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-10-09 用户授权按已有提醒样式实现，记录和提醒独立开关。 2026-10-19 统一提醒与顶部记录/未读入口遵循 docs/research/unified-notifications-contract.md；新增路径验收中。",
+      "contract": {
+        "behavior": "只读现有页面 Socket；成功禁言、任命/解除、封号与超管/违规候选转为有界本机事件。不改变原生行为，不建立连接。",
+        "interaction": "用户页房间管理事件分区；保存记录和弹出提醒默认关闭，独立开关；预览提醒不写历史。15秒/悬停暂停/最多3卡，名单独立；默认本房间日志，可展开查看其他房间，每批20条。",
+        "persistence": "独立GM room-events-options；IndexedDB最近200条，失败保留本页批次，重新打开重试，关闭保留历史。",
+        "stateOwner": "RoomEvents owns event queue/log; options owns configuration; shared page Socket observer and shared bounded reminder renderer derive UI. NotificationInbox owns unified reminder records and unread; NotificationCenter owns the shared three-card display.",
+        "deviations": [],
+        "evidence": [
+          "docs/research/room-events-contract.md",
+          "src/core/room-messages.ts",
+          "src/features/room-events.ts",
+          "docs/research/unified-notifications-contract.md"
+        ]
       }
     },
     {
       "id": "room-metrics",
       "name": "排行榜隐藏后的房间统计摘要",
       "priority": "P1",
-      "status": "done",
+      "status": "verifying",
       "decision": "rewrite",
-      "notes": "体验上属于简洁模式基准，代码上来自独立 RealAudience 模块。2026-09-02 用户确认允许新增 GM_xmlhttpRequest 与 @connect www.doseeing.com。2026-09-05 最终展示为常驻礼物、贵宾和已观看，鼠标悬停已观看显示已播；贵宾和时长均不依赖外部礼物接口。2026-09-18 用户实测确认礼物收入已显示数字，已观看悬浮中的已播与开播信息合理；结合既有换房、重建、失败隔离和排行榜隐藏证据，功能收口为 done。",
+      "notes": "体验上属于简洁模式基准。2026-10-13 人数栏改为人群图标和在线人数，贵宾与钻粉进入悬浮层，持续悬浮已验收。2026-10-14 用户确认 doseeing 今日礼物来源失效，暂时归档：停止请求并撤下占位；解析器和研究资料保留待替代来源。在线榜口径仍待移动端核对。",
       "contract": {
-        "behavior": "在右侧排行榜区域顶部常驻显示礼物收入、贵宾人数和已观看时长，鼠标悬停已观看时显示已播时长与开播时间；排行榜隐藏后摘要仍可见。各来源独立更新和降级。",
-        "interaction": "沿用原版统计条的位置和紧凑布局，不将其迁入 GM 菜单；只有礼物收入可点击打开 doseeing 详情，贵宾人数、已播和已观看均为不可点击文本；任一来源失败时只在对应指标显示占位。",
+        "behavior": "在现有统计栏显示人群图标及在线用户数、已观看；贵宾与钻粉只在人数悬浮层。doseeing 今日礼物来源暂时归档，不显示占位、不发请求。在线数字来自 oun/oul.un，贵宾来自 oni.un（页面回退），钻粉来自 dfnum/dfansrk.dfc；换房清空、断线和180秒未更新时未知。尚未与移动端核对，不命名真实人数。",
+        "interaction": "沿用原版统计条的位置和紧凑布局，不将其迁入 GM 菜单；在线人数、已播和已观看均为不可点击文本。人数与观看时长悬浮信息可持续阅读。",
         "persistence": "作为独立能力管理；与排行榜开关解耦，但简洁模式体验验收要求其在排行榜隐藏时继续工作。",
         "stateOwner": "GM 设置 features.roomMetrics 只决定能力启停；实时统计结果属于当前房间内存状态，不持久化。已观看继续以斗鱼 todayWatch 为准，不新增本地累计状态。",
-        "restorationTrigger": "脚本启动和切换房间时重新获取礼物收入并读取贵宾人数；统计容器被重建时重新挂载；外部失败时继续读取和显示贵宾人数。",
-        "affectedRegions": ["排行榜区域顶部统计摘要"],
-        "preservedRegions": ["排行榜开关独立性", "弹幕区布局", "斗鱼登录态和 Cookie"],
+        "restorationTrigger": "脚本启动和切换房间时重新观察 Socket 在线人数并读取观看时长；统计容器被重建时重新挂载；人数暂不可用不遮蔽观看时长。",
+        "affectedRegions": [
+          "排行榜区域顶部统计摘要"
+        ],
+        "preservedRegions": [
+          "排行榜开关独立性",
+          "弹幕区布局",
+          "斗鱼登录态和 Cookie"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -327,6 +449,60 @@
             "objective": "不增加常驻占位和请求频率，让另一个时间可见，并使两个时长具有一致、连续的显示反馈。",
             "decisionRecord": "2026-09-05 用户确认尝试轻量悬浮层，并要求一并重新设计已播与已观看的更新时间。",
             "fallback": "若顶层 tooltip 在斗鱼后续布局中不稳定，恢复两个时间常驻显示；接口校准语义保持不变。"
+          },
+          {
+            "status": "approved",
+            "baseline": "此前统计栏展示 doseeing 今日礼物收入，失败时展示星号占位并定时重试。",
+            "proposal": "暂时归档今日礼物：移除占位和跳转，停止运行时请求，保留旧解析器和研究资料。",
+            "reason": "当前外部来源已失效，持续重试无法提供有用数据。",
+            "objective": "统计栏只展示仍有可靠来源的数据；未来找到替代 API 或方案时再重新设计。",
+            "decisionRecord": "2026-10-14 用户要求 doseeing 今日礼物暂时归档，等待替代来源。",
+            "fallback": "替代来源须先核对日期口径、礼物价值语义和可靠性，再恢复 UI。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "danmaku-tail",
+      "name": "弹幕小尾巴",
+      "priority": "P2",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-10-16 已用最新 dist 在 2016309 验证 60 字网页输入加 4 字尾巴由 Socket 发送并获服务端成功和房间广播；原版通过输入框事件拼接。外部 Chrome 最终兼容性及 64 字以上边界待验证。详见 danmaku-tail-contract.md。",
+      "contract": {
+        "behavior": "仅对网页提交的普通 chatmessage 添加自定义前缀或后缀，已存在相同片段不重复添加；其他 Socket 消息原样通过。",
+        "interaction": "弹幕页后部默认折叠小尾巴，摘要显示已启用/已关闭；展开可填文字、选前缀或后缀、保存和启停，默认关闭。工具栏“尾”直接展开并定位编辑器。",
+        "persistence": "独立 GM 键保存开关、文字和位置，跨房间及刷新恢复。",
+        "stateOwner": "GM 配置为唯一规范源；控制中心和工具栏只投影，页面 Socket Hook 只持有运行时转换函数。",
+        "restorationTrigger": "脚本启动、窗口重新聚焦读取设置、用户保存设置、斗鱼重建连接和 pagehide 清理。",
+        "affectedRegions": [
+          "聊天工具栏快捷入口",
+          "控制中心弹幕页",
+          "页面 WebSocket 的完整普通发言出站帧"
+        ],
+        "preservedRegions": [
+          "输入框原文与输入历史",
+          "心跳、礼物和未知出站帧",
+          "入站消息及斗鱼原生发送按钮"
+        ],
+        "stateMatrix": [
+          "默认关闭与空文字校验",
+          "前缀和后缀",
+          "重复片段防重",
+          "正常发言与 60+4 字超网页限制发言",
+          "跨房间和刷新",
+          "畸形与非发言帧原样通过",
+          "pagehide 恢复"
+        ],
+        "deviations": [
+          {
+            "status": "approved",
+            "baseline": "归档 DouyuEx 在输入框发送事件中拼接前缀或后缀。",
+            "proposal": "在页面 Socket 出站的完整普通发言帧中添加前缀或后缀。",
+            "reason": "用户要求验证并尝试超过网页输入框长度限制，输入框拼接可能被页面校验截断。",
+            "objective": "保持原有发言操作与页面输入原文，并让小尾巴在实际出站内容中生效。",
+            "decisionRecord": "2026-10-16 用户要求将小尾巴功能实现完整，并验证 Socket Hook 能否超越网页输入长度。",
+            "fallback": "若斗鱼协议变化或服务器拒收，则保持原包发送并以实测结果更新边界。"
           }
         ]
       }
@@ -337,15 +513,22 @@
       "priority": "P2",
       "status": "verifying",
       "decision": "rewrite",
-      "notes": "2026-09-05 审计后恢复为最接近归档的提交时入库，并与 DOM 回显检测彻底解耦；0.7.1 修复进入历史浏览后连续 ↑/↓ 被写入后光标位置中断的问题。2026-09-19 用户实测确认上下键浏览有效且不同房间历史相互独立；仍待自然覆盖 IME、刷新和输入区动态重建。",
+      "notes": "2026-09-05 审计后恢复为最接近归档的提交时入库，并与 DOM 回显检测彻底解耦；0.7.1 修复连续 ↑/↓ 导航。2026-09-19 用户实测确认分房间方向键浏览。2026-10-18 增加页面 Socket 成功提交的普通 chatmessage 入库，补原生 +1 绕过输入框的缺口，并与输入框记录去重；仍待真实原生 +1 验收。",
       "contract": {
-        "behavior": "在 Enter 或点击发送按钮时把非空提交内容写入当前房间历史，不依赖页面回显。未浏览历史时，光标在输入首/尾才用 ↑/↓ 进入；进入后连续方向键每次移动一条。越过最新记录时恢复原草稿并退出浏览。",
+        "behavior": "在 Enter 或点击发送按钮时把非空提交内容写入当前房间历史；页面 Socket 发送普通 chatmessage 时也入库，并与输入框记录去重，以覆盖绕过输入框的原生 +1。未浏览历史时，光标在输入首/尾才用 ↑/↓ 进入；进入后连续方向键每次移动一条。越过最新记录时恢复原草稿并退出浏览。",
         "interaction": "沿用原版输入框方向键交互，无新增页面按钮；未进入历史浏览且光标不在对应边界时不接管。选区未折叠、IME 正在组字或按下修饰键时，无论是否正在浏览都不接管。",
         "persistence": "只使用 GM 本地存储；每个数字房间独立保留最近 200 条非空提交，全局按最近更新清理至 50 个房间。重复提交按次数保留，不上传。",
         "stateOwner": "GM 键 douyu-web-enhancer:chat-memory 是唯一持久状态所有者；每个当前输入节点的导航索引和草稿只是可丢弃内存状态。",
         "restorationTrigger": "脚本启动时读取一次本地历史；委托键盘监听不依赖具体输入节点，动态重建后无需重复绑定。可信用户输入、输入节点/房间切换或草稿恢复会退出当前历史浏览。",
-        "affectedRegions": ["弹幕输入框", "GM 本地存储中的分房间历史"],
-        "preservedRegions": ["不同房间的历史隔离", "未发送草稿", "输入法和普通光标操作"],
+        "affectedRegions": [
+          "弹幕输入框",
+          "GM 本地存储中的分房间历史"
+        ],
+        "preservedRegions": [
+          "不同房间的历史隔离",
+          "未发送草稿",
+          "输入法和普通光标操作"
+        ],
         "deviations": [
           {
             "status": "proposed",
@@ -360,21 +543,44 @@
     },
     {
       "id": "message-context-action-fallback",
-      "name": "弹幕右键缺失操作补全",
+      "name": "弹幕快捷操作",
       "priority": "P1",
-      "status": "done",
+      "status": "verifying",
       "decision": "rewrite",
-      "notes": "2026-09-19 按冻结契约迁移归档 BarragePanel/BarragePanel_Tip：回复与 +1 分别判断官方入口，兼容斗鱼官方“+1/加一”两种文案；补全时克隆当前官方按钮的图标、文字类名与固定槽位，不使用普通文字末尾追加。2026-09-21 用户已实测右键“回复”和“加一”均存在且正常，功能收口为 done。",
+      "notes": "2026-09-21 用户已实测缺失回复/加一补齐正常。2026-10-22 用户批准将原生加一也统一到普通发送按钮路径，保留官方样式和其他操作，不增加加一专用冷却；普通发送和服务端限制仍生效。隔离点击/连续点击/草稿/停用回归验证，自然账号发送待用户验收。见 message-context-action-fallback-contract.md 最新更新。",
       "contract": {
-        "behavior": "仅在 www.douyu.com/<数字房间号> 直播页的普通用户纯文字弹幕卡片中，逐项补齐官方缺失的“回复”和“+1”；官方已有项保留且不重复。",
-        "interaction": "回复只将 @作者：正文填入官方输入框并聚焦，不发送；+1 仅在用户点击脚本入口时将目标纯文字正文通过现有发送按钮路径发送一次，动作结束恢复原草稿与光标/选区。",
+        "behavior": "仅在 www.douyu.com/<数字房间号> 直播页的普通用户纯文字弹幕卡片中统一加一：原生按钮接管点击，缺失时补齐且不重复；回复仅补齐缺失入口。",
+        "interaction": "回复只填入 @作者：正文并聚焦；加一在用户点击或非重复 Enter/空格时将当前已验证的纯文字通过普通发送按钮提交一次，恢复草稿与可用选区。无专用计时冷却、不自动重试，服务端及普通发送限制仍生效；停用后恢复官方加一。",
         "persistence": "Settings v6 的 features.messageContextActionFallback 是默认开启的独立全局开关；房间能力结论、当前卡片目标和发送动作只存在页面内存。",
         "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有卡片快照、每房间分别的回复/+1 缺失结论和注入 DOM；chat-memory 与 danmaku-send-check 继续拥有发送历史和两秒回显检测。",
         "restorationTrigger": "脚本启动、右键卡片稳定渲染、弹幕卡片/操作区重建、数字房间换房、刷新、可观测登录身份变化和重新启用时恢复；停用、卡片关闭或目标节点复用时清理。",
-        "affectedRegions": ["普通文字弹幕右键卡片中的回复入口", "普通文字弹幕右键卡片中的 +1 入口"],
-        "preservedRegions": ["官方回复和官方 +1", "赞、举报、收藏、查弹幕、禁言及其他官方操作", "系统/礼物/进场/主播通知/自身/图片/富媒体消息", "发送服务端限制、历史和回显检测"],
-        "stateMatrix": ["两项都有、只有回复、只有 +1、两项都没有", "官方按钮延迟出现后撤回对应注入项", "不同消息、虚拟列表复用和卡片重建目标隔离", "关闭/重新开启、刷新和数字房间换房", "草稿、光标/选区、无输入区或发送按钮降级", "账号身份变化重新判定"],
-        "deviations": []
+        "affectedRegions": [
+          "普通文字弹幕右键卡片中的回复入口",
+          "普通文字弹幕右键卡片中的 +1 入口"
+        ],
+        "preservedRegions": [
+          "官方回复和官方加一的外观",
+          "赞、举报、收藏、查弹幕、禁言及其他官方操作",
+          "系统/礼物/进场/主播通知/自身/图片/富媒体消息",
+          "发送服务端限制、历史和回显检测"
+        ],
+        "stateMatrix": [
+          "两项都有、只有回复、只有 +1、两项都没有",
+          "官方按钮延迟出现后撤回对应注入项",
+          "不同消息、虚拟列表复用和卡片重建目标隔离",
+          "关闭/重新开启、刷新和数字房间换房",
+          "草稿、光标/选区、无输入区或发送按钮降级",
+          "账号身份变化重新判定"
+        ],
+        "deviations": [{
+          "status": "approved",
+          "baseline": "官方存在加一时保留其发送逻辑，脚本仅补齐缺失按钮。",
+          "proposal": "在合格普通文字卡片中接管官方加一点击，与补充按钮统一使用普通发送。",
+          "reason": "用户希望统一行为并避开官方加一额外冷却；不修改普通发送和服务端限制。",
+          "objective": "一个加一按钮、一次主动操作对应一次提交，保留草稿与其他官方操作。",
+          "decisionRecord": "2026-10-22 用户认可统一接管原生加一、缺失时补齐的方案。",
+          "fallback": "关闭弹幕快捷操作后恢复官方加一；无法确认普通目标时不接管未知卡片。"
+        }]
       }
     },
     {
@@ -390,8 +596,20 @@
         "persistence": "待确认队列只存于当前页内存，刷新/停用即清空；历史事件以站点 IndexedDB 为主存储，IndexedDB 不可用时回退到 localStorage，并只读合并旧 GM 键中缺失的 ID；迁移提交成功后置空旧 GM 事件数组。仅保存时间、数字房间、内容、`unconfirmed`/`suspected` 证据等级、迟到更正状态、用户标签和复测备注，最多 500 条，不上传；JSON 导出为 schema v2，并兼容导入 v1 记录，明确包含正文和房间号。导入严格验证格式、按 ID 合并，当前本地 `confirmed-delayed` 不会被旧备份降级，迟到更正不会覆盖标签或备注；删除只支持逐条确认误判，不提供清空全部、回收站或撤销。不得保存为“确实屏蔽”。",
         "stateOwner": "danmaku-send-check feature runtime 的待确认队列是当前发送状态所有者；main 创建的一份 danmaku-send-observations repository 是历史事件和控制中心快照的唯一所有者。页面提示和诊断由当前队列结果派生；控制中心只订阅并调用该 repository，不会创建第二个 Store。",
         "restorationTrigger": "脚本启动时建立委托发送监听、共享 DOM observer 订阅和当前真实 rid 的匿名弹幕连接；数字路径仅作当前页面作用域，优先从页面 `$ROOM.room_id` 解析真实 rid，若 userscript 隔离世界不可见则从斗鱼播放器 `[data-room-id]` 回退解析，输入区或弹幕列表重建后继续工作，SPA 换房时重新解析并关闭旧连接/连接新房间，断线时有界退避重连；解析失败时只保留未确认结论。",
-        "affectedRegions": ["弹幕发送尝试的内存队列", "发送区上方的小悬浮提示", "IndexedDB/localStorage 中的本地待分析记录", "指定弹幕行标记", "匿名只读弹幕 WebSocket", "统一控制中心弹幕分区中的本地观测记录面板"],
-        "preservedRegions": ["不自动重发", "不使用账号 UID/Cookie/Token", "匿名 WebSocket 不发送聊天或账号指令", "不匹配本人弹幕不能关联旧尝试"],
+        "affectedRegions": [
+          "弹幕发送尝试的内存队列",
+          "发送区上方的小悬浮提示",
+          "IndexedDB/localStorage 中的本地待分析记录",
+          "指定弹幕行标记",
+          "匿名只读弹幕 WebSocket",
+          "统一控制中心弹幕分区中的本地观测记录面板"
+        ],
+        "preservedRegions": [
+          "不自动重发",
+          "不使用账号 UID/Cookie/Token",
+          "匿名 WebSocket 不发送聊天或账号指令",
+          "不匹配本人弹幕不能关联旧尝试"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -427,9 +645,25 @@
         "persistence": "Settings v6 的 features.highestVideoQuality 是唯一持久化开关，默认 false；不保存具体画质名称，不写斗鱼画质键。",
         "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有当前房间/播放器事务、一次性点击标记、用户接管标记、有限计时器和诊断；斗鱼官方菜单拥有实际画质状态。",
         "restorationTrigger": "脚本启动、启用开关、刷新、真实数字房间 SPA 换房和新播放器实例均可开始对应事务；普通 DOM/控件重建、网页全屏切换和自动点击引起的重建不能误启新事务。停用/页面卸载取消监听和待执行事务。",
-        "affectedRegions": ["控制中心播放分区中的自动最高画质开关", "斗鱼官方画质菜单"],
-        "preservedRegions": ["官方可提供的全部画质档位", "用户手动画质选择", "播放速度、网络/线路、账号、VIP/付费权限和播放器控制"],
-        "stateMatrix": ["关闭不干预", "启用后当前页立即尝试", "已是最高可用", "受限/不可用项跳过", "用户手动降档后不抢回", "刷新、网页全屏和控件重建", "停用清理", "数字房间 SPA 换房"],
+        "affectedRegions": [
+          "控制中心播放分区中的自动最高画质开关",
+          "斗鱼官方画质菜单"
+        ],
+        "preservedRegions": [
+          "官方可提供的全部画质档位",
+          "用户手动画质选择",
+          "播放速度、网络/线路、账号、VIP/付费权限和播放器控制"
+        ],
+        "stateMatrix": [
+          "关闭不干预",
+          "启用后当前页立即尝试",
+          "已是最高可用",
+          "受限/不可用项跳过",
+          "用户手动降档后不抢回",
+          "刷新、网页全屏和控件重建",
+          "停用清理",
+          "数字房间 SPA 换房"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -451,13 +685,22 @@
       "decision": "rewrite",
       "notes": "0.8.0 的滚动只调用未验证，实机刷新后被浏览器恢复位置覆盖；0.8.1 改为以最终几何为准的四次有界纠偏，实机刷新已通过。0.8.1 的 SVG 判断错误地要求三个签名位于同一个 path，真实双路径控件因而不匹配；0.8.2 改为组合全图标路径验证。0.8.2 实机又发现用户主动回到页顶仍可能被余下复核拉回；0.8.3 仅以可信滚轮、触摸移动或导航键放弃本房间余下纠偏，不将普通 scroll 事件视为用户意图。当前实现补齐成功定位后的终态保护：同一数字房间内首次定位成功、用户接管或有界失败后，定位阶段永久结束；仅刷新或真实 SPA 换房重置。2026-09-20 用户实测反馈无问题，功能收口为 done。",
       "contract": {
-      "behavior": "数字直播间到达事务依次等待真实播放器可操作、执行一次定位、读取全局网页全屏偏好；true 时对已验证的官方网页全屏控件尝试一次，false 时结束。成功、明确降级或可信用户主动接管后事务结束；刷新或真实 SPA 换房才允许新事务。为抵抗启动时序而存在的有界等待/验证只能服务于未结束事务，不能成为持续几何纠偏或同页位置维护。无记录默认 true；恢复后或后续稳定手动进入/退出时，全局记住实际网页全屏模式。",
+        "behavior": "数字直播间到达事务依次等待真实播放器可操作、执行一次定位、读取全局网页全屏偏好；true 时对已验证的官方网页全屏控件尝试一次，false 时结束。成功、明确降级或可信用户主动接管后事务结束；刷新或真实 SPA 换房才允许新事务。为抵抗启动时序而存在的有界等待/验证只能服务于未结束事务，不能成为持续几何纠偏或同页位置维护。无记录默认 true；恢复后或后续稳定手动进入/退出时，全局记住实际网页全屏模式。",
         "interaction": "控制中心“播放”页提供全局偏好开关；入口固定在视口右缘，面板不参与斗鱼布局。仅处理斗鱼网页全屏，不处理浏览器原生全屏、F11 或影院模式。优先点击带“网页全屏”ARIA/title/data 动作语义的官方控件；当前无文字语义时仅识别控制栏 right 容器内、带双对角角箭头 SVG 图形签名的唯一 `i.icon-c8be96`，并在点击后验证页面标记和布局。缺失或验证失败时不猜测、不抢焦点。",
         "persistence": "Settings v6 的 preferences.autoWebFullscreen 全局保存 boolean，缺失默认 true；首次加载只读兼容旧 GM 键 douyu-web-enhancer:auto-web-fullscreen，不长期双写；不按 roomId，多个标签页最后一次稳定写入为准。",
         "stateOwner": "Settings v6 的 preferences.autoWebFullscreen 是唯一持久状态所有者；页面模式、一次滚动/进入尝试、DOM 引用、计时器和诊断均为当前房间 runtime 派生状态。",
-      "restorationTrigger": "数字直播间首次到达、刷新和真实 SPA 数字房间路径变化。播放器/控件晚挂载只可推进尚未结束的当前事务，不能在成功、明确降级或用户接管后同页重启；只有初始恢复协调完成后的稳定实际模式，或明确用户操作结果，才覆盖记忆。",
-        "affectedRegions": ["真实播放器的页面滚动位置", "斗鱼网页全屏模式", "本包 GM 本地偏好"],
-        "preservedRegions": ["顶部活动/广告内容", "浏览器原生全屏和 F11", "影院模式", "播放、画质、广告、账号和直播间操作"],
+        "restorationTrigger": "数字直播间首次到达、刷新和真实 SPA 数字房间路径变化。播放器/控件晚挂载只可推进尚未结束的当前事务，不能在成功、明确降级或用户接管后同页重启；只有初始恢复协调完成后的稳定实际模式，或明确用户操作结果，才覆盖记忆。",
+        "affectedRegions": [
+          "真实播放器的页面滚动位置",
+          "斗鱼网页全屏模式",
+          "本包 GM 本地偏好"
+        ],
+        "preservedRegions": [
+          "顶部活动/广告内容",
+          "浏览器原生全屏和 F11",
+          "影院模式",
+          "播放、画质、广告、账号和直播间操作"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -477,11 +720,11 @@
       "priority": "P1",
       "status": "done",
       "decision": "rewrite",
-      "notes": "0.10.6 保留 0.10.4 的固定 44px 导航与半透明覆盖面板，并补齐 Settings v6 数据管理：完整 JSON 快照在严格 schema/白名单/类型校验后显示全部差异和每日自动化风险，再经确认一次保存并同步 runtime；未知字段和旧 schema 明确拒绝，绝不静默丢弃。数据页还可预览确认恢复默认、二次确认清空脱敏审计、下载脱敏审计 JSON。新安装每日自动化默认关闭，既有已保存选择保持不变。Settings 导入、恢复默认和清空审计均不触碰任务账本、锁、冷却、Cookie、身份或聊天数据。2026-09-18 用户已实际验收恢复默认、Settings JSON 导入/导出、刷新后持久化和日志复制，未发现问题；异常输入、失败原子性和新安装默认由自动化覆盖。跨 tab 同步未作实机双页验证，作为非阻塞未覆盖项保留；功能收口为 done。",
+      "notes": "0.10.6 保留 0.10.4 的固定 44px 导航与半透明覆盖面板，并补齐 Settings v6 数据管理：完整 JSON 快照在严格 schema/白名单/类型校验后显示全部差异和每日自动化风险，再经确认一次保存并同步 runtime；未知字段和旧 schema 明确拒绝，绝不静默丢弃。数据页还可预览确认恢复默认、二次确认清空脱敏审计、下载脱敏审计 JSON。新安装每日自动化默认关闭，既有已保存选择保持不变。Settings 导入、恢复默认和清空审计均不触碰任务账本、锁、冷却、Cookie、身份或聊天数据。2026-09-18 用户已实际验收恢复默认、Settings JSON 导入/导出、刷新后持久化和日志复制，未发现问题；异常输入、失败原子性和新安装默认由自动化覆盖。2026-09-30 新增控制中心入口左右切换：默认右侧，切换按钮只改变半隐藏入口位置并保持面板打开，面板始终从右侧展开；Settings v6 旧快照缺少该字段时安全回退右侧。跨 tab 同步未作实机双页验证，作为非阻塞未覆盖项保留；功能收口为 done。 2026-10-19 统一提醒与顶部记录/未读入口遵循 docs/research/unified-notifications-contract.md；新增路径验收中。",
       "contract": {
-          "behavior": "右缘半隐藏入口点击后打开半透明覆盖式控制中心，提供全部现有功能开关与实际诊断状态、网页全屏偏好、自动荧光棒独立开关与赠送房间、脱敏日志复制/下载、诊断复制以及完整 Settings v6 JSON 导出、导入和恢复默认。导入只接受完整、精确的 v6 白名单结构，先展示所有差异和每日自动化关闭→开启风险，确认后一次保存并同步 runtime；未知字段、缺失字段、类型错误和旧 schema 不写入。清空仅删除脱敏自动化审计且必须二次确认。开关表达设置值；状态行只显示 runtime。赠送房间先作为非持久草稿编辑，只有有效的显式保存、Enter 保存或恢复默认 12306 才写入 Settings v6，并明确只在下次自动任务生效。",
-        "interaction": "入口 fixed 于 viewport 最右缘中部，hover/focus 只展开，click 打开；面板覆盖布局、不挤压斗鱼页面。直播间存在可见弹幕栏时宽度不越过弹幕栏左缘；网页/原生全屏仅剩直播画面时隐藏入口并关闭面板，退出后恢复但不自动打开。Escape、显式关闭、点击遮罩、焦点进入/圈定/归还和 reduced-motion 均受支持。每日自动化由关闭切换到开启前必须二次确认并明确其既有账号动作。",
-        "persistence": "Settings v6 是用户可编辑设置的唯一状态所有者，新安装的 dailyAutomation 默认 false，既有存储值不被重置；每日账本、锁、审计和 runtime 均不进入 Settings 导出或导入。自动荧光棒目标房间首次从既有 localStorage 配置迁入，之后不向旧键双写。跨标签在重新聚焦/可见时从 SettingsStore 重新同步并 reconcile runtime。",
+        "behavior": "默认右缘半隐藏入口点击后打开半透明覆盖式控制中心，提供全部现有功能开关与实际诊断状态、网页全屏偏好、自动荧光棒独立开关与赠送房间、脱敏日志复制/下载、诊断复制以及完整 Settings v6 JSON 导出、导入和恢复默认。导入只接受完整、精确的 v6 白名单结构，先展示所有差异和每日自动化关闭→开启风险，确认后一次保存并同步 runtime；未知字段、缺失字段、类型错误和旧 schema 不写入。清空仅删除脱敏自动化审计且必须二次确认。开关表达设置值；状态行只显示 runtime。赠送房间先作为非持久草稿编辑，只有有效的显式保存、Enter 保存或恢复默认 12306 才写入 Settings v6，并明确只在下次自动任务生效。",
+        "interaction": "入口为两侧完整可见的 36×42 图标按钮；垂直拖动超过 5px 后松手保存高度比例，不误开面板。标题栏箭头切换左右，面板跟随所在侧展开。网页全屏保留入口，原生全屏重挂宿主。完整契约见 docs/research/control-center-design.md 的 2026-10-01 更新。",
+        "persistence": "Settings v6 是用户可编辑设置的唯一状态所有者，新安装的 dailyAutomation 默认 false、controlCenterEdgeSide 默认 right，既有存储值不被重置；每日账本、锁、审计和 runtime 均不进入 Settings 导出或导入。自动荧光棒目标房间首次从既有 localStorage 配置迁入，之后不向旧键双写。跨标签在重新聚焦/可见时从 SettingsStore 重新同步并 reconcile runtime。",
         "stateOwner": "SettingsStore、FeatureRuntime、Diagnostics、AutomationAuditLog 与既有 auto-fans-continue runtime 分别保持各自唯一所有权；控制中心不是第二状态源。",
         "deviations": [
           {
@@ -493,6 +736,9 @@
             "decisionRecord": "2026-09-16 用户确认固定右缘入口、纯画面全屏隐藏、Lit 单根组件及首版内容范围；2026-09-17 冻结面板透明度、真实状态文案、自动化页节奏与赠送房间显式保存体验。",
             "fallback": "若 ShadowRoot 在真实全屏中无法保持可见或焦点正确，回退为单一前缀化 light DOM host；不改变状态所有者或入口体验。"
           }
+        ],
+        "evidence": [
+          "docs/research/unified-notifications-contract.md"
         ]
       }
     },
@@ -509,8 +755,17 @@
         "persistence": "Settings v6 的 features.volumeWheel 是唯一持久化开关，缺失默认 true；不创建第二份音量值或修改斗鱼本地存储。真实 video 的 volume/muted 及斗鱼原生 volumechange/UI 保持官方所有权。",
         "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有监听、当前控件/video 引用、当前动画帧及待提交的输入距离；斗鱼播放器拥有实际音量与原生 UI 状态。",
         "restorationTrigger": "脚本启动、共享 DOM 观察到播放器/控件动态重建、SPA 换房和全屏布局变化均重新取得唯一可信引用；停用/页面卸载移除 wheel 监听和临时状态。",
-        "affectedRegions": ["播放器音量按钮", "展开的音量滑杆", "真实 HTMLVideoElement 的 volume 与 muted"],
-        "preservedRegions": ["播放器其他区域和页面滚动", "官方音量图标和滑杆样式", "官方滑杆/静音按钮的手动修改", "自动网页全屏、播放速度、同步、回看和画质"],
+        "affectedRegions": [
+          "播放器音量按钮",
+          "展开的音量滑杆",
+          "真实 HTMLVideoElement 的 volume 与 muted"
+        ],
+        "preservedRegions": [
+          "播放器其他区域和页面滚动",
+          "官方音量图标和滑杆样式",
+          "官方滑杆/静音按钮的手动修改",
+          "自动网页全屏、播放速度、同步、回看和画质"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -537,9 +792,26 @@
         "persistence": "Settings v6 的 features.liveTimeshiftControls 独立保存，默认开启；不保存播放位置，不持久化 seekable 或同步动作。",
         "stateOwner": "SettingsStore 拥有唯一开关；FeatureRuntime 拥有当前播放器/控制区引用、监听和按钮；当前 video.seekable 是可操作能力及边界的唯一运行时事实来源。",
         "restorationTrigger": "脚本启动、共享 DOM observer 发现播放器或控制区重建、SPA 路径事件和网页全屏变化均重新取得引用；停用、页面卸载和非直播页切换移除键盘监听、按钮和页面标记。",
-        "affectedRegions": ["直播播放器左右键行为", "播放器左侧同步时间入口", "live-timeshift-controls 设置和诊断"],
-        "preservedRegions": ["v.douyu.com 视频页", "普通无时移直播原有按键行为", "播放/暂停状态", "官方进度条和回看缓冲", "输入区、控制中心和文本选择"],
-        "stateMatrix": ["有效单段与多段 seekable", "空区间/读取异常/非唯一 video 降级", "播放器和控制区重建", "网页全屏进入/退出", "刷新与数字房间 SPA 换房", "开关关闭、重新开启和刷新持久化"],
+        "affectedRegions": [
+          "直播播放器左右键行为",
+          "播放器左侧同步时间入口",
+          "live-timeshift-controls 设置和诊断"
+        ],
+        "preservedRegions": [
+          "v.douyu.com 视频页",
+          "普通无时移直播原有按键行为",
+          "播放/暂停状态",
+          "官方进度条和回看缓冲",
+          "输入区、控制中心和文本选择"
+        ],
+        "stateMatrix": [
+          "有效单段与多段 seekable",
+          "空区间/读取异常/非唯一 video 降级",
+          "播放器和控制区重建",
+          "网页全屏进入/退出",
+          "刷新与数字房间 SPA 换房",
+          "开关关闭、重新开启和刷新持久化"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -566,9 +838,24 @@
         "persistence": "Settings v6 的 `features.disableOfflineJump` 是唯一全局开关，存量设置缺失该字段时归一化为默认开启；不写斗鱼账号接口或页面位置状态。",
         "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有当前数字直播间路径、唯一轮询计时器、扫描/点击计数和诊断；斗鱼官方推荐弹窗拥有实际关闭状态。",
         "restorationTrigger": "脚本启动、数字直播间 SPA 路径变化和功能重新启用可建立当前房间轮询；共享 ObserverHub 只用于路线/生命周期重协调，不能叠加计时器。离开数字直播间、停用、pagehide 或销毁时清理计时器和监听。",
-        "affectedRegions": ["下播推荐跳转弹窗的官方关闭按钮", "控制中心中的下播后停留当前页开关"],
-        "preservedRegions": ["用户主动点击链接、地址栏或浏览器历史导航", "斗鱼 history/location 行为", "账号接口、弹幕、播放器和其他推荐内容"],
-        "stateMatrix": ["立即命中", "按钮延迟挂载", "按钮点击后仍存在并重复重试", "DOM 重建与 SPA 换房单例", "离开直播间/停用/销毁清理", "后台标签页继续轮询", "选择器变动或 DOM 缺失安全等待"],
+        "affectedRegions": [
+          "下播推荐跳转弹窗的官方关闭按钮",
+          "控制中心中的下播后停留当前页开关"
+        ],
+        "preservedRegions": [
+          "用户主动点击链接、地址栏或浏览器历史导航",
+          "斗鱼 history/location 行为",
+          "账号接口、弹幕、播放器和其他推荐内容"
+        ],
+        "stateMatrix": [
+          "立即命中",
+          "按钮延迟挂载",
+          "按钮点击后仍存在并重复重试",
+          "DOM 重建与 SPA 换房单例",
+          "离开直播间/停用/销毁清理",
+          "后台标签页继续轮询",
+          "选择器变动或 DOM 缺失安全等待"
+        ],
         "deviations": [
           {
             "status": "approved",
@@ -591,13 +878,30 @@
       "notes": "2026-09-21 按冻结契约实现早期 MAIN_WORLD/document-start 自动 Hook：只处理动态内联 script 与 `/betard` XHR responseText 中精确的转义 JSON/普通 JSON `player_barrage:0`；控制中心仅显示只读运行证据，不提供普通开关。纯替换、appendChild/insertBefore、目标/非目标 XHR、幂等安装、原方法语义、清理恢复与 descriptor 降级均已自动化覆盖；普通直播页只有 `player_barrage:1`，真实特殊时期 0 样本缺失，保持长期自然验证。",
       "contract": {
         "behavior": "在斗鱼特殊限制弹幕飘屏时恢复正常显示。",
-        "interaction": "无需用户操作，脚本在 document-start 自动安装。控制中心“弹幕”分区只读显示 Hook 是否安装、是否观察到官方允许字段、是否实际发生恢复，以及降级和异常；不提供普通开关。",
+        "interaction": "无需用户操作，脚本在 document-start 自动安装。控制中心“弹幕”分区末尾只读显示运行证据：实际恢复为绿色，无需恢复为灰色，等待识别为蓝色，降级为橙色，异常为红色；保留文字说明且不提供普通开关。",
         "persistence": "无持久化设置；Hook 及计数只存在当前页面生命周期，pagehide 时恢复本次安装仍拥有的 descriptor。",
         "stateOwner": "早期 Hook 自有页面内存计数；Diagnostics 读取 Hook 快照，控制中心只投影运行证据，不形成第二状态源。",
         "restorationTrigger": "document-start 安装、动态内联 script appendChild/insertBefore、`/betard` XHR responseText 读取、pagehide 清理。",
-        "affectedRegions": ["动态插入的内联斗鱼 bootstrap script 文本", "`/betard` XMLHttpRequest responseText getter"],
-        "preservedRegions": ["外链 script、非目标 URL、字符串值、相似键和其他响应", "XHR/DOM 原方法的 this、返回值与异常语义", "字段已为 1 或字段不存在的内容"],
-        "stateMatrix": ["document-start 自动安装", "转义 JSON 形式", "普通 JSON 形式", "多个命中/无命中/已为 1/相似键", "appendChild 与 insertBefore", "目标与非目标 XHR", "重复安装、descriptor 不可用、清理恢复", "只读状态区分 Hook 安装、官方允许、实际恢复、降级/异常", "普通页面无 0 样本的长期自然验证"],
+        "affectedRegions": [
+          "动态插入的内联斗鱼 bootstrap script 文本",
+          "`/betard` XMLHttpRequest responseText getter"
+        ],
+        "preservedRegions": [
+          "外链 script、非目标 URL、字符串值、相似键和其他响应",
+          "XHR/DOM 原方法的 this、返回值与异常语义",
+          "字段已为 1 或字段不存在的内容"
+        ],
+        "stateMatrix": [
+          "document-start 自动安装",
+          "转义 JSON 形式",
+          "普通 JSON 形式",
+          "多个命中/无命中/已为 1/相似键",
+          "appendChild 与 insertBefore",
+          "目标与非目标 XHR",
+          "重复安装、descriptor 不可用、清理恢复",
+          "只读状态区分 Hook 安装、官方允许、实际恢复、降级/异常",
+          "普通页面无 0 样本的长期自然验证"
+        ],
         "deviations": []
       }
     },
@@ -607,35 +911,144 @@
       "priority": "P1",
       "status": "verifying",
       "decision": "rewrite",
-      "notes": "2026-09-28 用户确认第一阶段只 Hook 斗鱼页面自己建立的直播间 WebSocket，不迁移旧实验的消息改写。该只读基线仍是默认行为；2026-09-29 的可选入站过滤由独立 user-blocking 功能控制。完整基线契约见 page-socket-hook-contract.md。",
+      "notes": "2026-09-28 用户确认第一阶段只 Hook 斗鱼页面自己建立的直播间 WebSocket，不迁移旧实验的消息改写。只读基线仍是默认行为；2026-09-29 的可选入站过滤由独立 user-blocking 功能控制；2026-10-16 的可选出站 chatmessage 改写由 danmaku-tail 控制。完整基线契约见 page-socket-hook-contract.md。",
       "contract": {
         "behavior": "只读观察页面直播间 WebSocket 的连接和入站消息类型，保留斗鱼原生消息与连接行为。",
-        "interaction": "自动在 document-start 安装；不提供功能开关，不实现屏蔽、关注提醒、小尾巴或礼物改写。通过现有复制诊断信息入口查看有限计数。",
+        "interaction": "自动在 document-start 安装；Hook 本身不提供功能开关。入站屏蔽、关注提醒及小尾巴由各自独立设置控制；礼物不改写。通过现有复制诊断信息入口查看有限计数。",
         "persistence": "无持久化；诊断计数只存在当前页面生命周期，pagehide 清理。",
         "stateOwner": "早期页面 Socket Hook 持有连接监听与内存计数；Diagnostics 只投影快照。",
         "restorationTrigger": "页面首次 document-start 安装；斗鱼自行新建或重连 Socket 时观察新实例；pagehide 清理。",
-        "affectedRegions": ["页面 WebSocket 构造入口", "复制诊断信息中的 page-socket-hook 项"],
-        "preservedRegions": ["斗鱼原生 WebSocket 实例、入站事件与字节、出站发送和重连", "独立的匿名发送检测连接", "右栏弹幕、飘屏、礼物及其他页面展示"],
-        "stateMatrix": ["早安装和晚安装", "onmessage 与 addEventListener", "Blob 与 ArrayBuffer", "斗鱼与非斗鱼连接", "坏包与大包", "斗鱼自行重连与换房", "重复安装与 pagehide 清理", "其他 Hook 后续接管构造器", "正常弹幕、飘屏和自然礼物样本"],
+        "affectedRegions": [
+          "页面 WebSocket 构造入口",
+          "复制诊断信息中的 page-socket-hook 项"
+        ],
+        "preservedRegions": [
+          "斗鱼原生 WebSocket 实例、默认关闭小尾巴时的出站发送与重连；仅独立功能启用时触及已确认类型",
+          "独立的匿名发送检测连接",
+          "右栏弹幕、飘屏、礼物及其他页面展示"
+        ],
+        "stateMatrix": [
+          "早安装和晚安装",
+          "onmessage 与 addEventListener",
+          "Blob 与 ArrayBuffer",
+          "斗鱼与非斗鱼连接",
+          "坏包与大包",
+          "斗鱼自行重连与换房",
+          "重复安装与 pagehide 清理",
+          "其他 Hook 后续接管构造器",
+          "正常弹幕、飘屏和自然礼物样本"
+        ],
         "deviations": []
       }
     },
     {
       "id": "user-blocking",
-      "name": "按 UID 本地屏蔽普通弹幕",
+      "name": "按 UID 本地屏蔽弹幕与进场",
       "priority": "P1",
       "status": "verifying",
       "decision": "rewrite",
-      "notes": "2026-09-29 用户确认消息处理独立栏目、按功能展开、默认关闭、全房间或当前房间 UID 规则；首项优先验证右栏与飘屏同步。真实 Chrome DEV 已计数过滤目标消息，右栏有初步证据；虽已找到自然飘屏节点，双区域仍未同步验收。详细证据见 docs/research/user-blocking-contract.md。",
+      "notes": "2026-10-01 用户确认右栏快捷屏蔽、持久记录与卡片体验实测通过；当前收窄的产品范围已验收。快捷文案调整为增强屏蔽，最新文案待刷新检查；飘屏独立验收与官方实现研究继续后置。详细证据见 docs/research/user-blocking-contract.md。",
       "contract": {
-        "behavior": "在本机对当前访问直播间的顶层 chatmsg 按数值 UID 精确过滤；规则可适用所有访问房间或指定当前房间。仅影响之后到达的消息。",
-        "interaction": "控制中心消息处理栏目内展开用户规则，添加、移除、启停规则；默认关闭。连接诊断只显示聚合计数。",
-        "persistence": "独立 GM 键保存开关与规则，不持久化正文、昵称或原始帧。版本验证期维持 0.10.10。",
-        "stateOwner": "GM 用户规则是唯一规范状态；page-socket-hook 在启用时读取当前规则并过滤入站消息，关闭时恢复只读。",
+        "behavior": "在本机对当前访问直播间的顶层 chatmsg 与 uenter 按数值 UID 精确过滤；普通弹幕和进场开关独立，进场默认关闭。规则可适用所有访问房间或指定当前房间，仅影响之后到达的消息。",
+        "interaction": "右栏用户名卡片新增独立增强屏蔽入口，选择当前房间或所有房间；消息处理栏目按 UID 卡片管理范围规则、昵称和主播名、累计拦截数及最近 10 条；无手动 UID 表单，清除记录须单独确认。默认关闭，快捷新增自动开启。连接诊断只显示聚合计数。",
+        "persistence": "独立 GM 键保存开关与规则；IndexedDB 按 UID 持久保存昵称、累计拦截数和最近 10 条，按 roomId 保存最新观察主播名；批量合并增量，取消规则保留历史，不保存原始帧。版本验证期维持 0.10.10。",
+        "stateOwner": "GM 用户规则及普通弹幕/进场独立开关是唯一规范状态；page-socket-hook 按开启的消息类型读取当前规则，全部关闭时恢复只读。",
         "restorationTrigger": "页面启动与刷新、斗鱼自行重连、SPA 数字房间变化、窗口焦点与可见性恢复时同步规则；无额外 Socket。",
-        "affectedRegions": ["消息处理控制中心", "目标 UID 的后续普通弹幕入站帧"],
-        "preservedRegions": ["非目标和非普通弹幕帧", "礼物、进场与榜单", "斗鱼账号与服务端规则", "弹幕发送与页面自身连接"],
-        "stateMatrix": ["默认关闭", "全房间与当前房间规则", "刷新与换房", "启停后新消息", "混合协议包内仅目标 chatmsg 变化", "不完整、未知、Blob 与超限帧原样放行", "onmessage 与 addEventListener", "右栏与自然飘屏待分别验证"],
+        "affectedRegions": [
+          "消息处理控制中心",
+          "目标 UID 的后续普通弹幕入站帧"
+        ],
+        "preservedRegions": [
+          "非目标和其他类型帧",
+          "礼物与榜单",
+          "斗鱼账号与服务端规则",
+          "弹幕发送与页面自身连接"
+        ],
+        "stateMatrix": [
+          "默认关闭",
+          "全房间与当前房间规则",
+          "刷新与换房",
+          "启停后新消息",
+          "混合协议包内仅目标 chatmsg 变化",
+          "不完整、未知、Blob 与超限帧原样放行",
+          "onmessage 与 addEventListener",
+          "右栏与自然飘屏待分别验证"
+        ],
+        "deviations": []
+      }
+    },
+    {
+      "id": "user-following",
+      "name": "本机关注提醒与记录",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-10-01 用户确认第一批、全平台关注、每用户最近 50 条发言和进场混合记录；与屏蔽共存，不调用官方关注。契约见 docs/research/socket-next-batch-design.md。 2026-10-19 统一提醒与顶部记录/未读入口遵循 docs/research/unified-notifications-contract.md；新增路径验收中。",
+      "contract": {
+        "behavior": "观察当前访问房间完整入站 chatmsg/uenter，按已关注 UID 记录；发言与进场独立开关，过滤前观察，不改变原生消息。",
+        "interaction": "右栏卡片增强关注/取消；用户页的关注提醒大类与关注名单均默认收起，收起不改变提醒或记录开关，标题直接显示提醒状态。支持核对昵称、UID 或主页后添加；搜索、未读筛选及每批 20 人。名单按最近记录的行为时间倒序，未观察到或同时间保持加入顺序，核对昵称和标已读不提升排序。",
+        "persistence": "独立 GM 键保存全平台 UID 与开关，独立 IndexedDB 保存名称、累计记录和每用户最近 50 条，取消保留历史。",
+        "stateOwner": "GM 关注配置是唯一规则源，现有页面 Hook 只读事件驱动有界历史。 NotificationInbox 是统一提醒记录与持久未读的唯一来源，独立于每用户50条行为历史。",
+        "restorationTrigger": "启动、刷新、面板打开、焦点恢复同步；页面重连沿用观察器。",
+        "affectedRegions": [
+          "右栏用户卡片",
+          "消息处理关注记录"
+        ],
+        "preservedRegions": [
+          "原生弹幕与礼物",
+          "账号关注",
+          "屏蔽规则与历史",
+          "页面连接"
+        ],
+        "stateMatrix": [
+          "默认关闭",
+          "全平台访问范围",
+          "独立开关",
+          "屏蔽同时命中",
+          "50 条上限",
+          "刷新与取消再添加",
+          "存储失败",
+          "自然进场待验证"
+        ],
+        "deviations": [],
+        "evidence": [
+          "docs/research/unified-notifications-contract.md"
+        ]
+      }
+    },
+    {
+      "id": "chat-speed",
+      "name": "当前房间弹幕速度",
+      "priority": "P1",
+      "status": "verifying",
+      "decision": "rewrite",
+      "notes": "2026-10-01 第一批复用页面接收链路统计，不创建连接。契约见 docs/research/socket-next-batch-design.md。",
+      "contract": {
+        "behavior": "按过滤前实际收到的普通 chatmsg 同时计算 5 秒和 60 秒滑动窗口速度；不足窗口按实际采样秒数折算，未满 1 秒不显示速率。不包含进场、礼物与嵌套特殊弹幕。",
+        "interaction": "独立默认关闭开关；聊天输入框只显示最近 5 秒折算的弹幕时速：N条/分，不足 5 秒标采样中。面板显示最近 60 秒实际收到的数量，未满一分钟显示已观察时长和实际数量。输入文字自然隐藏提示，关闭恢复原提示。",
+        "persistence": "GM 保存开关，秒桶仅内存，不保存正文或历史速率。",
+        "stateOwner": "ChatSpeedWindow 有界时间桶，配置由 GM 关注功能设置保存。",
+        "restorationTrigger": "启停、刷新与换房重置；页面重连继续按自然到达统计。",
+        "affectedRegions": [
+          "聊天输入框占位提示",
+          "消息处理弹幕速度摘要"
+        ],
+        "preservedRegions": [
+          "弹幕原生展示",
+          "页面连接",
+          "关注与屏蔽规则"
+        ],
+        "stateMatrix": [
+          "默认关闭",
+          "采样不足一分钟",
+          "时间桶过期",
+          "空闲",
+          "换房",
+          "面板关闭仍显示",
+          "关闭恢复原提示",
+          "草稿保持",
+          "隐藏页面停止显示时钟"
+        ],
         "deviations": []
       }
     },
@@ -652,9 +1065,28 @@
         "persistence": "Settings v6 的 features.bagInfo 是唯一持久化开关，缺失时默认 true；当前房间成功读取结果只保存在 runtime cache，不写入用户库存或账号状态。",
         "stateOwner": "SettingsStore 拥有开关；FeatureRuntime 拥有当前房间请求、取消、缓存和插件节点；斗鱼背包 API 与原生 DOM 拥有库存、数量和官方操作状态。",
         "restorationTrigger": "原生背包打开、斗鱼背包节点动态重建、数字房间路径变化和功能重新启用；关闭只清理插件节点，切房取消旧请求，不使用常驻轮询。",
-        "affectedRegions": ["原生背包头部的插件摘要", "原生背包礼物项的插件期限提示", "控制中心中的背包只读信息开关"],
-        "preservedRegions": ["原生背包入口和布局", "礼物使用/赠送按钮的官方所有权", "充值、鱼翅、鱼丸和播放器控制", "账号资产和服务端库存"],
-        "stateMatrix": ["有效登录态单次读取", "met 精确期限/永久/过期", "expiry fallback", "isValuable 价值口径", "intimate 基础亲密度", "重复键安全未知", "API 失败保留原生背包", "关闭/重开/切房/停用清理", "空背包和异常响应安全降级"],
+        "affectedRegions": [
+          "原生背包头部的插件摘要",
+          "原生背包礼物项的插件期限提示",
+          "控制中心中的背包只读信息开关"
+        ],
+        "preservedRegions": [
+          "原生背包入口和布局",
+          "礼物使用/赠送按钮的官方所有权",
+          "充值、鱼翅、鱼丸和播放器控制",
+          "账号资产和服务端库存"
+        ],
+        "stateMatrix": [
+          "有效登录态单次读取",
+          "met 精确期限/永久/过期",
+          "expiry fallback",
+          "isValuable 价值口径",
+          "intimate 基础亲密度",
+          "重复键安全未知",
+          "API 失败保留原生背包",
+          "关闭/重开/切房/停用清理",
+          "空背包和异常响应安全降级"
+        ],
         "deviations": []
       }
     },

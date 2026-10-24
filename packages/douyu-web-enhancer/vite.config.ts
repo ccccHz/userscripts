@@ -26,10 +26,10 @@ export default createUserscriptConfig(
       "GM_xmlhttpRequest",
     ],
     connect: [
-      "www.doseeing.com",
       "apiv2.douyucdn.cn",
       "mapi-yuba.douyu.com",
       "yuba.douyu.com",
+      "msg.douyu.com",
     ],
   },
   {

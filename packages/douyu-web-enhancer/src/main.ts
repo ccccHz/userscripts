@@ -1,3 +1,5 @@
+import { RoomAudience } from "./core/room-messages.ts";
+import { RoomEvents, ROOM_EVENTS_OPTIONS_KEY, parseRoomEventOptions, createRoomEventPersistence } from "./features/room-events.ts";
 import {
   GM,
   GM_getValue,
@@ -7,6 +9,13 @@ import {
   GM_xmlhttpRequest,
 } from "$";
 import packageJson from "../package.json";
+import { mountChatSpeedPlaceholder } from "./features/chat-speed-placeholder.ts";
+import { mountDanmakuTailShortcut } from "./ui/danmaku-tail-shortcut.ts";
+import { ACTIVITY_LINK_CLEANUP_ID, createActivityLinkCleanupFeature } from "./features/activity-link-cleanup.ts";
+import { FLOATING_HEAD_CLEANUP_ID, floatingHeadCleanupFeature } from "./features/floating-head-cleanup.ts";
+import { ActivityCleanupStats, createBrowserActivityCleanupPersistence } from "./features/activity-cleanup-stats.ts";
+import { ActivityFilterReview } from "./features/activity-filter-review.ts";
+import { DANMAKU_TAIL_KEY, normalizeDanmakuTail, rewriteOutgoingChatTail, validateDanmakuTail, type DanmakuTailConfig } from "./core/outgoing-chat-tail.ts";
 
 import { AutomationAuditLog } from "./core/automation.ts";
 import { Diagnostics } from "./core/diagnostics.ts";
@@ -22,7 +31,7 @@ import {
   PAGE_SOCKET_HOOK_ID,
 } from "./core/page-socket-hook.ts";
 import { SelectorRegistry } from "./core/selectors.ts";
-import { DEFAULT_SETTINGS, type Settings, SettingsStore } from "./core/settings.ts";
+import { DEFAULT_SETTINGS, type ControlCenterEdgeSide, type Settings, SettingsStore } from "./core/settings.ts";
 import { StyleRegistry } from "./core/styles.ts";
 import {
   CHAT_DECORATION_CLEANUP_ID,
@@ -111,14 +120,21 @@ import {
   createBagInfoFeature,
 } from "./features/bag-info.ts";
 import {
-  addUserBlockRule,
+  changeUserBlockRuleFromShortcut,
   normalizeUserBlockingState,
   removeUserBlockRule,
   shouldBlockUser,
+  shouldBlockUserEntry,
   USER_BLOCKING_ID,
   USER_BLOCKING_KEY,
   type UserBlockingState,
 } from "./features/user-blocking.ts";
+import { mountUserBlockShortcuts } from "./features/user-block-shortcuts.ts";
+import { USER_FOLLOWING_KEY, normalizeUserFollowingState, changeUserFollow, followHistoryRules, selectFollowedMessages, shouldRemindUser, ChatSpeedWindow, type UserFollowingState } from "./features/user-following.ts";
+import { lookupDouyuUser } from "./features/user-lookup.ts";
+import { OfficialFollowSync, OFFICIAL_FOLLOW_SYNC_KEY, currentFollowAccountUid, effectiveFollowUids } from './features/official-follow-sync.ts';
+import { UserFollowReminders } from "./features/user-follow-reminders.ts";
+import { UserBlockHistory, createBrowserUserBlockHistoryPersistence } from "./features/user-block-history.ts";
 import {
   DANMAKU_AVAILABILITY_ID,
   installDanmakuAvailabilityHook,
@@ -139,6 +155,9 @@ globalThis.addEventListener?.("pagehide", () => danmakuAvailabilityHook.dispose(
 // Tampermonkey can give a userscript its own global object even in raw mode.
 // Patch the document's window so page-created sockets pass through this Hook.
 const pageSocketHook = installPageSocketHook(document.defaultView ?? undefined);
+const roomAudience = new RoomAudience();
+const audienceRoomId = (): string | null => /^\/([1-9]\d{0,11})$/.exec(document.defaultView?.location.pathname ?? "")?.[1] ?? null;
+const stopRoomAudience = pageSocketHook.observeRoomMessages(packets => roomAudience.record(packets, audienceRoomId()));
 globalThis.addEventListener?.("pagehide", () => pageSocketHook.dispose(), { once: true });
 
 function updatePageSocketDiagnostics(diagnostics: Diagnostics): void {
@@ -150,7 +169,7 @@ function updatePageSocketDiagnostics(diagnostics: Diagnostics): void {
     {
       detail: !snapshot.installed ? "页面 WebSocket Hook 未安装"
         : snapshot.capturedConnections === 0 ? "等待斗鱼页面创建直播间 WebSocket"
-          : snapshot.filterEnabled ? "正在按 UID 本地过滤普通弹幕" : "正在只读观察斗鱼页面 WebSocket",
+          : snapshot.filterEnabled ? "正在按已开启的规则过滤页面消息" : "正在只读观察斗鱼页面 WebSocket",
       data: snapshot,
     },
   );
@@ -226,28 +245,125 @@ async function start(): Promise<void> {
     settings.automation.autoFansRestRoomId = normalizeRoomId(localStorage.getItem(REST_ROOM_ID_KEY));
   }
   if (needsSettingsMigration) await settingsStore.save(settings);
+  let danmakuTail = normalizeDanmakuTail(await GM_getValue(DANMAKU_TAIL_KEY, null));
+  let tailShortcut: ReturnType<typeof mountDanmakuTailShortcut> | undefined;
+  const applyDanmakuTail = (): void => {
+    pageSocketHook.setOutgoingChatTransform(danmakuTail.enabled ? data => rewriteOutgoingChatTail(data, danmakuTail) : null);
+    diagnostics.update("danmaku-tail", danmakuTail.enabled ? "active" : "disabled", {
+      detail: danmakuTail.enabled ? `已在页面发送前添加${danmakuTail.position === "prefix" ? "前缀" : "后缀"}` : "已关闭；原生发送保持不变",
+    });
+  };
+  applyDanmakuTail();
+  let danmakuTailWrite = Promise.resolve();
+  const saveDanmakuTail = (candidate: DanmakuTailConfig): Promise<void> => {
+    const next = normalizeDanmakuTail(candidate);
+    const error = validateDanmakuTail(candidate);
+    if (error) return Promise.reject(new Error(error));
+    const run = danmakuTailWrite.then(async () => {
+      await GM_setValue(DANMAKU_TAIL_KEY, next);
+      danmakuTail = next;
+      applyDanmakuTail();
+      tailShortcut?.refresh();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    });
+    danmakuTailWrite = run.catch(() => undefined);
+    return run;
+  };
   let userBlocking = normalizeUserBlockingState(await GM_getValue(USER_BLOCKING_KEY, null));
+  const userBlockHistory = new UserBlockHistory(createBrowserUserBlockHistoryPersistence(document.defaultView));
+  await userBlockHistory.setRules(userBlocking.rules);
   const currentRoomId = (): string | null => /^\/([1-9]\d{0,11})$/.exec(document.defaultView?.location.pathname ?? "")?.[1] ?? null;
+  const activityCleanupStats = new ActivityCleanupStats(createBrowserActivityCleanupPersistence(document.defaultView), currentRoomId);
+  await activityCleanupStats.load();
+  const activityFilterReview = new ActivityFilterReview(document.defaultView);
+  await activityFilterReview.load();
+  const savedUserFollowing = await GM_getValue(USER_FOLLOWING_KEY, null);
+  let manualUserFollowing = normalizeUserFollowingState(savedUserFollowing);
+  let userFollowing = manualUserFollowing;
+  let officialFollowSync: OfficialFollowSync | undefined;
+  const readFollowOwner = () => currentFollowAccountUid(document.cookie);
+  const effectiveFollowing = (): UserFollowingState => ({ ...manualUserFollowing, uids: officialFollowSync ? effectiveFollowUids(manualUserFollowing.uids, officialFollowSync.state, readFollowOwner()) : manualUserFollowing.uids });
+  const userFollowHistory = new UserBlockHistory(createBrowserUserBlockHistoryPersistence(document.defaultView, "douyu-web-enhancer:user-follow-history", 50), 50);
+  await userFollowHistory.setRules(followHistoryRules(userFollowing));
+  const chatSpeed = new ChatSpeedWindow();
+  const followReminders = new UserFollowReminders(document, () => document.dispatchEvent(new Event("dwe-settings-changed")));
+  let roomEventOptions = parseRoomEventOptions(await GM_getValue(ROOM_EVENTS_OPTIONS_KEY, null));
+  const eventReminders = followReminders;
+  const roomEvents = new RoomEvents(createRoomEventPersistence(document.defaultView), () => document.dispatchEvent(new Event("dwe-settings-changed")));
+  await roomEvents.load();
+  const showRoomEvent = (event: import("./core/room-messages.ts").RoomEvent): void => eventReminders.record({uid:"room-event", roomId:event.roomId, nickname:event.title, text:event.text, kind:"chatmsg"}, document.querySelector(".Title-anchorName")?.textContent ?? "", true, "房间事件", event.kind === "preview");
+  const stopRoomEvents = pageSocketHook.observeRoomMessages(packets => roomEvents.observe(packets,currentRoomId(),roomEventOptions,showRoomEvent));
+  let roomEventOptionsWrite = Promise.resolve();
+  const setRoomEventOption = (option: "record" | "remind", enabled: boolean): Promise<void> => {
+    const run = roomEventOptionsWrite.then(async () => {
+      const next = {...roomEventOptions, [option]:enabled};
+      await GM_setValue(ROOM_EVENTS_OPTIONS_KEY,next); roomEventOptions=next;
+      if (!next.remind) eventReminders.clear(true);
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    });
+    roomEventOptionsWrite=run.catch(()=>undefined); return run;
+  };
+  followReminders.center.inbox.migrateFollowDefaults({chatmsg:savedUserFollowing === null || manualUserFollowing.chatReminders,uenter:savedUserFollowing === null || manualUserFollowing.entryReminders,dgb:savedUserFollowing === null || manualUserFollowing.giftReminders});
+  const reminderFollowing = (): UserFollowingState => ({...effectiveFollowing(),
+    chatReminders:followReminders.center.inbox.followsKind("chatmsg"),
+    entryReminders:followReminders.center.inbox.followsKind("uenter"),
+    giftReminders:followReminders.center.inbox.followsKind("dgb")});
+  let panelOpen = false;
+  let speedTimer: ReturnType<typeof setInterval> | undefined;
+  let stopUserMessageObserver: () => void = () => undefined;
+  const syncFollowingObserver = (): void => {
+    userFollowing = reminderFollowing();
+    stopUserMessageObserver();
+    chatSpeed.configure(userFollowing.speedEnabled, currentRoomId());
+    followReminders.sync(userFollowing.uids, userFollowing.chatReminders || userFollowing.entryReminders || userFollowing.giftReminders);
+    if (!userFollowing.speedEnabled && (!userFollowing.uids.length || (!userFollowing.chatsEnabled && !userFollowing.entriesEnabled && !userFollowing.giftsEnabled && !userFollowing.chatReminders && !userFollowing.entryReminders && !userFollowing.giftReminders))) return;
+    stopUserMessageObserver = pageSocketHook.observeUserMessages((messages) => {
+      rememberHistoryRoom();
+      chatSpeed.configure(userFollowing.speedEnabled, currentRoomId());
+      chatSpeed.record(messages);
+      const activeFollowing = reminderFollowing();
+      const followed = selectFollowedMessages(activeFollowing, currentRoomId(), messages);
+      userFollowHistory.record(followed);
+      for (const message of followed) followReminders.record(message, userFollowHistory.roomName(message.roomId), shouldRemindUser(activeFollowing, message));
+    });
+  };
+  let userFollowingWrite: Promise<void> = Promise.resolve();
+  const mutateUserFollowing = (change: (state: UserFollowingState) => UserFollowingState): Promise<void> => {
+    const run = userFollowingWrite.then(async () => {
+      const next = normalizeUserFollowingState(change(manualUserFollowing));
+      if (JSON.stringify(next) === JSON.stringify(manualUserFollowing)) return;
+      await GM_setValue(USER_FOLLOWING_KEY, next);
+      manualUserFollowing = next;
+      userFollowing = effectiveFollowing();
+      await userFollowHistory.setRules(followHistoryRules(userFollowing));
+      syncFollowingObserver(); updateSpeedTicker();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    });
+    userFollowingWrite = run.catch(() => undefined);
+    return run;
+  };
+  syncFollowingObserver();
   const updateUserBlockDiagnostics = (): void => {
     const hook = pageSocketHook.snapshot();
     const roomId = currentRoomId();
     const applicableRuleCount = roomId === null ? 0
       : userBlocking.rules.filter((rule) => rule.roomId === null || rule.roomId === roomId).length;
     diagnostics.update(USER_BLOCKING_ID,
-      !userBlocking.enabled ? "disabled"
+      !(userBlocking.enabled || userBlocking.entriesEnabled) ? "disabled"
         : !hook.installed || hook.filterErrors > 0 ? "degraded"
           : applicableRuleCount === 0 ? "waiting" : "active",
       {
-        detail: !userBlocking.enabled ? "本地屏蔽已关闭"
+        detail: !(userBlocking.enabled || userBlocking.entriesEnabled) ? "本地屏蔽已关闭"
           : !hook.installed ? "页面 Socket Hook 不可用，原生弹幕照常显示"
             : userBlocking.rules.length === 0 ? "等待添加 UID 规则"
               : roomId === null ? "仅数字直播间生效"
                 : applicableRuleCount === 0 ? "当前房间没有适用规则"
-                  : `当前房间有 ${applicableRuleCount} 条适用规则；仅影响之后到达的普通弹幕`,
+                  : `当前房间有 ${applicableRuleCount} 条适用规则；仅影响之后到达且已开启的消息类型`,
         data: {
           ruleCount: userBlocking.rules.length,
           applicableRuleCount,
           filteredMessages: hook.filteredMessages,
+          filteredEntryMessages: hook.filteredEntryMessages,
           filterSkippedFrames: hook.filterSkippedFrames,
           filterErrors: hook.filterErrors,
         },
@@ -258,7 +374,9 @@ async function start(): Promise<void> {
     const active = userBlocking.enabled && userBlocking.rules.length > 0;
     pageSocketHook.setIncomingChatFilter(active
       ? (uid, roomId) => shouldBlockUser(userBlocking, currentRoomId(), uid, roomId)
-      : null);
+      : null, (messages) => userBlockHistory.record(messages),
+      userBlocking.entriesEnabled && userBlocking.rules.length > 0
+        ? (uid, roomId) => shouldBlockUserEntry(userBlocking, currentRoomId(), uid, roomId) : null);
     updateUserBlockDiagnostics();
   };
   syncUserBlockFilter();
@@ -269,6 +387,7 @@ async function start(): Promise<void> {
       if (JSON.stringify(next) === JSON.stringify(userBlocking)) return;
       await GM_setValue(USER_BLOCKING_KEY, next);
       userBlocking = next;
+      await userBlockHistory.setRules(next.rules);
       syncUserBlockFilter();
       document.dispatchEvent(new Event("dwe-settings-changed"));
     });
@@ -293,6 +412,25 @@ async function start(): Promise<void> {
     }
     throw new Error("当前脚本管理器未提供跨域请求 API");
   };
+  officialFollowSync = new OfficialFollowSync({
+    request, owner: readFollowOwner, manual: () => manualUserFollowing.uids,
+    read: async () => GM_getValue(OFFICIAL_FOLLOW_SYNC_KEY, null), write: async state => { await GM_setValue(OFFICIAL_FOLLOW_SYNC_KEY, state); },
+    lock: async action => {
+      if (!navigator.locks) throw new Error('浏览器不支持安全同步锁，原名单保留');
+      return navigator.locks.request('douyu-web-enhancer:official-follow-sync', action);
+    },
+    changed: async () => {
+      userFollowing = effectiveFollowing();
+      await userFollowHistory.setRules(followHistoryRules(userFollowing));
+      for (const user of officialFollowSync?.account()?.users ?? []) userFollowHistory.rememberNickname(user.uid, user.nickname);
+      syncFollowingObserver(); updateSpeedTicker();
+      document.dispatchEvent(new Event('dwe-settings-changed'));
+    },
+  });
+  await officialFollowSync.reload();
+  userFollowing = effectiveFollowing();
+  await userFollowHistory.setRules(followHistoryRules(userFollowing));
+  syncFollowingObserver();
   const chatMemoryStore = new ChatMemoryStore(
     await GM_getValue(CHAT_MEMORY_KEY, null),
     GM_setValue,
@@ -301,7 +439,9 @@ async function start(): Promise<void> {
     { diagnostics, document, observerHub, root, selectors, styles },
     [
       chatDecorationCleanupFeature,
-      createChatMemoryFeature(chatMemoryStore),
+      createActivityLinkCleanupFeature(activityCleanupStats, currentRoomId, pageSocketHook, activityFilterReview),
+      floatingHeadCleanupFeature,
+      createChatMemoryFeature(chatMemoryStore, pageSocketHook),
       chatLayoutFeature,
       compactPlayerFeature,
       createAutoWebFullscreenFeature(
@@ -321,7 +461,7 @@ async function start(): Promise<void> {
         },
       ),
       createDanmakuSendCheckFeature(danmakuObservations),
-      createRoomMetricsFeature(request),
+      createRoomMetricsFeature(() => roomAudience.snapshot(currentRoomId(), pageSocketHook.snapshot().openConnections > 0)),
       createVolumeWheelFeature(),
       createLiveTimeshiftControlsFeature(),
       highestVideoQualityFeature,
@@ -362,6 +502,14 @@ async function start(): Promise<void> {
     {
       id: CHAT_DECORATION_CLEANUP_ID,
       setting: "chatDecorationCleanup",
+    },
+    {
+      id: ACTIVITY_LINK_CLEANUP_ID,
+      setting: "activityLinkCleanup",
+    },
+    {
+      id: FLOATING_HEAD_CLEANUP_ID,
+      setting: "floatingHeadCleanup",
     },
     {
       id: ROOM_METRICS_ID,
@@ -442,6 +590,38 @@ async function start(): Promise<void> {
     getSettings: () => settings,
     toggle: toggleFeature,
   });
+  const removeUserBlockShortcuts = mountUserBlockShortcuts({
+    document,
+    observerHub,
+    styles,
+    getRoomId: currentRoomId,
+    getState: () => userBlocking,
+    getFollowingState: () => userFollowing,
+    setFollowing: async (uid, add, nickname) => {
+      await officialFollowSync!.exclude(uid, !add);
+      await mutateUserFollowing(state => changeUserFollow(state, uid, add));
+      if (add) userFollowHistory.rememberNickname(uid, nickname);
+      rememberHistoryRoom();
+      await userFollowHistory.flush();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    },
+    setRule: async (uid, roomId, add, nickname) => {
+      await mutateUserBlocking((state) => changeUserBlockRuleFromShortcut(state, uid, roomId, add));
+      if (add && nickname) userBlockHistory.rememberNickname(uid, nickname);
+      rememberHistoryRoom();
+      await userBlockHistory.flush();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    },
+  });
+  function rememberHistoryRoom(): void {
+    chatSpeed.configure(userFollowing.speedEnabled, currentRoomId());
+    if (!userBlocking.rules.length && !userFollowing.uids.length) return;
+    const name = document.querySelector<HTMLElement>('h3[class^="anchorName__"]')?.textContent?.trim() ?? "";
+    if (userBlocking.rules.length) userBlockHistory.rememberRoom(currentRoomId(), name);
+    if (userFollowing.uids.length) userFollowHistory.rememberRoom(currentRoomId(), name);
+  }
+  const stopHistoryRoomObserver = observerHub.subscribe(rememberHistoryRoom);
+  rememberHistoryRoom();
 
   const saveAutoWebFullscreen = async (value: boolean): Promise<void> => {
     const previous = settings.preferences.autoWebFullscreen;
@@ -453,6 +633,25 @@ async function start(): Promise<void> {
       settings.preferences.autoWebFullscreen = previous;
       throw error;
     }
+  };
+  const saveControlCenterEdgeSide = async (value: ControlCenterEdgeSide): Promise<void> => {
+    const previous = settings.preferences.controlCenterEdgeSide;
+    settings.preferences.controlCenterEdgeSide = value;
+    try {
+      await settingsStore.save(settings);
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    } catch (error) {
+      settings.preferences.controlCenterEdgeSide = previous;
+      throw error;
+    }
+  };
+  const saveControlCenterEdgeY = async (value: number): Promise<void> => {
+    const previous = settings.preferences.controlCenterEdgeY;
+    settings.preferences.controlCenterEdgeY = Math.max(0, Math.min(1, value));
+    try {
+      await settingsStore.save(settings);
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    } catch (error) { settings.preferences.controlCenterEdgeY = previous; throw error; }
   };
   const saveAutoFansRoomId = async (value: string | null): Promise<void> => {
     const normalized = value === null ? null : normalizeRoomId(value);
@@ -519,17 +718,80 @@ async function start(): Promise<void> {
     model: () => ({
       version: packageJson.version,
       settings,
+      danmakuTail,
+      onSaveDanmakuTail: saveDanmakuTail,
       diagnostics: diagnostics.snapshot(packageJson.version, location.href).features,
       runtime,
       automation: automationSummaries,
       danmakuObservations: danmakuObservations.events(),
       userBlocking,
+      userBlockHistory: userBlockHistory.snapshot(),
+      userBlockHistoryStatus: userBlockHistory.status,
+      userFollowing,
+      roomEventOptions,
+      roomEventEntries: roomEvents.entries,
+      roomEventStatus: roomEvents.status,
+      onSetRoomEventOption: setRoomEventOption,
+      onPreviewRoomEvent: () => showRoomEvent({roomId:currentRoomId() ?? "0",at:Date.now(),kind:"preview",title:"房间事件提醒预览",text:"这是提醒样式预览，不是真实事件，也不会写入日志。",verified:true}),
+      officialFollowSync: officialFollowSync!.view(),
+      userFollowSource: uid => {
+        const manual = manualUserFollowing.uids.includes(uid);
+        const official = officialFollowSync!.state.enabled && officialFollowSync!.account()?.users.some(user => user.uid === uid) && !officialFollowSync!.account()?.excluded.includes(uid);
+        return manual && official ? '手动 + 官方同步' : official ? '官方同步' : '手动关注';
+      },
+      onSetOfficialFollowSync: enabled => officialFollowSync!.setEnabled(enabled),
+      onCheckOfficialFollows: () => officialFollowSync!.check(),
+      onApplyOfficialFollows: async () => { await officialFollowSync!.apply(); await mutateUserFollowing(state => ({ ...state, chatsEnabled: true })); },
+      onCancelOfficialPreview: () => { officialFollowSync!.discard(); document.dispatchEvent(new Event('dwe-settings-changed')); },
+      onRestoreOfficialExclusions: () => officialFollowSync!.restoreExcluded(),
+      userFollowHistory: userFollowHistory.snapshot(),
+      userFollowHistoryStatus: userFollowHistory.status,
+      activityCleanupStats: activityCleanupStats.snapshot(),
+      activityCleanupStatsStatus: activityCleanupStats.status,
+      activityFilterRecords: activityFilterReview.snapshot(),
+      activityFilterReviewStatus: activityFilterReview.status,
+      userFollowRoomName: (roomId) => userFollowHistory.roomName(roomId),
+      chatSpeed: chatSpeed.snapshot(),
+      onSetFollowingOption: (option, value) => mutateUserFollowing(state => ({ ...state, [option]: value })),
+      onRemoveUserFollow: async (uid) => { await officialFollowSync!.exclude(uid, true); await mutateUserFollowing(state => changeUserFollow(state, uid, false)); },
+      onLookupUser: (input) => lookupDouyuUser(input, request),
+      notificationRecords: followReminders.center.inbox.snapshot(),
+      notificationUnread: followReminders.center.inbox.unread(),
+      notificationStatus: followReminders.center.inbox.status,
+      followUnreadOverrides: followReminders.center.inbox.followOverrides,
+      onSetFollowUnread: (uid, kind, enabled) => { followReminders.center.inbox.setFollowUnread(uid, kind, enabled); syncFollowingObserver(); },
+      followNoticeDefaults: followReminders.center.inbox.followDefaults,
+      onSetFollowDefault: (kind, mode) => { followReminders.center.inbox.setFollowDefault(kind, mode); syncFollowingObserver(); },
+      onResetFollowUnread: (uid) => { followReminders.center.inbox.resetFollowUnread(uid); syncFollowingObserver(); },
+      notificationPreferences: followReminders.center.inbox.preferences,
+      onSetNotificationUnread: (source, enabled) => followReminders.center.inbox.setRetainUnread(source, enabled),
+      onReadVisibleNotifications: (ids) => followReminders.center.inbox.markManyRead(ids),
+      onReadAllNotifications: (source) => followReminders.center.inbox.markAllRead(source),
+      onReadNotification: (id) => followReminders.center.inbox.markRead(id),
+      userFollowUnread: (uid) => followReminders.unread(uid),
+      onReadUserFollow: (uid) => followReminders.markRead(uid),
+      onAddVerifiedUserFollow: async (user) => {
+        await officialFollowSync!.exclude(user.uid, false);
+        await mutateUserFollowing(state => changeUserFollow(state, user.uid, true));
+        userFollowHistory.rememberNickname(user.uid, user.nickname);
+        document.dispatchEvent(new Event("dwe-settings-changed"));
+      },
+      userBlockRoomName: (roomId) => userBlockHistory.roomName(roomId),
       currentRoomId: currentRoomId(),
       onSetUserBlockingEnabled: (enabled) => mutateUserBlocking((state) => ({ ...state, enabled })),
-      onAddUserBlockRule: (uid, roomId) => mutateUserBlocking((state) => addUserBlockRule(state, uid, roomId)),
+      onSetUserEntryBlockingEnabled: (entriesEnabled) => mutateUserBlocking((state) => ({ ...state, entriesEnabled })),
+      onClearUserBlockHistory: (uid) => userBlockHistory.clear(uid),
+      onAddVerifiedUserBlock: async (user, roomId) => {
+        rememberHistoryRoom();
+        await mutateUserBlocking(state => changeUserBlockRuleFromShortcut(state, user.uid, roomId, true));
+        userBlockHistory.rememberNickname(user.uid, user.nickname);
+        document.dispatchEvent(new Event("dwe-settings-changed"));
+      },
       onRemoveUserBlockRule: (uid, roomId) => mutateUserBlocking((state) => removeUserBlockRule(state, uid, roomId)),
       onToggleFeature: toggleFeature,
       onSetAutoWebFullscreen: saveAutoWebFullscreen,
+      onSetControlCenterEdgeSide: saveControlCenterEdgeSide,
+      onSetControlCenterEdgeY: saveControlCenterEdgeY,
       onSetAutoFansRoomId: saveAutoFansRoomId,
       onSetAutoFansEnabled: saveAutoFansEnabled,
       onApplySettingsSnapshot: applySettingsSnapshot,
@@ -545,14 +807,39 @@ async function start(): Promise<void> {
       onSetDanmakuObservationNote: (id, note) => danmakuObservations.setNote(id, note),
       onRemoveDanmakuObservation: (id) => danmakuObservations.remove(id),
     }),
-    onOpened: () => { void refreshAutomationSummaries().then(() => refreshControlCenter()); },
+    onOpened: () => {
+      void roomEvents.flush();
+      void Promise.all([refreshAutomationSummaries(), userBlockHistory.setRules(userBlocking.rules), userFollowHistory.setRules(followHistoryRules(userFollowing))]).then(() => {
+        rememberHistoryRoom();
+        refreshControlCenter();
+      });
+    },
+    onOpenChange: (open) => { panelOpen = open; updateSpeedTicker(); },
   });
+  tailShortcut = mountDanmakuTailShortcut({ document, observerHub, enabled: () => danmakuTail.enabled, open: () => controlCenter.showDanmakuSettings() });
   const refreshControlCenter = (): void => {
     document.querySelector<HTMLElement>("douyu-web-enhancer-control-center")?.dispatchEvent(new Event("dwe-control-center-refresh"));
   };
+  const speedPlaceholder = mountChatSpeedPlaceholder(document, observerHub, () => {
+    chatSpeed.configure(userFollowing.speedEnabled, currentRoomId());
+    return chatSpeed.snapshot();
+  });
+  function updateSpeedTicker(): void {
+    if (speedTimer !== undefined) { clearInterval(speedTimer); speedTimer = undefined; }
+    speedPlaceholder.refresh();
+    if (userFollowing.speedEnabled && document.visibilityState !== "hidden") speedTimer = setInterval(() => {
+      speedPlaceholder.refresh();
+      if (panelOpen) refreshControlCenter();
+    }, 1000);
+  }
+  updateSpeedTicker();
   const stopDiagnosticsSubscription = diagnostics.subscribe(refreshControlCenter);
   const stopRuntimeSubscription = runtime.subscribe(refreshControlCenter);
   const stopDanmakuObservationsSubscription = danmakuObservations.subscribe(refreshControlCenter);
+  const stopUserBlockHistorySubscription = userBlockHistory.subscribe(refreshControlCenter);
+  const stopUserFollowHistorySubscription = userFollowHistory.subscribe(refreshControlCenter);
+  const stopActivityCleanupStatsSubscription = activityCleanupStats.subscribe(() => { if (panelOpen) refreshControlCenter(); });
+  const stopActivityFilterReviewSubscription = activityFilterReview.subscribe(() => { if (panelOpen) refreshControlCenter(); });
   // Chat mutations can be frequent. They may change an open drawer's geometry,
   // but must never rebuild its complete Lit model unless an actual state event fires.
   const stopControlCenterObserver = observerHub.subscribe(
@@ -560,21 +847,48 @@ async function start(): Promise<void> {
   );
   document.addEventListener("dwe-settings-changed", refreshControlCenter);
   const syncSettingsOnFocus = () => { void syncSettingsFromStore().catch((error: unknown) => console.error("[douyu-web-enhancer] 设置同步失败", error)); };
+  const syncDanmakuTailOnFocus = () => {
+    void danmakuTailWrite.then(() => GM_getValue(DANMAKU_TAIL_KEY, null)).then((stored: unknown) => {
+      const next = normalizeDanmakuTail(stored);
+      if (JSON.stringify(next) === JSON.stringify(danmakuTail)) return;
+      danmakuTail = next;
+      applyDanmakuTail();
+      tailShortcut?.refresh();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+    }).catch(() => undefined);
+  };
+  const syncUserFollowingOnFocus = () => {
+    void userFollowingWrite.then(() => GM_getValue(USER_FOLLOWING_KEY, null)).then(async (stored: unknown) => {
+      manualUserFollowing = normalizeUserFollowingState(stored);
+      await officialFollowSync!.reload();
+      userFollowing = effectiveFollowing();
+      await userFollowHistory.setRules(followHistoryRules(userFollowing));
+      syncFollowingObserver(); rememberHistoryRoom(); updateSpeedTicker();
+      document.dispatchEvent(new Event("dwe-settings-changed"));
+      void officialFollowSync!.check(true);
+    }).catch(() => undefined);
+  };
   const syncUserBlockingOnFocus = () => {
-    void userBlockingWrite.then(() => GM_getValue(USER_BLOCKING_KEY, null)).then((stored: unknown) => {
+    void userBlockingWrite.then(() => GM_getValue(USER_BLOCKING_KEY, null)).then(async (stored: unknown) => {
       const next = normalizeUserBlockingState(stored);
-      if (JSON.stringify(next) === JSON.stringify(userBlocking)) return;
+      const changed = JSON.stringify(next) !== JSON.stringify(userBlocking);
       userBlocking = next;
-      syncUserBlockFilter();
+      await userBlockHistory.setRules(next.rules);
+      if (changed) syncUserBlockFilter();
+      rememberHistoryRoom();
       document.dispatchEvent(new Event("dwe-settings-changed"));
     }).catch((error: unknown) => console.error("[douyu-web-enhancer] 用户屏蔽规则同步失败", error));
   };
   const syncSettingsOnVisibility = () => {
-    if (document.visibilityState === "visible") { syncSettingsOnFocus(); syncUserBlockingOnFocus(); }
+    if (document.visibilityState === "visible") { syncSettingsOnFocus(); syncDanmakuTailOnFocus(); syncUserBlockingOnFocus(); syncUserFollowingOnFocus(); }
+    else { void userBlockHistory.flush(); void userFollowHistory.flush(); void activityCleanupStats.flush(); }
+    updateSpeedTicker();
   };
   document.addEventListener("visibilitychange", syncSettingsOnVisibility);
   document.defaultView?.addEventListener("focus", syncSettingsOnFocus);
+  document.defaultView?.addEventListener("focus", syncDanmakuTailOnFocus);
   document.defaultView?.addEventListener("focus", syncUserBlockingOnFocus);
+  document.defaultView?.addEventListener("focus", syncUserFollowingOnFocus);
 
   GM_registerMenuCommand("复制诊断信息", () => {
     GM_setClipboard(
@@ -608,10 +922,28 @@ async function start(): Promise<void> {
     () => {
       runtime.destroy();
       removeControls();
+      removeUserBlockShortcuts();
+      stopHistoryRoomObserver();
+      stopUserBlockHistorySubscription();
+      stopUserFollowHistorySubscription();
+      stopActivityCleanupStatsSubscription();
+      stopActivityFilterReviewSubscription();
+      void activityCleanupStats.flush().finally(() => activityCleanupStats.dispose());
+      stopUserMessageObserver();
+      if (speedTimer !== undefined) clearInterval(speedTimer);
+      speedPlaceholder.dispose();
+      void userFollowHistory.flush().finally(() => userFollowHistory.dispose());
+      followReminders.dispose();
+      stopRoomEvents(); stopRoomAudience();
+      void roomEvents.flush().finally(()=>roomEvents.dispose());
+      void userBlockHistory.flush().finally(() => userBlockHistory.dispose());
       document.removeEventListener("dwe-settings-changed", refreshControlCenter);
+      tailShortcut?.dispose();
       document.removeEventListener("visibilitychange", syncSettingsOnVisibility);
       document.defaultView?.removeEventListener("focus", syncSettingsOnFocus);
+      document.defaultView?.removeEventListener("focus", syncDanmakuTailOnFocus);
       document.defaultView?.removeEventListener("focus", syncUserBlockingOnFocus);
+      document.defaultView?.removeEventListener("focus", syncUserFollowingOnFocus);
       stopControlCenterObserver();
       stopRuntimeSubscription();
       stopDiagnosticsSubscription();
@@ -625,6 +957,7 @@ async function start(): Promise<void> {
     },
     { once: true },
   );
+  void officialFollowSync.check(true);
 }
 
 void start().catch((error: unknown) => {
