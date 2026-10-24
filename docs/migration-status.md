@@ -1,6 +1,26 @@
 # Userscript 迁移状态
 
-最后更新：2026-07-28
+最后更新：2026-10-24（入口收敛；下方旧迁移流水保留为历史）
+
+## 2026-10-24：源码与运行入口收敛
+
+主目录已在 main。斗鱼积累源码和抖音原 worktree 四个提交均已集成，其余七包原本已在 main；集成后全仓 validate、387 项测试、type-check、build 通过。用户要求在用发布版保留现状，因此“源码统一到 main”不等于“所有安装都改成 file://”。本轮没有为其余六包安装新代理、升版、发布或推送。
+
+| Package | 当前日常入口 | 核对与未覆盖项 |
+| --- | --- | --- |
+| douyu-web-enhancer 0.10.10 | 主目录 dist 的本地 DEV @require | 内置浏览器执行源码逐字包含当前构建，刷新、控制中心、提醒和弹幕分区通过；同步时间按钮按用户选择保留。 |
+| douyin-live-optimizer 2026.8.20 | 主目录 dist 的本地 DEV @require | 用户完成内置浏览器安装；最新源码、外层权限与路径、刷新、面板、开关持久化及播放器通过；SPA、原生全屏等仍见 package TODO。 |
+| auto-fans-continue 0.134.0 | 独立脚本保持停用 | 用户确认只用斗鱼增强内置续牌。保留源码，不重装、不打开独立脚本来触发赠送，也不以未执行的账号动作冒充验收。 |
+| weibo-improvement 0.3.0 | 保留发布版，GitHub Pages 更新 | 日常 Chrome 执行代码与当前构建一致，无本地 @require；刷新后自动进入最新微博，系统深色与页面 data-theme=dark 一致。 |
+| vimium-c-blur-input-focus 0.2.1 | 保留发布版，GitHub Pages 更新 | 日常 Chrome 执行代码与当前构建一致；raw/focus guard 已接线，实际打开评论输入框后不自动抢焦点，随后收起，未输入或发布。豆瓣、鱼吧、淘宝分支本轮未重跑。 |
+| wikipedia-auto-dark 2026.9.8 | 保留发布版，GitHub Pages 更新 | 日常 Chrome 执行代码与当前构建一致；刷新后自动主题类与系统主题选项生效、外观侧栏未固定。未切换系统设置制造样本。 |
+| skip-ads 2026.7.15 | 保留发布版，GitHub Pages 更新 | 日常 Chrome 在 bbs.nga.cn 的执行代码与当前构建一致；刷新后 adslazyload_bbs_ads12 键不存在。未以广告未出现声称覆盖所有广告。 |
+| kuaishou-live-optimizer 2026.7.15 | 保留发布版，GitHub Pages 更新 | 日常 Chrome 执行代码与当前构建一致；直播页有 gift-list 清理日志、foot 不存在、主 video 持续播放。首页曾出现 gift-list 等待结束后空节点异常；保留发布版不在本轮改功能，不将首页兼容性记为通过。 |
+| huya-extend 0.2.0 | 用户确认保留发布版 | 日常 Chrome 直播页及刷新后画面正常；该页 CDP 来源读取持续被文档响应暂停状态阻断，版本由用户在油猴中确认，未逐字重证运行源码，也未验证登录受限最高画质。 |
+
+上述六个发布版沿用现有 `https://ccccHz.github.io/userscripts/<package>.meta.js` / `<package>.user.js` 更新方式；虎牙入口由用户确认，其余五包通过执行源码元数据核对。没有把发布版误标为主目录 @require。曾为评估准备的代理仅位于忽略目录 `artifacts/local-entry-convergence/`，未安装，不作为运行入口。
+
+旧抖音 worktree 已无独有未集成源码，保留不删除、不再作为持续开发入口；除历史 `wip/douyu-web-enhancer/overlap-recovery` 外，本地 package 分支均已被 main 包含。该 WIP 的删除同步按钮方案已被用户明确放弃，不整条合并，仍保留供追溯。两处原有 `.codex` 配置改动保留未提交。整理前源码差异、产物及检查日志位于忽略目录 `artifacts/convergence-before-20261024/`。
 
 ## 状态说明
 

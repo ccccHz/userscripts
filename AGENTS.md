@@ -3,7 +3,7 @@
 本仓库迁移和维护多个 userscript。默认先保持用户可感知行为，再用现代、轻量、可维护的内部实现替换旧代码。
 已有改动属于用户，避免覆盖无关内容。
 
-本项目主要由 agent 开发、用户长期自用；每个 package 通常只有一条持续开发线。源码默认收敛到同一个 `main`，日常直接使用本地构建并频繁更新，各 package 独立推进。开始工作前读取 [本地开发与自用约定](docs/agent-development.md)；涉及分支、集成、提交时同时读取 [Git 约定](docs/git-workflow.md)。
+本项目主要由 agent 开发、用户长期自用；每个 package 通常只有一条持续开发线。源码默认收敛到同一个 `main`，本地自用脚本直接使用本地构建并频繁更新，各 package 独立推进；用户明确选择保留的在用发布版不强制更换入口。开始工作前读取 [本地开发与自用约定](docs/agent-development.md)；涉及分支、集成、提交时同时读取 [Git 约定](docs/git-workflow.md)。
 
 ## 任务编排
 
@@ -20,8 +20,8 @@
 - 发布、推送、安装脚本、扩大 userscript 权限、真实账号/付费/对外操作和删除数据必须先获用户确认。
 - 不提交 Cookie、Token、个人导出数据或含这些内容的日志。
 - 每个可安装 userscript 使用独立 `packages/<name>`；共享代码放 `shared/`，仓库工具放 `scripts/`。
-- `main` 是唯一长期源码主线，允许在其上按 package 小步开发和提交；日常自用直接跟随对应 package 的本地构建，不维护长期 package 分支。临时分支完成后由负责人收敛，完整规则见 `docs/git-workflow.md`。
-- 油猴日常固定 @require 主项目目录对应 package 的 dist；修改后检查、定向构建、刷新验证，不要求稳定/测试双入口或每次更新审批。构建必须来自该 package 当前有效源码，不得只复制 dist 就声称源码已集成。临时 worktree 不作为长期入口；已有入口的收敛按 docs/agent-development.md 执行，不擅自改安装脚本。
+- `main` 是唯一长期源码主线，允许在其上按 package 小步开发和提交；各 package 按现有在用入口独立推进，不维护长期 package 分支。临时分支完成后由负责人收敛，完整规则见 `docs/git-workflow.md`。
+- 油猴本地自用入口固定 @require 主项目目录对应 package 的 dist；修改后检查、定向构建、刷新验证，不要求稳定/测试双入口或每次更新审批。用户于 2026-10-24 明确要求正在使用发布版的保持原样，不为统一入口改装本地代理。构建必须来自该 package 当前有效源码，不得只复制 dist 就声称源码已集成。临时 worktree 不作为长期入口；已有入口的收敛按 docs/agent-development.md 执行，不擅自改安装脚本。
 - 本地分支创建、切换、暂存、提交、合并、cherry-pick、rebase 和 annotated tag 属于常规版本控制；推送、发布以及可能丢失数据的 reset/clean/restore/强制删除仍须用户确认。
 - 用户可见版本是发布声明：验证中的构建和试验保持当前 package 版本；只有最新 `dist` 已通过约定的核心浏览器路径、并获用户验收或明确发布授权时才提高版本。验证期保持 `userscript.publish=false`。
 - 页面功能必须可撤销、幂等，避免无界轮询和 observer 自激。
