@@ -3,12 +3,24 @@ import { findWishPopups } from "./wish-popup.js";
 import { LIVE_BOTTOM_LAYOUT_SELECTORS, findLiveBottomLayoutRoot, isProtectedLayoutRoot } from "./dom-cleanup.js";
 
 export const HIDDEN_ATTRIBUTE = "data-douyin-live-optimizer-hidden";
+const PROTECTED_CSS = 'video,#PlayerLayout,.douyin-player,[data-e2e="basicPlayer"],[id^="living_player_container"],#chatInput,[data-douyin-live-optimizer-panel]';
+const SAFE_CSS = `:not(${PROTECTED_CSS}):not(:has(${PROTECTED_CSS}))`;
+// Apply before late gift nodes paint; never extend these rules to ancestors.
+// :has protection also releases a reused container immediately, before observers.
+export const BOTTOM_LAYOUT_CSS = ['#BottomLayout', '[data-e2e="gifts-container"]', '[data-e2e="gifts-switch"]', '#giftPanelEntrance']
+  .map((selector) => `${selector}${SAFE_CSS}`)
+  .join(',');
 
 export function createVisibilityController({ document, MutationObserver = globalThis.MutationObserver } = {}) {
   let settings = {};
   const marked = new Map();
   const style = document.createElement("style");
-  style.textContent = `[${HIDDEN_ATTRIBUTE}]{display:none!important}`;
+  function updateStyle() {
+    const css = `[${HIDDEN_ATTRIBUTE}]${SAFE_CSS}{display:none!important}` +
+      (settings.bottomLayout ? `${BOTTOM_LAYOUT_CSS}{display:none!important}` : '');
+    if (style.textContent !== css) style.textContent = css;
+  }
+  updateStyle();
   (document.head || document.documentElement).append(style);
 
   function release(node, key) {
@@ -59,6 +71,7 @@ export function createVisibilityController({ document, MutationObserver = global
     update(next) {
       if (destroyed) return;
       settings = next;
+      updateStyle();
       for (const key of marked.keys()) if (!settings[key]) clear(key);
       refresh();
     },

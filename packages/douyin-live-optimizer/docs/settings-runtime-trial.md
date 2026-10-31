@@ -10,7 +10,7 @@
 - 记忆模式保存用户通过原生控件做出的选择，进房或播放器重建时恢复；恢复过程不反向覆盖记忆。音量与静音分别保存，送礼/福袋分别保存。
 - 当前域 localStorage 按功能独立保存，storage 事件同步同域标签。www 与 live 各自保存，未扩大 GM 权限。
 - 网页全屏使用平台原生回调，不请求浏览器全屏。聊天栏只使用平台折叠/展开控件；普通布局缺少折叠控件时保留目标状态，进入网页全屏后重试，不用宽泛 CSS 强行隐藏。
-- 礼物特效使用平台状态/回调；弹幕设置仍需挂载原生弹窗，再操作布尔回调并回读。画质优先旧 qualityHandler，当前新版使用已挂载选项的 React onClick，无须打开下拉菜单；不可用时保留菜单降级，不写 Cookie。
+- 礼物特效优先读写挂载控件 context 中的 giftStore，回调与菜单逐级降级；弹幕设置仍需挂载原生弹窗，再操作布尔回调并回读。画质优先旧 qualityHandler，当前新版使用已挂载选项的 React onClick，无须打开下拉菜单；不可用时保留菜单降级，不写 Cookie。
 - 底部礼物/游戏栏、心愿提示、电商广告保留可撤销 CSS 与容器保护。无操作暂停恢复仍只在返回页面时处理明确暂停提示。
 
 ## 最小权限与页面上下文
@@ -118,3 +118,21 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 - 原样本房间已下播，改从当前直播列表选取房间 93974108982。Alt+Shift+O 打开面板，七项策略可见；Tab 从关闭按钮进入礼物模式，Escape 关闭面板。仅验证快捷键入口，未把它冒充油猴菜单点击证据。
 - “隐藏底部礼物与游戏栏”原为开启；关闭并刷新后保持关闭，再恢复开启并刷新后保持开启。最终恢复原设置。实际播放器 960×720、readyState=4、paused=false，未被隐藏。截图 `/private/tmp/userscripts-douyin-iab-20261024.png`。没有登录、发言、关注、送礼或改账号。
 - 本轮仅安装与实页验证并更新记录，未修改功能源码，无需重复已通过的全仓 387 项检查；git diff --check 通过。SPA 连续换房、原生全屏焦点、实际礼物特效及跨域统一仍保留原待办。
+
+## 2026-11-01 礼物闪现、状态源与聊天工具
+
+当前在主目录 main 开发并定向构建，沿用主目录 DEV 入口，无新权限、安装、升版或远程修改。
+
+- 礼物栏闪现根因：本项目的菜单串行队列曾临时解除 bottomLayout 隐藏，观察器还合并延迟 100ms；并非照搬 ref 的特效屏蔽。现在菜单期间不解除底栏隐藏；稳定 BottomLayout/gifts 容器使用即时可撤销 CSS，CSS 同时保护自身及包含 video/播放器/输入区的节点。初始 CSS 不再等 video 就绪。重复更新不重写相同样式，避免 observer 自激。
+- 当前官方 EffectSwitchPlugin 的回调来自 giftStore.setEffectSwitchStatus；GiftEffectPlugin 与 GiftTrayPlugin 均读取该 store.effectSwitchStatus。脚本现在优先读取控件 React context 中这一真实状态，避免旧 props 回读假成功；限定 16 层、每层 4 个依赖，不遍历全局 store。500ms 稳定回读，最多三轮，取消与用户接管仍有效。旧回调/菜单作为兼容降级。
+- UI 降级：菜单之间前后各 400ms，弹幕两个过滤开关间隔 400ms，并在第一项更新后重取第二节点，避免 React 重建导致旧节点点击丢失。礼物菜单展开后等 350ms、点击后等 400ms。增加间隔只用于降级，不代替状态确认。
+- 弹幕加一：普通文字消息悬停显示 +1；从虚拟列表 props 核对 msg_id 和正文，拒绝节点复用/换房。使用当前 chatroom.onSend 普通发送一次，无付费参数和自动重试，1 秒防连击。官方 onSend 会先清空编辑器，因此存在草稿或内联表情时停止，保留原草稿，不写富文本 DOM。登录、禁言及字数限制由原生接口处理。当前仅支持能与已解码纯文本对应的普通消息，不承诺富文本/表情消息。
+- 弹幕检测第一阶段：旁观同源 /webcast/room/chat/ 的现有 fetch/XHR 回执，保持原发送 Promise 与载荷；识别平台拒绝、待审核/发送者可见字段，成功只能标“已受理，公开可见性未确认”。按返回 msg_id_str 对应原生 message.on(ChatMessage) 服务器回声，排除 is_mock 本地插入。审核/可见性字段在对应消息行标注，换房/关闭/卸载清理；仅存有界 id/标记，不持久化正文、身份、Cookie 或响应。
+- 与斗鱼的差距仍明确保留：斗鱼使用独立匿名连接，抖音本阶段仅是发送回执与当前连接服务器回声；没有把它伪装成匿名观众的公开可见性验证。公开采集项目依赖签名、游客身份、protobuf/gzip、心跳和 ack；没有直接复制其反混淆签名程序或引入外部采集服务。独立匿名观察与真正屏蔽/延迟纠正仍是待完成项。
+
+当前官方代码证据（仅用于核对调用链，未复制源码）：
+[EffectSwitchPlugin](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/EffectSwitchPlugin.324d68a8.js)、[GiftEffectPlugin](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/GiftEffectPlugin.ba9579dc.js)、[GiftTrayPlugin](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/GiftTrayPlugin.9b8a3447.js)、[ChatRoom](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/ChatRoom.30049f92.js)。[独立采集参考](https://github.com/saermart/DouyinLiveWebFetcher/blob/main/liveMan.py)与[协议字段](https://github.com/saermart/DouyinLiveWebFetcher/blob/main/douyin.proto)仅作可行性参考。
+
+实页：内置浏览器实际加载本轮主目录 dist，新设置和普通消息 +1 可见，关闭/开启 +1 立即撤销/恢复。礼物模式路径为 store，切换始终显示并回到记忆后真实状态对应变化；弹幕菜单操作期间 BottomLayout 高度始终为 0，播放器 readyState=4。未登录时点击 +1 正确停止并提示登录，未触发发送；尚不能验证真实发送、平台拒绝/审核及自然礼物特效是否全部受控。游客连接短时观察未收到自然礼物，临时计数监听已清理，已请求用户协助登录与发送。不能因此声明全部功能已验收。
+
+检查：package 125 项回归、全仓类型检查、validate、定向构建通过。默认 pnpm test 额外扫描了 artifacts/convergence-before-20261024 的不完整历史副本，因副本缺模块失败；限定实际 test/ 与 packages/*/test/ 的仓库测试串行通过；并行时斗鱼现有计时调度测试出现过一次 2!=4，串行复查通过。未修改历史副本、斗鱼代码或共享测试入口。

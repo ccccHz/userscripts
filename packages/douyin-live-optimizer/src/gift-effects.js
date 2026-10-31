@@ -1,5 +1,5 @@
 import { sleep as cancellableSleep, throwIfAborted, waitFor } from "./task.js";
-import { setGiftBlocked } from "./native-controls.js";
+import { giftControl, setGiftBlocked } from "./native-controls.js";
 
 const GIFT_EFFECT_LABEL = "屏蔽礼物特效";
 const GIFT_EFFECT_SWITCH_SELECTOR = '[data-e2e="effect-switch"]';
@@ -14,7 +14,7 @@ export async function ensureGiftEffectsBlocked({
   withMenu = (action) => action(),
 } = {}) {
   try {
-    await waitFor(() => document.querySelector?.('[data-e2e="gift-setting"]'), { signal, attempts: 30, sleepFn: sleep });
+    await waitFor(() => giftControl(document) || document.querySelector?.('[data-e2e="gift-setting"]'), { signal, attempts: 30, sleepFn: sleep });
     const direct = await setGiftBlocked({ document, blocked, signal, sleepFn: sleep });
     if (direct?.verified) return direct;
   } catch (error) { if (signal?.aborted) throw error; }
@@ -32,6 +32,7 @@ async function applyGiftEffectMenu({ document, sleep, signal, blocked, maxRetrie
     throwIfAborted(signal);
     openGiftSettingsPanel(trigger);
     try {
+      await sleep(350, signal);
       const switchTarget = await waitFor(() => {
         const target = findGiftEffectSwitch(document);
         return target && readSwitchState(target) !== null ? target : null;
@@ -42,6 +43,7 @@ async function applyGiftEffectMenu({ document, sleep, signal, blocked, maxRetrie
       if (readSwitchState(switchTarget) !== blocked) {
         activateGiftEffectSwitch(getGiftEffectClickTarget(switchTarget));
         result.clicked = true;
+        await sleep(400, signal);
       }
       // Read the current node again: React may replace the clicked switch.
       let confirmedReads = 0;

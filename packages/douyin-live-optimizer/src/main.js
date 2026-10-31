@@ -7,6 +7,7 @@ import { createRuntimeController, getPlayerScope, registerLifecycleEvents, isLiv
 import { createSettingsStore } from "./settings.js";
 import { sleep, throwIfAborted } from "./task.js";
 import { createVisibilityController } from "./visibility.js";
+import { createChatTools } from "./chat-tools.js";
 
 // @sandbox raw requests the page realm; native player expandos and history
 // wrappers must also be checked in the actual installed userscript.
@@ -19,30 +20,29 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
   const preferences = createPlayerPreferenceStore({ storage, eventTarget: window, legacy: settingsStore.get() });
   let visibility;
   let currentScope;
-  let menuBusy = false;
   let menuQueue = Promise.resolve();
   let memory;
   let panel;
   let resume;
+  let chatTools;
 
   function updateVisibility() {
     if (!settingsStore.get().playbackResume) resume?.cancel();
-    if (!visibility) return;
+    if (!isLiveLocation(window.location)) { visibility?.destroy(); visibility = null; return; }
+    // Install stable CSS before the video instance is ready, not after autoplay.
+    visibility ||= createVisibilityController({ document, MutationObserver: window.MutationObserver });
     const values = settingsStore.get();
-    // Temporarily restore a hidden toolbar while operating its native settings.
-    visibility.update({ ...values, bottomLayout: values.bottomLayout && !menuBusy });
+    visibility.update(values);
   }
   function withPlayerMenu(signal, action) {
     const result = menuQueue.catch(() => {}).then(async () => {
       throwIfAborted(signal);
-      menuBusy = true;
-      updateVisibility();
       try {
-        await sleep(250, signal);
+        await sleep(400, signal);
         return await action();
       } finally {
-        menuBusy = false;
-        updateVisibility();
+        // Let the previous popup finish closing before another setting opens.
+        await sleep(400, signal);
       }
     });
     menuQueue = result;
@@ -58,8 +58,7 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
       resume?.cancel();
       currentScope = scope;
       memory?.begin(scope);
-      visibility?.destroy();
-      visibility = scope ? createVisibilityController({ document, MutationObserver: window.MutationObserver }) : null;
+      chatTools?.refresh();
     },
     onSettings: updateVisibility,
     onStatus: (key, status) => panel?.setStatus(key, status),
@@ -89,8 +88,15 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
   panel = createSettingsPanel({ document, window, settingsStore, preferences,
     retry: () => runtime.runKeys(Object.keys(PLAYER_PREFERENCES)), registerMenuCommand,
   });
+  chatTools = createChatTools({ document, window, settingsStore });
+  updateVisibility();
+  let lastLocation = window.location.origin + window.location.pathname;
   const stopLifecycle = registerLifecycleEvents({
-    document, window, history, refresh: runtime.refresh,
+    document, window, history, refresh: () => {
+      runtime.refresh();
+      const next = window.location.origin + window.location.pathname;
+      if (next !== lastLocation) { lastLocation = next; updateVisibility(); chatTools.refresh(); }
+    },
     refreshLayout: () => { runtime.refresh(); visibility?.refresh(); },
   });
   resume = registerPlaybackResumeEvents({
@@ -102,10 +108,12 @@ export function startOptimizer({ document, window, history, registerMenuCommand 
     destroy() {
       stopLifecycle();
       runtime.destroy();
+      visibility?.destroy();
       stopPreferences();
       memory.destroy();
       resume.destroy();
       panel.destroy();
+      chatTools.destroy();
       settingsStore.destroy();
       preferences.destroy();
     },

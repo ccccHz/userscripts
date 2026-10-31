@@ -1,4 +1,4 @@
-import { throwIfAborted, waitFor } from "./task.js";
+import { sleep, throwIfAborted, waitFor } from "./task.js";
 
 // Inspect only React props attached to known player controls. Never execute
 // component functions, walk a global store, or patch the site's callbacks.
@@ -15,12 +15,26 @@ function currentFiber(node) {
   for (let i = 0; root?.return && i < 50; i++) root = root.return;
   return root?.stateNode?.current && root.stateNode.current !== root ? fiber?.alternate || fiber : fiber;
 }
-export function findControlProps(node, predicate) {
+export function findControlProps(node, predicate, maxDepth = 8) {
   const direct = reactProps(node);
   if (direct && predicate(direct)) return direct;
   let fiber = currentFiber(node);
-  for (let depth = 0; fiber && depth < 8; depth++, fiber = fiber.return) {
+  for (let depth = 0; fiber && depth < maxDepth; depth++, fiber = fiber.return) {
     if (fiber.memoizedProps && predicate(fiber.memoizedProps)) return fiber.memoizedProps;
+  }
+  return null;
+}
+// Only inspect context dependencies of mounted controls, with fixed depth/width.
+// This reads the actual observable state rather than an old rendered props copy.
+export function findControlContext(node, select) {
+  let fiber = currentFiber(node);
+  for (let depth = 0; fiber && depth < 16; depth++, fiber = fiber.return) {
+    let dependency = fiber.dependencies?.firstContext;
+    for (let count = 0; dependency && count < 4; count++, dependency = dependency.next) {
+      let selected;
+      try { selected = select(dependency.memoizedValue); } catch { continue; }
+      if (selected) return selected;
+    }
   }
   return null;
 }
@@ -34,6 +48,13 @@ export function activateControl(node) {
   return "menu";
 }
 export function giftControl(document) {
+  for (const selector of ['[data-e2e="gift-setting"]', '.douyin-player']) {
+    const store = findControlContext(document.querySelector(selector), (context) => {
+      const gift = context?.giftStore;
+      return typeof gift?.effectSwitchStatus === 'boolean' && typeof gift?.setEffectSwitchStatus === 'function' ? gift : null;
+    });
+    if (store) return { get effectSwitchStatus() { return store.effectSwitchStatus; }, onSwitch: (enabled) => store.setEffectSwitchStatus(enabled), method: 'store' };
+  }
   return findControlProps(document.querySelector('[data-e2e="gift-setting"]'),
     (props) => typeof props.effectSwitchStatus === "boolean" && typeof props.onSwitch === "function");
 }
@@ -42,12 +63,22 @@ export function readGiftBlocked(document) {
   return props ? !props.effectSwitchStatus : null;
 }
 export async function setGiftBlocked({ document, blocked, signal, sleepFn }) {
-  const props = giftControl(document);
-  if (!props) return null;
-  throwIfAborted(signal);
-  if (!props.effectSwitchStatus !== blocked) props.onSwitch(!blocked);
-  const verified = Boolean(await waitFor(() => readGiftBlocked(document) === blocked, { signal, attempts: 10, sleepFn }));
-  return { verified, method: "react", triggerFound: true };
+  // Initialization may replace the control or restore the site's saved state.
+  // Re-resolve after settling instead of trusting one synchronous props read.
+  const pause = sleepFn || sleep;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const props = giftControl(document);
+    if (!props) return null;
+    throwIfAborted(signal);
+    if (!props.effectSwitchStatus !== blocked) props.onSwitch(!blocked);
+    const matched = await waitFor(() => readGiftBlocked(document) === blocked, { signal, attempts: 10, sleepFn: pause });
+    if (matched) {
+      await pause(500, signal);
+      throwIfAborted(signal);
+      if (readGiftBlocked(document) === blocked) return { verified: true, method: props.method || "react", triggerFound: true };
+    }
+  }
+  return { verified: false, method: "react", triggerFound: true };
 }
 export function webFullscreenControl(document) {
   const modern = [...(document.querySelectorAll('.douyin-player-controls-right slot > div') || [])]

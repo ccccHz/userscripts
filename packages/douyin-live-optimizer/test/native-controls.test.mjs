@@ -42,3 +42,21 @@ test("audio restores exact volume and muted independently without clicking UI", 
   assert.equal(setAudio(video, { muted: true, volume: .31 }).applied, true);
   assert.deepEqual(readAudio(video), { muted: true, volume: .31 });
 });
+
+
+test("gift control reads the observable store even when rendered props are stale", async () => {
+  const store = { effectSwitchStatus: true, setEffectSwitchStatus(value) { this.effectSwitchStatus = value; } };
+  const node = { __reactFiber$test: { memoizedProps: {effectSwitchStatus:false,onSwitch(){throw Error('stale')}}, dependencies: {firstContext:{memoizedValue:{giftStore:store}}} } };
+  const document = {querySelector:()=>node};
+  assert.equal(readGiftBlocked(document),false);
+  const result = await setGiftBlocked({document,blocked:true,sleepFn});
+  assert.equal(result.method,'store');assert.equal(store.effectSwitchStatus,false);
+});
+test("late native reset during settling is repaired before success", async () => {
+  let changes=0, pauses=0;
+  const store={effectSwitchStatus:true,setEffectSwitchStatus(value){changes++;this.effectSwitchStatus=value}};
+  const node={__reactFiber$test:{dependencies:{firstContext:{memoizedValue:{giftStore:store}}}}};
+  const document={querySelector:()=>node};
+  const result=await setGiftBlocked({document,blocked:true,sleepFn:async ms=>{if(ms===500&&pauses++===0)store.effectSwitchStatus=true}});
+  assert.equal(result.verified,true);assert.equal(changes,2);assert.equal(store.effectSwitchStatus,false);
+});

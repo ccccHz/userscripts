@@ -14,15 +14,26 @@ function fixture() {
   const wish = node(); wish.className = "dylive-tooltip"; wish.textContent = "帮主播完成心愿吧";
   const matches = new Map([["#BottomLayout", [bottom]], ["#EcmoCardLayout", [commerce]]]);
   let callback; let disconnected = false; let removedStyle = false; let observerOptions;
+  let css='', writes=0;
+  const style={get textContent(){return css},set textContent(value){css=value;writes++},remove(){removedStyle=true}};
   const document = { body: { childNodes: [wish] }, head: { append() {} },
-    createElement: () => ({ remove() { removedStyle = true; } }),
+    createElement: () => style,
     querySelectorAll: (selector) => matches.get(selector) || [] };
   const controller = createVisibilityController({ document, MutationObserver: class {
     constructor(fn) { callback = fn; } observe(target, options) { observerOptions = options; } disconnect() { disconnected = true; }
   } });
   return { controller, bottom, commerce, wish, matches, notify: () => callback(), disconnected: () => disconnected,
-    removedStyle: () => removedStyle, observerOptions: () => observerOptions };
+    removedStyle: () => removedStyle, observerOptions: () => observerOptions, css:()=>css, writes:()=>writes };
 }
+
+test('stable gift CSS precedes late node marking and unchanged updates do not cause observer feedback', () => {
+  const f=fixture(); f.controller.update({bottomLayout:true});
+  assert.match(f.css(),/#BottomLayout/);assert.match(f.css(),/:not\(:has\(/);assert.match(f.css(),/video/);
+  const before=f.writes();f.controller.update({bottomLayout:true});f.controller.refresh();
+  assert.equal(f.writes(),before);
+  f.controller.update({bottomLayout:false});assert.ok(!f.css().includes('#BottomLayout'));
+  f.controller.destroy();
+});
 
 test("layout hiding is reversible and never deletes the site's nodes", () => {
   const f = fixture();

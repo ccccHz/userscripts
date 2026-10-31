@@ -36,14 +36,16 @@ export async function ensureDanmakuFiltersDisabled({
     if (!switches) return danmakuResult(true, [], []);
 
     const clickedLabels = [];
-    DISABLED_FILTER_LABELS.forEach((label, index) => {
-      const switchTarget = switches[index];
+    for (const [index, label] of DISABLED_FILTER_LABELS.entries()) {
+      // The first change may replace both tracks. Never click the stale second one.
+      const switchTarget = findDanmakuFilterSwitch(document, label);
       throwIfAborted(signal);
       const desired = states ? (index === 0 ? states.gift : states.lucky) : !disabled;
-      if (isDanmakuSwitchEnabled(switchTarget) === desired) return;
+      if (isDanmakuSwitchEnabled(switchTarget) === desired) continue;
       setNativeSwitch(switchTarget, desired);
       clickedLabels.push(label);
-    });
+      await sleep(400, signal);
+    }
     const verified = Boolean(await waitFor(() => DISABLED_FILTER_LABELS.every((label, index) => {
       const current = findDanmakuFilterSwitch(document, label);
       const desired = states ? (index === 0 ? states.gift : states.lucky) : !disabled;
