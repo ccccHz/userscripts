@@ -1,4 +1,4 @@
-// Observe only the site's own chat POST. Never send, retry, or persist content.
+// Observe only the site's own ordinary chat GET/POST. Never send or retry.
 export function isChatRequest(url, base) {
   try { const value = new URL(url, base); return value.origin === new URL(base).origin && value.pathname === '/webcast/room/chat/'; }
   catch { return false; }
@@ -26,7 +26,7 @@ export function observeChatRequests({ window, getScope, onResult }) {
     const url = typeof request === 'string' || request instanceof URL ? String(request) : request?.url;
     const method = args[1]?.method || request?.method || 'GET';
     const scope = getScope();
-    const observed = method.toUpperCase() === 'POST' && isChatRequest(url, window.location.href);
+    const observed = ['GET', 'POST'].includes(method.toUpperCase()) && isChatRequest(url, window.location.href);
     // Return the original promise unchanged. Monitoring failure never affects sending.
     const result = originalFetch.apply(this, args);
     if (observed) result.then((response) => {
@@ -42,7 +42,7 @@ export function observeChatRequests({ window, getScope, onResult }) {
   const requests = new WeakMap();
   const wrappedOpen = function (method, url, ...rest) {
     if (destroyed) return originalOpen.call(this, method, url, ...rest);
-    requests.set(this, { observed: String(method).toUpperCase() === 'POST' && isChatRequest(url, window.location.href) });
+    requests.set(this, { observed: ['GET', 'POST'].includes(String(method).toUpperCase()) && isChatRequest(url, window.location.href) });
     return originalOpen.call(this, method, url, ...rest);
   };
   const wrappedSend = function (...args) {

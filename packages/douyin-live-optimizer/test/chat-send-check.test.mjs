@@ -34,6 +34,12 @@ test('failed observer JSON does not reject the original send or overwrite anothe
   await new Promise(r=>setImmediate(r)); assert.equal(outcomes[0].kind,'unconfirmed');
   const replacement=()=>{};window.fetch=replacement;stop();assert.equal(window.fetch,replacement);
 });
+test('ordinary native chat GET is observed as well as POST', async () => {
+  const seen=[];const window={location:{href:'https://www.douyin.com/follow/live/1'},fetch:()=>Promise.resolve({clone:()=>({json:async()=>({status_code:0,data:{msg_id_str:'42'}})})})};
+  const stop=observeChatRequests({window,getScope:()=>'/1',onResult:(result,id)=>seen.push([result.kind,id])});
+  await window.fetch('/webcast/room/chat/?content=hello');await new Promise(r=>setImmediate(r));
+  assert.deepEqual(seen,[['accepted','42']]);stop();
+});
 test('XHR observer handles a native reply and removes pending listeners on teardown', () => {
   class XHR extends EventTarget { open() {} send() {} }
   const original=XHR.prototype.send, outcomes=[];

@@ -56,3 +56,12 @@ test("an aborted restoration cannot change the next room's video", async () => {
   await assert.rejects(f.memory.apply("audio", { signal: controller.signal }), { name: "AbortError" });
   assert.equal(f.video.volume, .8); assert.equal(f.video.muted, false); f.memory.destroy();
 });
+
+test('opening gift/danmaku menus never captures platform defaults or cancels restoration', () => {
+  const f=fixture();
+  f.action('gift-setting');f.action('danmaku-setting-icon');
+  assert.equal(f.timers.size,0);
+  assert.equal(f.preferences.get('giftEffects').state,true);
+  assert.deepEqual(f.preferences.get('danmakuFilters').state,{gift:false,lucky:false});
+  f.action('effect-switch');assert.ok(f.timers.size>0);f.memory.destroy();
+});

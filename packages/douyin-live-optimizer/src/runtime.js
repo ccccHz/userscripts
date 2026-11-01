@@ -1,3 +1,4 @@
+import { getPlayerControlIdentity } from './native-controls.js';
 export function isLiveLocation(location) {
   return (location.hostname === "live.douyin.com" && /^\/\d+(?:\/|$)/.test(location.pathname)) || (
     ["www.douyin.com", "douyin.com"].includes(location.hostname) &&
@@ -12,12 +13,15 @@ export function getPlayerScope(document, location) {
   const player = document.querySelector(PLAYER_SELECTOR);
   const playerVideo = player?.querySelector("video");
   const video = playerVideo || document.querySelector('#PlayerLayout video, [data-e2e="living-container"] video');
-  if (!video) return null;
+  // Follow-page players can mount controls before their video/iframe renderer.
+  // Gift/filter automation must not depend on finding a main-document <video>.
+  if (!video && !player) return null;
   // An empty old container must not own a different video's tasks during a rebuild.
-  const root = playerVideo ? player : video.closest?.(PLAYER_SELECTOR) || video.parentElement;
+  const root = playerVideo ? player : video ? video.closest?.(PLAYER_SELECTOR) || video.parentElement : player;
   return {
     url: `${location.origin}${location.pathname.replace(/\/$/, "")}`,
     player: root, video, instance: getPlayerInstance(root),
+    ...getPlayerControlIdentity(document, root),
   };
 }
 
@@ -34,7 +38,8 @@ function getPlayerInstance(player) {
 }
 
 export function samePlayerScope(left, right) {
-  return left?.url === right?.url && left?.player === right?.player && left?.video === right?.video && left?.instance === right?.instance;
+  return left?.url === right?.url && left?.player === right?.player && left?.video === right?.video && left?.instance === right?.instance &&
+    left?.giftNode === right?.giftNode && left?.filterNode === right?.filterNode && left?.controller === right?.controller && left?.roomId === right?.roomId;
 }
 
 const FEATURES = ["giftEffects", "danmakuFilters", "audio", "quality"];

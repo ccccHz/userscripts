@@ -32,6 +32,25 @@ test("unrelated DOM changes do not repeat player automation", async () => {
   f.runtime.destroy();
 });
 
+test('late controls restart exhausted startup tasks once, without repeating on unrelated mutations', async () => {
+  const f=fixture();f.runtime.refresh();await flush();
+  f.calls.forEach(call=>call.resolve({applied:false}));await flush();
+  f.setScope({...f.getScope(),giftNode:{},filterNode:{},controller:{},roomId:'11'});
+  f.runtime.refresh();await flush();assert.equal(f.calls.length,8);
+  f.runtime.refresh();await flush();assert.equal(f.calls.length,8);f.runtime.destroy();
+});
+test('a reused follow-page player with a different native room id cancels the old room', async () => {
+  const f=fixture();f.setScope({...f.getScope(),roomId:'11'});f.runtime.refresh();await flush();const old=f.calls.slice();
+  f.setScope({...f.getScope(),roomId:'22'});f.runtime.refresh();await flush();
+  assert.equal(f.calls.length,8);assert.ok(old.every(call=>call.signal.aborted));f.runtime.destroy();
+});
+test('follow-page native controls can initialize without a main-document video', () => {
+  const player={querySelector:()=>null};
+  const document={querySelector:selector=>selector.includes('.basicPlayer')?player:null};
+  const scope=getPlayerScope(document,new URL('https://www.douyin.com/follow/live/1'));
+  assert.equal(scope.player,player);assert.equal(scope.video,null);
+});
+
 test("room navigation aborts all old tasks and ignores their late completion", async () => {
   const f = fixture(); f.runtime.refresh(); await flush();
   const old = f.calls.slice();

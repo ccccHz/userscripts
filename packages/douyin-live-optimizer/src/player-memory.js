@@ -59,16 +59,18 @@ export function createPlayerMemory({ document, window, preferences, reapply, can
     if (target?.closest('[data-e2e="quality-selector"], [data-e2e="quality"], .QualitySwitchNewPlugin')) keys.push("quality");
     if (target?.closest('.douyin-player-volume, .xgplayer-volume')) keys.push("audio");
     if (target?.closest('#chatroom .KH9DQgyz, #chatroom .chatroom_close, .chat_room_fold')) keys.push("chatCollapsed");
-    if (target?.closest('[data-e2e="gift-setting"], [data-e2e="effect-switch"]')) keys.push("giftEffects");
+    // Opening/hovering a menu is not a preference change. During SPA startup
+    // it can expose the platform default before our restoration has completed.
+    if (target?.closest('[data-e2e="effect-switch"]')) keys.push("giftEffects");
     let filterRow = target;
-    let hasFilterLabel = false;
+    let hasFilterLabel = false, hasMainLabel = false;
     for (let depth = 0; filterRow && depth < 4; depth++, filterRow = filterRow.parentElement) {
-      const text = filterRow.textContent || "";
-      if (text.length < 80 && /送礼信息|福袋口令|开启弹幕|弹幕开关/.test(text)) hasFilterLabel = true;
+      const text = (filterRow.textContent || "").trim();
+      if (/^(送礼信息|福袋口令)$/.test(text)) { hasFilterLabel = true; break; }
+      if (/^(开启弹幕|弹幕开关\s*[Bb]?)$/.test(text)) { hasMainLabel = true; break; }
     }
-    if (target?.closest('[data-e2e="danmaku-setting-icon"], [data-e2e="danmaku-switch"]') || hasFilterLabel) {
-      keys.push("danmakuFilters", "danmakuEnabled");
-    }
+    if (hasFilterLabel) keys.push("danmakuFilters");
+    if (target?.closest('[data-e2e="danmaku-switch"]') || hasMainLabel) keys.push("danmakuEnabled");
     if (target?.closest('.douyin-player-controls-right slot[data-index="2"], xg-icon.xgplayer-page-full-screen')) keys.push("webFullscreen");
     if (event.type === "keydown" && !target?.closest('input,textarea,[contenteditable="true"]')) {
       if (["ArrowUp", "ArrowDown", "m", "M"].includes(event.key)) keys.push("audio");
@@ -122,6 +124,7 @@ export function createPlayerMemory({ document, window, preferences, reapply, can
         throwIfAborted(signal);
         let result;
         if (key === "audio") {
+          if (!scope.video) return { applied: false, method: 'no-video' };
           const ready = await waitFor(() => scope.video.readyState === undefined || scope.video.readyState > 0, { signal, attempts: 80, sleepFn });
           if (!ready) return { applied: false };
           throwIfAborted(signal);

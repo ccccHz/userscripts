@@ -15,6 +15,23 @@ function currentFiber(node) {
   for (let i = 0; root?.return && i < 50; i++) root = root.return;
   return root?.stateNode?.current && root.stateNode.current !== root ? fiber?.alternate || fiber : fiber;
 }
+// Public imperative handle exposed by the native WebcastChatroom component.
+export function getChatScrollHandle(node) {
+  let fiber = currentFiber(node);
+  for (let depth = 0; fiber && depth < 24; depth++, fiber = fiber.return) {
+    const handle = fiber.ref?.current;
+    if (typeof handle?.lock === 'function' && typeof handle?.unlock === 'function' && typeof handle?.inputClear === 'function') return handle;
+  }
+  return null;
+}
+export function getPlayerControlIdentity(document, player) {
+  const giftNode = player?.querySelector?.('[data-e2e="gift-setting"]') || document.querySelector('[data-e2e="gift-setting"]');
+  const filterNode = player?.querySelector?.('[data-e2e="danmaku-setting-icon"]') || document.querySelector('[data-e2e="danmaku-setting-icon"]');
+  const store = findControlContext(giftNode || player, (context) => context?.giftStore);
+  const room = findControlContext(giftNode || player, (context) => context?.roomStore);
+  const callback = findControlProps(giftNode, (props) => typeof props.onSwitch === 'function')?.onSwitch;
+  return { giftNode, filterNode, controller: store || callback || null, roomId: String(room?.roomInfo?.roomId || '') };
+}
 export function findControlProps(node, predicate, maxDepth = 8) {
   const direct = reactProps(node);
   if (direct && predicate(direct)) return direct;

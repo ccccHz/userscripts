@@ -1,6 +1,7 @@
 import { findControlProps, findControlContext } from './native-controls.js';
 import { observeChatRequests } from './chat-send-check.js';
 import { isLiveLocation } from './runtime.js';
+import { createChatHover } from './chat-hover.js';
 
 const ROW = '.webcast-chatroom___item';
 const CONTENT = '.webcast-chatroom___content-with-emoji-text';
@@ -35,9 +36,8 @@ export async function sendChatOnce({ document, row, snapshot, scope, getScope })
 
 export function createChatTools({ document, window, settingsStore }) {
   const style = document.createElement('style');
-  style.textContent = `.webcast-chatroom___item:has(>.dlo-plus-one){position:relative}.dlo-plus-one{position:absolute;right:4px;top:2px;border:0;border-radius:4px;background:#ffffff20;color:inherit;cursor:pointer;font-size:11px;opacity:0}.webcast-chatroom___item:hover .dlo-plus-one,.dlo-plus-one:focus-visible{opacity:1}.dlo-chat-status{padding:5px 10px;font-size:12px;color:#e2b76f;line-height:1.5}.dlo-chat-mark{margin-left:5px;font-size:11px;color:#e2b76f}`;
+  style.textContent = `.dlo-chat-toolbar{position:fixed;z-index:2147483640;display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:8px;background:#242731;color:#fff;border:1px solid #616673;font:13px/20px system-ui;box-shadow:0 4px 18px #0006}.dlo-chat-toolbar[hidden]{display:none!important}.dlo-chat-toolbar button{color:#fff;background:#444956;border:0;border-radius:4px;padding:2px 8px;cursor:pointer;font:inherit}.dlo-chat-hover-state{font-size:11px;color:#aeb6c9}.dlo-chat-status{padding:5px 10px;font-size:12px;color:#e2b76f;line-height:1.5}.dlo-chat-mark{margin-left:5px;font-size:11px;color:#e2b76f}`;
   (document.head || document.documentElement).append(style);
-  const buttons = new Map();
   const marks = new Map();
   const flagged = new Map();
   let observer, scheduled, stopRequests, stopMessages, messageSource, noticeTimer, destroyed = false, scope = '', sending = false, lastSendAt = 0;
@@ -45,6 +45,20 @@ export function createChatTools({ document, window, settingsStore }) {
   const echoes = new Map();
   let status;
   const getScope = () => isLiveLocation(window.location) ? window.location.origin + window.location.pathname : '';
+  const hover=createChatHover({ document,window,getScope,readRow:readChatRow,enabled:()=>Boolean(getScope())&&settingsStore.get().chatPlusOne,notify,
+    async onPlusOne({row,snapshot,scope:ownScope}) {
+      if(sending || Date.now()-lastSendAt<1000) return;
+      sending=true;lastSendAt=Date.now();
+      try {
+        const outcome=await sendChatOnce({document,row,snapshot,scope:ownScope,getScope});
+        if(ownScope!==getScope()) return;
+        if(outcome==='draft') notify('输入框有草稿，已保留；请处理草稿后再加一。');
+        else if(outcome==='unavailable') notify('当前无法发送，请先登录并检查禁言或输入限制。');
+        else if(outcome==='stale') notify('目标弹幕已变化，未发送。');
+      } catch { if(ownScope===getScope()) notify('发送结果未确认，不会自动重试。'); }
+      finally { sending=false; }
+    },
+  });
   function notify(text) {
     if (destroyed || !getScope()) return;
     const host = document.querySelector('#chatInput')?.parentElement || document.querySelector('.webcast-chatroom');
@@ -108,8 +122,7 @@ export function createChatTools({ document, window, settingsStore }) {
     if (typeof stopMessages !== 'function') { stopMessages = null; messageSource = next; }
   }
   function clear() {
-    for (const button of buttons.values()) button.remove();
-    buttons.clear();
+    hover.close();
     receipts.clear(); echoes.clear();
     flagged.clear();
     for (const mark of marks.values()) mark.remove();
@@ -122,6 +135,7 @@ export function createChatTools({ document, window, settingsStore }) {
     const next = getScope();
     if (next !== scope) { clear(); stopMessages?.(); stopMessages = null; messageSource = null; scope = next; }
     const settings = settingsStore.get();
+    hover.refresh();
     if (!scope) { clear(); stopRequests?.(); stopRequests = null; return; }
     subscribeMessages(settings.chatSendCheck);
     if (settings.chatSendCheck && !stopRequests) stopRequests = observeChatRequests({ window, getScope, onResult: result });
@@ -136,31 +150,6 @@ export function createChatTools({ document, window, settingsStore }) {
       mark.title='平台回执带有审核或发送者可见字段；不是独立匿名观众的检测结果。';
       row.querySelector(CONTENT)?.parentElement?.append(mark); marks.set(row,mark);
     }
-    for (const [row, button] of buttons) if (!row.isConnected || !button.isConnected || !settings.chatPlusOne) { button.remove(); buttons.delete(row); }
-    if (!settings.chatPlusOne) return;
-    for (const row of document.querySelectorAll(ROW)) {
-      if (buttons.has(row) || !readChatRow(row)) continue;
-      const button = document.createElement('button');
-      button.type = 'button'; button.className = 'dlo-plus-one'; button.textContent = '+1'; button.title = '加一：普通弹幕单次发送；有草稿时保留草稿并停止'; button.setAttribute('aria-label','弹幕加一');
-      button.addEventListener('click', async (event) => {
-        event.preventDefault(); event.stopPropagation();
-        if (sending || Date.now() - lastSendAt < 1000 || !settingsStore.get().chatPlusOne) return;
-        const snapshot = readChatRow(row);
-        if (!snapshot) return notify('目标弹幕已变化，请重新选择。');
-        sending = true; lastSendAt = Date.now(); button.disabled = true;
-        const ownScope = getScope();
-        try {
-          const outcome = await sendChatOnce({ document, row, snapshot, scope: ownScope, getScope });
-          if (ownScope !== getScope()) return;
-          if (outcome === 'draft') notify('输入框有草稿，已保留；请处理草稿后再加一。');
-          else if (outcome === 'unavailable') notify('当前无法发送，请先登录并检查禁言或输入限制。');
-          else if (outcome === 'stale') notify('目标弹幕已变化，未发送。');
-          // The request observer reports accepted/rejected; no automatic retry.
-        } catch { if (ownScope === getScope()) notify('发送结果未确认，不会自动重试。'); }
-        finally { sending = false; if (button.isConnected) button.disabled = false; }
-      });
-      row.append(button); buttons.set(row, button);
-    }
   }
   function schedule() {
     if (scheduled !== undefined) return;
@@ -171,5 +160,5 @@ export function createChatTools({ document, window, settingsStore }) {
   window.addEventListener('popstate', schedule);
   const unsubscribe = settingsStore.subscribe(scan);
   scan();
-  return { refresh: scan, destroy() { destroyed = true; observer.disconnect(); unsubscribe(); stopRequests?.(); stopMessages?.(); window.clearTimeout(scheduled); window.removeEventListener('popstate', schedule); clear(); style.remove(); } };
+  return { refresh: scan, destroy() { destroyed = true; observer.disconnect(); unsubscribe(); stopRequests?.(); stopMessages?.(); window.clearTimeout(scheduled); window.removeEventListener('popstate', schedule); clear(); hover.destroy(); style.remove(); } };
 }
