@@ -2,6 +2,7 @@ import { findControlProps, findControlContext } from './native-controls.js';
 import { observeChatRequests } from './chat-send-check.js';
 import { isLiveLocation } from './runtime.js';
 import { createChatHover } from './chat-hover.js';
+import { createScreenDanmakuHover } from './screen-danmaku-hover.js';
 
 const ROW = '.webcast-chatroom___item';
 const CONTENT = '.webcast-chatroom___content-with-emoji-text';
@@ -25,18 +26,26 @@ export function readChatRow(row) {
 export async function sendChatOnce({ document, row, snapshot, scope, getScope }) {
   const current = row.isConnected && readChatRow(row);
   if (!current || !current.id || current.id !== snapshot.id || current.text !== snapshot.text || scope !== getScope()) return 'stale';
+  return sendNativeChatText({ document, text: current.text, scope, getScope });
+}
+export async function sendScreenChatOnce({ document, snapshot, validate, scope, getScope }) {
+  if (!snapshot?.id || !normalizeChat(snapshot.text) || !validate?.() || scope !== getScope()) return 'stale';
+  return sendNativeChatText({ document, text: snapshot.text, scope, getScope });
+}
+async function sendNativeChatText({ document, text, scope, getScope }) {
   const input = document.querySelector('#chatInput [contenteditable="true"]');
   if (!input) return 'unavailable';
   if (normalizeChat(input.textContent) || input.querySelector('img,[data-emoji]')) return 'draft';
   const props = findControlProps(document.querySelector('.webcast-chatroom'), (props) => typeof props.onSend === 'function', 20);
   if (!props || props.enableChat === false) return 'unavailable';
-  await props.onSend(current.text); // no privilege/paid tab, exactly one ordinary send
+  await props.onSend(text); // no privilege/paid tab, exactly one ordinary send
   return scope === getScope() ? 'submitted' : 'stale';
 }
 
 export function createChatTools({ document, window, settingsStore }) {
   const style = document.createElement('style');
   style.textContent = `.dlo-chat-toolbar{position:fixed;z-index:2147483640;display:flex;gap:8px;align-items:center;padding:6px 10px;border-radius:8px;background:#242731;color:#fff;border:1px solid #616673;font:13px/20px system-ui;box-shadow:0 4px 18px #0006}.dlo-chat-toolbar[hidden]{display:none!important}.dlo-chat-toolbar button{color:#fff;background:#444956;border:0;border-radius:4px;padding:2px 8px;cursor:pointer;font:inherit}.dlo-chat-hover-state{font-size:11px;color:#aeb6c9}.dlo-chat-status{padding:5px 10px;font-size:12px;color:#e2b76f;line-height:1.5}.dlo-chat-mark{margin-left:5px;font-size:11px;color:#e2b76f}`;
+  style.textContent += `.dlo-screen-toolbar{position:fixed;z-index:2147483640;display:flex;gap:4px;padding:4px;border:1px solid #ffffff2e;border-radius:7px;background:rgba(20,20,24,.92);box-shadow:0 5px 18px #0005;backdrop-filter:blur(8px);color:#fff;font:13px/26px system-ui}.dlo-screen-toolbar[hidden]{display:none!important}.dlo-screen-toolbar button{min-width:38px;height:26px;padding:0 8px;background:transparent;border:0;border-radius:4px;color:inherit;font:inherit;white-space:nowrap;cursor:pointer}.dlo-screen-toolbar button:hover,.dlo-screen-toolbar button:focus-visible{outline:none;background:#ffffff24}.dlo-screen-toolbar button:disabled{opacity:.5}`;
   (document.head || document.documentElement).append(style);
   const marks = new Map();
   const flagged = new Map();
@@ -45,20 +54,22 @@ export function createChatTools({ document, window, settingsStore }) {
   const echoes = new Map();
   let status;
   const getScope = () => isLiveLocation(window.location) ? window.location.origin + window.location.pathname : '';
-  const hover=createChatHover({ document,window,getScope,readRow:readChatRow,enabled:()=>Boolean(getScope())&&settingsStore.get().chatPlusOne,notify,
-    async onPlusOne({row,snapshot,scope:ownScope}) {
+  async function onPlusOne({row,snapshot,scope:ownScope,kind,validate}) {
       if(sending || Date.now()-lastSendAt<1000) return;
       sending=true;lastSendAt=Date.now();
       try {
-        const outcome=await sendChatOnce({document,row,snapshot,scope:ownScope,getScope});
+        const args={document,row,snapshot,scope:ownScope,getScope,validate};
+        const outcome=await (kind==='screen'?sendScreenChatOnce(args):sendChatOnce(args));
         if(ownScope!==getScope()) return;
         if(outcome==='draft') notify('输入框有草稿，已保留；请处理草稿后再加一。');
         else if(outcome==='unavailable') notify('当前无法发送，请先登录并检查禁言或输入限制。');
         else if(outcome==='stale') notify('目标弹幕已变化，未发送。');
       } catch { if(ownScope===getScope()) notify('发送结果未确认，不会自动重试。'); }
       finally { sending=false; }
-    },
-  });
+  }
+  const enabled = () => Boolean(getScope()) && settingsStore.get().chatPlusOne;
+  const hover=createChatHover({ document,window,getScope,readRow:readChatRow,enabled,notify,onPlusOne });
+  const screen=createScreenDanmakuHover({ document,window,getScope,enabled,notify,onPlusOne });
   function notify(text) {
     if (destroyed || !getScope()) return;
     const host = document.querySelector('#chatInput')?.parentElement || document.querySelector('.webcast-chatroom');
@@ -136,6 +147,7 @@ export function createChatTools({ document, window, settingsStore }) {
     if (next !== scope) { clear(); stopMessages?.(); stopMessages = null; messageSource = null; scope = next; }
     const settings = settingsStore.get();
     hover.refresh();
+    screen.refresh();
     if (!scope) { clear(); stopRequests?.(); stopRequests = null; return; }
     subscribeMessages(settings.chatSendCheck);
     if (settings.chatSendCheck && !stopRequests) stopRequests = observeChatRequests({ window, getScope, onResult: result });
@@ -160,5 +172,5 @@ export function createChatTools({ document, window, settingsStore }) {
   window.addEventListener('popstate', schedule);
   const unsubscribe = settingsStore.subscribe(scan);
   scan();
-  return { refresh: scan, destroy() { destroyed = true; observer.disconnect(); unsubscribe(); stopRequests?.(); stopMessages?.(); window.clearTimeout(scheduled); window.removeEventListener('popstate', schedule); clear(); hover.destroy(); style.remove(); } };
+  return { refresh: scan, destroy() { destroyed = true; observer.disconnect(); unsubscribe(); stopRequests?.(); stopMessages?.(); window.clearTimeout(scheduled); window.removeEventListener('popstate', schedule); clear(); hover.destroy(); screen.destroy(); style.remove(); } };
 }

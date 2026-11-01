@@ -1,6 +1,6 @@
 import { sleep, throwIfAborted, waitFor } from "./task.js";
 
-// Inspect only React props attached to known player controls. Never execute
+// Inspect only source-verified props/refs on mounted native controls. Never execute
 // component functions, walk a global store, or patch the site's callbacks.
 export function reactProps(node) {
   for (const key of Object.getOwnPropertyNames(node || {})) {
@@ -21,6 +21,26 @@ export function getChatScrollHandle(node) {
   for (let depth = 0; fiber && depth < 24; depth++, fiber = fiber.return) {
     const handle = fiber.ref?.current;
     if (typeof handle?.lock === 'function' && typeof handle?.unlock === 'function' && typeof handle?.inputClear === 'function') return handle;
+  }
+  return null;
+}
+// Known refs/memo from the official CanvasDanmakuPlugin: renderer ref D and
+// config memo x. Do not call React components or search unrelated app state.
+export function getCanvasDanmakuControl(node) {
+  let fiber = currentFiber(node);
+  for (let depth = 0; fiber && depth < 12; depth++, fiber = fiber.return) {
+    let hook = fiber.memoizedState, renderer, config;
+    for (let count = 0; hook && count < 40; count++, hook = hook.next) {
+      const state = hook.memoizedState;
+      const candidate = state?.current;
+      if (candidate?.canvasDom?.parentElement === node && typeof candidate.start === 'function' &&
+          typeof candidate.stop === 'function' && typeof candidate.danmakuManagerInMainThread?.emit === 'function' &&
+          Array.isArray(candidate.offCbs)) renderer = candidate;
+      const memo = Array.isArray(state) ? state[0] : null;
+      if (memo && typeof memo.fontSize === 'number' && typeof memo.duration === 'number' &&
+          typeof memo.opacity === 'number' && 'maxHeightRate' in memo) config = memo;
+    }
+    if (renderer && config) return { renderer, config, source: fiber.memoizedProps?.store?.singletonStore?.message };
   }
   return null;
 }

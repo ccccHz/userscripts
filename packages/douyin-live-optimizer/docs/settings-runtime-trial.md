@@ -165,3 +165,21 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 用户随后澄清：要求悬停的是视频画面上的飘屏弹幕，右侧 chat hover 实际出现，但并非需求对象。因此根因首先是实现范围理解错误，不能仅归因于事件/属性就绪，也不再请求用户重复验收右侧聊天来证明飘屏需求。设置名称纠正为“右侧聊天复制与加一”，飘屏功能明确未实现。
 
 普通 DOM 已定位 #DanmakuLayout .CanvasDanmakuPlugin canvas；该节点不同于隐藏的 annie iframe。官方 [CanvasDanmakuPlugin.f036c928.js](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/CanvasDanmakuPlugin.f036c928.js) 支持 start/stop，使用 OffscreenCanvas + Worker 或主线程备用实现；未提供逐条 DOM、mousemove 或 hitTest 接口。后续需要针对画布内的实际弹幕做命中与冻结，不以暂停右侧列表替代。
+
+## 2026-11-01 飘屏悬停接入与 B 站式工具栏
+
+- 用户明确对象为画面飘屏。本轮从官方 CanvasDanmakuPlugin 的已挂载 renderer ref 和配置 memo 接入，固定遍历上限，不执行 React 组件。沿用该官方类的主线程备用实现，不重写弹幕引擎、不复制官方渲染器源码。
+- 使用期间同步、定向地让新建的这一张弹幕 canvas 选择原生备用分支；构造结束即恢复 transferControlToOffscreen 方法。保持原 renderer 对象身份，保留平台消息/播放/配置回调；关闭功能时恢复原来的 Worker 路径，卸载清理本次资源。初次切换会重新绘制弹幕；主线程绘制的长期性能仍需用户体验观察。
+- 位置取实际轨道 `_channels` 中的可见对象；不能查 originBarrageList，因为平台将已入轨对象移出待播队列。命中按 canvas 实际尺寸、像素比例和 bookedChannel 换算。暂停通过本条速度为 0，移开恢复原 getter/描述符；碰撞处理会使后方同轨弹幕等待，其他轨道和视频不暂停。
+- 仅复制和发送匹配的正文；原始 ChatMessage/ScreenChatMessage/PrivilegeScreenChatMessage 按消息 ID 对应，避免把昵称/装饰复制进正文。没有可匹配正文的图片/礼物不冒充普通文字发送。无真实账号发送验收，不声明加一发送成功；草稿、换房、失效目标、单次发送和防连击仍保留。
+- 用户已经确认“现在有 hover 暂停”，但初版工具栏遮挡文字。参照用户本地 B 站 danmaku-hover-actions 的 placeToolbar/样式：工具栏移到冻结文字下方，底部空间不足时上方；按播放器可见范围夹紧，缩减为 +1/复制，去掉占位状态文案。间隙桥接和延迟关闭允许移入按钮而不切换目标。新布局另待用户体验反馈。
+- 屏蔽检测依用户要求只准备调研和对照测试，未接新算法或匿名连接、未代发样本。具体见 [调研与测试方案](chat-visibility-research.md)。用户本地 B 站组件是独立 Laplace 观察路线；外部 f/k 脚本仅为另一个项目，不能代表用户在用实现。
+- 其他可用控制：声音使用标准 video.volume/muted；礼物使用 giftStore setter；清晰度使用已挂载原生回调；网页全屏与侧栏使用原生状态/回调。源码还存在 roomStore.setDanmakuSwitch 和 setFoldChatroom 候选，但直接 setter 是否覆盖持久化和全部 UI 副作用仍需验证，本轮未贸然替代现有路径。送礼/福袋过滤继续调用挂载控件的原生布尔回调并回读。
+
+礼物 UI 联动：官方 EffectSwitchPlugin 直接把 observable effectSwitchStatus 绑定为“屏蔽礼物特效”的反向值，因此 store 设 false 时屏蔽按钮开启，设 true 时屏蔽按钮关闭。本轮实页面板显示执行方法 store；临时切到始终显示后已恢复原记忆模式和“屏蔽”目标。底栏保持隐藏，原生礼物弹窗未成功展开，不把本轮记为原生按钮正反实页验收。
+
+### 收尾验收（2026-11-02）
+
+用户确认新版工具栏“位置和移入操作都正常”，飘屏悬停暂停及新版布局通过用户真实输入验收；复制/真实加一发送、普通布局/全屏与长期负载仍保留待验收。屏蔽检测用户选择“先审阅调研方案，暂不采样”，不启动采样或新观察器。
+
+检查：package 146/146、package 类型检查、validate、实际 test/ 与 packages/*/test/ 串行测试、定向构建及 git diff --check 通过。版本保持 2026.8.20，publish=false；无新增 grant、安装、推送或发布。原生方法及渲染器属于平台内部接口，后续页面改版仍需观察；本轮没有读取或保存账号凭据。

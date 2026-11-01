@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyChatResponse, isChatRequest, observeChatRequests } from '../src/chat-send-check.js';
-import { readChatRow, sendChatOnce } from '../src/chat-tools.js';
+import { readChatRow, sendChatOnce, sendScreenChatOnce } from '../src/chat-tools.js';
 
 test('only same-origin ordinary chat endpoint is observed', () => {
   const base = 'https://live.douyin.com/123';
@@ -77,4 +77,15 @@ test('drafts, disappeared rows, changed rooms and disabled chat prevent sending'
   f.row.isConnected=true;assert.equal(await sendChatOnce({...args,getScope:()=>'/2'}),'stale');
   f.chat.__reactProps$fixture.enableChat=false;assert.equal(await sendChatOnce(args),'unavailable');
   assert.deepEqual(f.sent,[]);
+});
+
+test('screen plus-one needs a live native target, preserves drafts, and submits exactly once', async () => {
+  const f=fixture(), snapshot={id:'canvas-42',text:'画面弹幕'};
+  const args={document:f.document,snapshot,validate:()=>true,scope:'/1',getScope:()=>'/1'};
+  assert.equal(await sendScreenChatOnce({...args,validate:()=>false}),'stale');
+  assert.equal(await sendScreenChatOnce({...args,getScope:()=>'/2'}),'stale');
+  f.input.textContent='草稿';assert.equal(await sendScreenChatOnce(args),'draft');
+  assert.deepEqual(f.sent,[]);assert.equal(f.input.textContent,'草稿');
+  f.input.textContent='';assert.equal(await sendScreenChatOnce(args),'submitted');
+  assert.deepEqual(f.sent,['画面弹幕']);
 });

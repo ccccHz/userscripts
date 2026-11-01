@@ -9,7 +9,7 @@ export const SETTING_GROUPS = [
   ] },
   { name: "弹幕", items: [
     { key: "chatSendCheck", label: "发送结果提示", hint: "仅检查发送回执与当前连接；尚不能检测其他观众看不到的弹幕。" },
-    { key: "chatPlusOne", label: "右侧聊天复制与加一", hint: "用于右侧聊天列表；画面飘屏弹幕的悬停操作尚未实现。有草稿时保留并停止发送。" },
+    { key: "chatPlusOne", label: "弹幕悬停与加一", hint: "悬停画面上的文字弹幕，可暂停、复制或加一；有草稿时停止发送。关闭后恢复平台原生模式。" },
     { key: "danmakuFilters", label: "隐藏送礼信息与福袋口令", hint: "关闭后恢复这两类弹幕；保留普通弹幕。" },
   ] },
   { name: "播放", items: [
