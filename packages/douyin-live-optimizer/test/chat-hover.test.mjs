@@ -19,9 +19,9 @@ function fixture() {
   const list=element();Object.assign(list,{scrollHeight:500,clientHeight:200,scrollTop:300});
   const chat={__reactFiber$test:{ref:{current:handle}},querySelector:()=>list};
   const row=element();row.parentElement=list;row.closest=selector=>selector.includes('___item')?row:chat;row.getBoundingClientRect=()=>({right:1200,top:200,bottom:230});
-  const snapshot={id:'42',text:'hello'};
-  const hover=createChatHover({document,window,enabled:()=>enabled,getScope:()=>scope,readRow:()=>snapshot,onPlusOne:async selected=>sent.push(selected.snapshot.text),notify(){}});
-  return {hover,events,timers,list,row,sent,host:body.children[0],locked:()=>locked,unlocked:()=>unlocked,setEnabled:v=>enabled=v,setScope:v=>scope=v};
+  const snapshot={value:{id:'42',text:'hello'}};
+  const hover=createChatHover({document,window,enabled:()=>enabled,getScope:()=>scope,readRow:()=>snapshot.value,onPlusOne:async selected=>sent.push(selected.snapshot.text),notify(){}});
+  return {hover,events,timers,list,row,chat,handle,snapshot,sent,host:body.children[0],locked:()=>locked,unlocked:()=>unlocked,setEnabled:v=>enabled=v,setScope:v=>scope=v};
 }
 test('hover locks the native chat, shows a floating toolbar and sends the frozen target once', async () => {
   const f=fixture();f.events.get('mouseover')({target:f.row});
@@ -38,4 +38,25 @@ test('hover never unlocks pre-existing manually scrolled history and disable/nav
   f.list.scrollTop=300;f.events.get('mouseover')({target:f.row});f.setScope('/2');f.hover.refresh();
   assert.equal(f.unlocked(),1);assert.equal(f.host.hidden,true);
   f.events.get('mouseover')({target:f.row});f.setEnabled(false);f.hover.refresh();assert.equal(f.host.hidden,true);f.hover.destroy();
+});
+
+test('unresolved or unsupported rows still pause, pointer movement retries readiness, and leaving releases the lock', () => {
+  const f=fixture();f.snapshot.value=null;
+  f.events.get('mouseover')({target:f.row});
+  assert.equal(f.locked(),1);assert.equal(f.host.hidden,true);
+  f.snapshot.value={id:'43',text:'ready'};
+  f.events.get('pointermove')({target:f.row});
+  assert.equal(f.locked(),1);assert.equal(f.host.hidden,false);
+  f.snapshot.value=null;f.hover.refresh();
+  f.events.get('mouseover')({target:f.row});
+  f.events.get('mouseout')({relatedTarget:null});[...f.timers.values()].forEach(fn=>fn());
+  assert.equal(f.host.hidden,true);assert.equal(f.unlocked(),2);f.hover.destroy();
+});
+
+test('a native handle arriving after pointer entry is acquired without leaving the row', () => {
+  const f=fixture();f.chat.__reactFiber$test.ref.current=null;
+  f.events.get('mouseover')({target:f.row});assert.equal(f.locked(),0);
+  f.chat.__reactFiber$test.ref.current=f.handle;
+  f.events.get('pointermove')({target:f.row});assert.equal(f.locked(),1);assert.equal(f.host.children[0].textContent,'悬停暂停');
+  f.hover.destroy();assert.equal(f.unlocked(),1);
 });

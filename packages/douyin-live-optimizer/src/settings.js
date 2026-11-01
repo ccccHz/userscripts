@@ -8,8 +8,8 @@ export const SETTING_GROUPS = [
     { key: "commerceAds", label: "隐藏电商广告与小黄车" },
   ] },
   { name: "弹幕", items: [
-    { key: "chatSendCheck", label: "弹幕屏蔽检测", hint: "检查平台发送回执；成功受理不代表公开可见，不确定时明确提示。" },
-    { key: "chatPlusOne", label: "弹幕加一", hint: "悬停普通弹幕暂停滚动，浮动栏可复制或加一；有草稿时保留草稿并停止。" },
+    { key: "chatSendCheck", label: "发送结果提示", hint: "仅检查发送回执与当前连接；尚不能检测其他观众看不到的弹幕。" },
+    { key: "chatPlusOne", label: "右侧聊天复制与加一", hint: "用于右侧聊天列表；画面飘屏弹幕的悬停操作尚未实现。有草稿时保留并停止发送。" },
     { key: "danmakuFilters", label: "隐藏送礼信息与福袋口令", hint: "关闭后恢复这两类弹幕；保留普通弹幕。" },
   ] },
   { name: "播放", items: [

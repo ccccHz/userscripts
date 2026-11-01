@@ -24,26 +24,30 @@ export function createChatHover({ document, window, enabled, getScope, readRow, 
     if (!enabled() || document.querySelector('[data-douyin-live-optimizer-panel]')?.hidden===false) return close();
     if (host.contains(event.target)) { window.clearTimeout(leaveTimer); return; }
     const row=event.target?.closest?.('.webcast-chatroom___item');
-    if (!row) return;
-    const snapshot=readRow(row);
-    if (!snapshot?.id) return;
+    const chat=event.target?.closest?.('.webcast-chatroom');
+    if (!chat || !row && !event.target?.closest?.('.webcast-chatroom___list')) return;
     window.clearTimeout(leaveTimer);
-    const chat=row.closest('.webcast-chatroom');
     const nextList=chat?.querySelector('.webcast-chatroom___list');
     if (list && nextList!==list) close();
-    if (!list) {
-      list=nextList;
+    if (!list) list=nextList;
+    if (!lock) {
       lock=getChatScrollHandle(chat);
       // Existing manually scrolled history stays locked when hover ends.
       if (lock && list) { ownsLock=nearBottom(list); lock.lock(); list.setAttribute('data-dlo-hover-paused',''); }
     }
-    selected={row,snapshot,scope:getScope()};
+    // Pausing the list must not depend on whether this message is sendable.
+    // Emoji/system rows and props arriving after the initial pointer entry
+    // must not make hover silently do nothing.
     label.textContent=lock?'悬停暂停':'弹幕操作';
+    if (selected?.row===row && !host.hidden) return;
+    const snapshot=row && readRow(row);
+    if (!snapshot?.id) { selected=null; host.hidden=true; return; }
+    selected={row,snapshot,scope:getScope()};
     host.hidden=false; position(row);
   }
   function leave(event) {
     if (host.contains(event.relatedTarget) || list?.contains(event.relatedTarget)) return;
-    if (!host.hidden) leaveTimer=window.setTimeout(close,120);
+    if (list || !host.hidden) leaveTimer=window.setTimeout(close,120);
   }
   function wheel(event) { if (list?.contains(event.target)) manuallyScrolled=true; }
   function key(event) { if(event.key==='Escape') close(); }
@@ -62,6 +66,7 @@ export function createChatHover({ document, window, enabled, getScope, readRow, 
     catch { notify('复制未完成，请使用页面原生复制。'); }
   });
   document.addEventListener('mouseover',enter,true);
+  document.addEventListener('pointermove',enter,true);
   document.addEventListener('mouseout',leave,true);
   document.addEventListener('wheel',wheel,{capture:true,passive:true});
   document.addEventListener('keydown',key,true);
@@ -71,7 +76,7 @@ export function createChatHover({ document, window, enabled, getScope, readRow, 
       if(!enabled() || selected && (selected.scope!==getScope() || !selected.row.isConnected || readRow(selected.row)?.id!==selected.snapshot.id)) close();
     },
     destroy() {
-      close(); document.removeEventListener('mouseover',enter,true);document.removeEventListener('mouseout',leave,true);
+      close(); document.removeEventListener('mouseover',enter,true);document.removeEventListener('pointermove',enter,true);document.removeEventListener('mouseout',leave,true);
       document.removeEventListener('wheel',wheel,true);document.removeEventListener('keydown',key,true);host.remove();
     },
   };

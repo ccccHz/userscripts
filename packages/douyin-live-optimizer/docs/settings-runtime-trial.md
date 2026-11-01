@@ -151,3 +151,17 @@ WhiteSevs/TamperMonkeyScript 固定提交：88918c6248f3320b056a3a0b5d07b718c5c1
 最终构建续验：定向重建后重开已观察到的关注直播地址，平台重定向至 live 域；该域底栏高度 0、礼物记忆屏蔽、送礼与福袋原生开关关闭。此项记为 live 域刷新恢复，不冒充 www 域再次 SPA 进房。之前实际关注卡片进入 www 路径及悬停已验证；连续换房仍保留待观察。
 
 本轮检查：抖音 package 132/132、实际 test/ 与 packages/*/test/ 全部串行测试、pnpm validate、package 类型检查、定向构建与 git diff --check 通过。未改其他 package 或用户已有 .codex 配置，版本保持 2026.8.20，未推送或发布。
+
+### 2026-11-01 能力边界与真实 hover 再反馈
+
+用户报告完全无浮动栏且不暂停，之前点击定位的浏览器路径不能证明真实 hover 体验通过，撤回完整验收结论。代码发现暂停依赖 readChatRow 成功，有不支持消息/属性尚未就绪即直接退出的缺口；现在列表暂停独立于可发送消息解析，增加 pointermove 重试及迟到句柄重取，隐藏工具栏时离开也会清理自有锁。新增两项回归，package 134 项通过，类型检查及定向构建通过。最终 dist 已在独立 Chrome 标签刷新加载，纯移动鼠标交由用户验收，尚无结论。
+
+当前检测只能观察发送回执与当前登录连接消息，无法覆盖“回执正常、自己回显、其他人不可见”。产品名称改为“发送结果提示”，没有把改名当作需求完成。公开 proto 中有 visibleToSender/sendReview 字段，但实际暗屏蔽样本及字段语义尚未验证；存在字段不代表已经识别暗屏蔽。
+
+重新对照：本仓库斗鱼实现使用独立匿名弹幕连接，并区分连接健康、超时疑似和迟到确认；查阅的 B 站反诈脚本识别 code=0 时 msg=f/k 隐藏标记（该脚本的解释，不推断所有 B 站实现相同）。抖音要完成需求，需要同等额外证据：经过实测的隐藏过滤标志，或者身份独立的观众接收对照。无信号、连接异常、消息超时须保留不确定性。
+
+来源：[B 站反诈脚本判断分支](https://github.com/li7355608/bili_danmu_disharmony/blob/main/danmu_diff_main.js#L3091)、[抖音公开协议样本](https://github.com/saermart/DouyinLiveWebFetcher/blob/main/douyin.proto#L39)。
+
+用户随后澄清：要求悬停的是视频画面上的飘屏弹幕，右侧 chat hover 实际出现，但并非需求对象。因此根因首先是实现范围理解错误，不能仅归因于事件/属性就绪，也不再请求用户重复验收右侧聊天来证明飘屏需求。设置名称纠正为“右侧聊天复制与加一”，飘屏功能明确未实现。
+
+普通 DOM 已定位 #DanmakuLayout .CanvasDanmakuPlugin canvas；该节点不同于隐藏的 annie iframe。官方 [CanvasDanmakuPlugin.f036c928.js](https://lf-webcast-platform.bytetos.com/obj/webcast-platform-cdn/webcast/douyin_live/chunks/CanvasDanmakuPlugin.f036c928.js) 支持 start/stop，使用 OffscreenCanvas + Worker 或主线程备用实现；未提供逐条 DOM、mousemove 或 hitTest 接口。后续需要针对画布内的实际弹幕做命中与冻结，不以暂停右侧列表替代。
