@@ -2,9 +2,9 @@ import {
   installWeiboPreventScrollFocus,
   isWeiboCommentInput,
 } from "./weibo-focus-guard.js";
+import { installYubaBlur } from "./yuba-focus-guard.js";
 
 const targets = [
-  { url: "yuba.douyu.com", selector: "Editor-module__SR5oVG__editor" },
   { url: "douban.com/search?", selector: "[autofocus]" },
   { url: "weibo.com", matches: isWeiboCommentInput },
 ];
@@ -49,17 +49,6 @@ function startBlur() {
       continue;
     }
 
-    if (target.url.includes("yuba")) {
-      document.addEventListener("focusin", (event) => {
-        const className =
-          typeof event.target?.className === "string"
-            ? event.target.className
-            : "";
-        if (className.includes(target.selector)) event.target.blur();
-      });
-      continue;
-    }
-
     waitForElements(target.selector).then((elements) => {
       for (const element of elements) element.blur();
     });
@@ -72,6 +61,9 @@ function blurTaobao() {
 
 if (location.href.includes("weibo.com")) {
   installWeiboPreventScrollFocus();
+}
+if (location.hostname === "yuba.douyu.com") {
+  installYubaBlur();
 }
 startBlur();
 if (document.readyState === "loading") {

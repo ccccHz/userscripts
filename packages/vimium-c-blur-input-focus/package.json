@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.2.1",
   "type": "module",
+  "userscript": {
+    "publish": false
+  },
   "scripts": {
     "build": "vite build",
     "dev": "node ../../scripts/dev.mjs vimium-c-blur-input-focus",
