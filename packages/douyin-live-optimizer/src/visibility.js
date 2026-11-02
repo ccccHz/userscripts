@@ -11,13 +11,20 @@ export const BOTTOM_LAYOUT_CSS = ['#BottomLayout', '[data-e2e="gifts-container"]
   .map((selector) => `${selector}${SAFE_CSS}`)
   .join(',');
 
+// Only the audience panel immediately above chat. Keep its native heading and
+// fold control mounted; do not touch player/chat input ancestors or list rows.
+const AUDIENCE_PANEL = '#chatroom > div > div:has(> div > [data-e2e="live-room-audience"])';
+export const COMPACT_CHAT_CSS = `${AUDIENCE_PANEL}{height:auto!important;min-height:0!important;flex:0 0 auto!important}` +
+  `${AUDIENCE_PANEL}>:not(:has(>[data-e2e="live-room-audience"])){display:none!important}`;
+
 export function createVisibilityController({ document, MutationObserver = globalThis.MutationObserver } = {}) {
   let settings = {};
   const marked = new Map();
   const style = document.createElement("style");
   function updateStyle() {
     const css = `[${HIDDEN_ATTRIBUTE}]${SAFE_CSS}{display:none!important}` +
-      (settings.bottomLayout ? `${BOTTOM_LAYOUT_CSS}{display:none!important}` : '');
+      (settings.bottomLayout ? `${BOTTOM_LAYOUT_CSS}{display:none!important}` : '') +
+      (settings.compactChat ? COMPACT_CHAT_CSS : '');
     if (style.textContent !== css) style.textContent = css;
   }
   updateStyle();

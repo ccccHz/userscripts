@@ -26,6 +26,17 @@ function fixture() {
     removedStyle: () => removedStyle, observerOptions: () => observerOptions, css:()=>css, writes:()=>writes };
 }
 
+test('compact chat CSS preserves the audience heading and releases its fixed height reversibly', () => {
+  const f = fixture();
+  f.controller.update({ compactChat: true });
+  assert.match(f.css(), /live-room-audience/);
+  assert.match(f.css(), /height:auto!important/);
+  assert.match(f.css(), />:not\(:has\(>\[data-e2e="live-room-audience"\]\)\)/);
+  f.controller.update({ compactChat: false });
+  assert.doesNotMatch(f.css(), /live-room-audience/);
+  f.controller.destroy();
+});
+
 test('stable gift CSS precedes late node marking and unchanged updates do not cause observer feedback', () => {
   const f=fixture(); f.controller.update({bottomLayout:true});
   assert.match(f.css(),/#BottomLayout/);assert.match(f.css(),/:not\(:has\(/);assert.match(f.css(),/video/);

@@ -6,6 +6,7 @@ export const SETTING_GROUPS = [
     { key: "bottomLayout", label: "隐藏底部礼物与游戏栏" },
     { key: "wishPopups", label: "隐藏心愿与展馆提示" },
     { key: "commerceAds", label: "隐藏电商广告与小黄车" },
+    { key: "compactChat", label: "聊天栏简洁模式", hint: "隐藏顶部观众与贡献榜单，保留收起按钮，为聊天消息腾出空间。" },
   ] },
   { name: "弹幕", items: [
     { key: "chatSendCheck", label: "发送结果提示", hint: "仅检查发送回执与当前连接；尚不能检测其他观众看不到的弹幕。" },
