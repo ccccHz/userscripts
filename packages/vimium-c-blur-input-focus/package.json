@@ -1,10 +1,10 @@
 {
   "name": "vimium-c-blur-input-focus",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "userscript": {
-    "publish": false
+    "publish": true
   },
   "scripts": {
     "build": "vite build",
